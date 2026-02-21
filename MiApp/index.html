@@ -1605,7 +1605,8 @@ const App = {
         // HISTORIAL UNDO/REDO
         history: [], // Array de snapshots
         historyIndex: -1, // Índice actual en el historial
-        maxHistory: 20 // Máximo de snapshots a mantener
+        maxHistory: 20, // Máximo de snapshots a mantener
+        isRestoringHistory: false // Bloquea snapshots durante undo/redo
     },
 
     init: function() {
@@ -6388,6 +6389,10 @@ const App = {
         // ═══════════════════════════════════════════════════════════
         
         saveSnapshot: function(description) {
+        if (App.uiState.isRestoringHistory) {
+                console.log('📸 Skipping snapshot during history restoration:', description);
+                return;
+            }
             console.log('📸 Guardando snapshot:', description);
             
             // Crear snapshot profundo de los datos importantes
@@ -6425,96 +6430,114 @@ const App = {
             console.log(`  ✅ Snapshot #${App.uiState.historyIndex + 1}/${App.uiState.history.length}: "${description}"`);
         },
         
-        undo: function() {
+                undo: function() {
             console.log('=== UNDO INICIADO ===');
             console.log('historyIndex:', App.uiState.historyIndex);
             console.log('history.length:', App.uiState.history.length);
-            
+
             if (App.uiState.historyIndex <= 0) {
                 console.log('⚠️ No hay nada que deshacer');
                 return;
             }
-            
-            App.uiState.historyIndex--;
-            const snapshot = App.uiState.history[App.uiState.historyIndex];
-            
-            console.log('Restaurando snapshot:', snapshot.description);
-            console.log('Timestamp:', new Date(snapshot.timestamp).toLocaleString());
-            
-            // Restaurar datos
-            App.data.empleados = JSON.parse(JSON.stringify(snapshot.data.empleados));
-            App.data.schedule = JSON.parse(JSON.stringify(snapshot.data.schedule));
-            App.data.shiftDefs = JSON.parse(JSON.stringify(snapshot.data.shiftDefs));
-            App.data.requests = JSON.parse(JSON.stringify(snapshot.data.requests));
-            App.data.storeConfig = JSON.parse(JSON.stringify(snapshot.data.storeConfig));
-            
-            console.log('Datos restaurados');
-            
-            // Guardar en localStorage
-            Safe.save('v40_db', App.data);
-            console.log('Guardado en localStorage');
-            
-            // Re-renderizar - Si estamos en import/export, ir a planificador para ver cambios
-            const currentRoute = App.router.current();
-            console.log('currentRoute:', currentRoute);
-            
-            if (currentRoute === 'import' || currentRoute === 'export') {
-                console.log('Redirigiendo a planificador...');
-                App.router.go('planificador');
-            } else {
-                console.log('Re-renderizando vista actual...');
-                App.router.go(currentRoute);
+
+            try {
+                App.uiState.isRestoringHistory = true;
+
+                App.uiState.historyIndex--;
+                const snapshot = App.uiState.history[App.uiState.historyIndex];
+
+                console.log('Restaurando snapshot:', snapshot.description);
+                console.log('Timestamp:', new Date(snapshot.timestamp).toLocaleString());
+
+                // Restaurar datos
+                App.data.empleados = JSON.parse(JSON.stringify(snapshot.data.empleados));
+                App.data.schedule = JSON.parse(JSON.stringify(snapshot.data.schedule));
+                App.data.shiftDefs = JSON.parse(JSON.stringify(snapshot.data.shiftDefs));
+                App.data.requests = JSON.parse(JSON.stringify(snapshot.data.requests));
+                App.data.storeConfig = JSON.parse(JSON.stringify(snapshot.data.storeConfig));
+
+                console.log('Datos restaurados');
+
+                // Guardar en localStorage
+                Safe.save('v40_db', App.data);
+                console.log('Guardado en localStorage');
+
+                // Re-renderizar
+                const currentRoute = App.router.current();
+                console.log('currentRoute:', currentRoute);
+
+                if (currentRoute === 'import' || currentRoute === 'export') {
+                    console.log('Redirigiendo a planificador...');
+                    App.router.go('planificador');
+                } else if (typeof App.router.refreshCurrent === 'function') {
+                    console.log('Refrescando vista actual (sin navegar)...');
+                    App.router.refreshCurrent();
+                } else {
+                    console.log('Re-renderizando vista actual...');
+                    App.router.go(currentRoute);
+                }
+
+                console.log(`⟲ Deshacer: ${snapshot.description}`);
+                console.log('=== UNDO COMPLETADO ===');
+            } finally {
+                App.uiState.isRestoringHistory = false;
+                this.updateUndoRedoButtons();
             }
-            
-            this.updateUndoRedoButtons();
-            console.log(`⟲ Deshacer: ${snapshot.description}`);
-            console.log('=== UNDO COMPLETADO ===');
         },
         
-        redo: function() {
+                redo: function() {
             console.log('=== REDO INICIADO ===');
             console.log('historyIndex:', App.uiState.historyIndex);
             console.log('history.length:', App.uiState.history.length);
-            
+
             if (App.uiState.historyIndex >= App.uiState.history.length - 1) {
                 console.log('⚠️ No hay nada que rehacer');
                 return;
             }
-            
-            App.uiState.historyIndex++;
-            const snapshot = App.uiState.history[App.uiState.historyIndex];
-            
-            console.log('Restaurando snapshot:', snapshot.description);
-            console.log('Timestamp:', new Date(snapshot.timestamp).toLocaleString());
-            
-            // Restaurar datos
-            App.data.empleados = JSON.parse(JSON.stringify(snapshot.data.empleados));
-            App.data.schedule = JSON.parse(JSON.stringify(snapshot.data.schedule));
-            App.data.shiftDefs = JSON.parse(JSON.stringify(snapshot.data.shiftDefs));
-            App.data.requests = JSON.parse(JSON.stringify(snapshot.data.requests));
-            App.data.storeConfig = JSON.parse(JSON.stringify(snapshot.data.storeConfig));
-            
-            console.log('Datos restaurados');
-            
-            // Guardar en localStorage
-            Safe.save('v40_db', App.data);
-            console.log('Guardado en localStorage');
-            
-            // Re-renderizar - Si estamos en import/export, ir a planificador para ver cambios
-            const currentRoute = App.router.current();
-            console.log('currentRoute:', currentRoute);
-            
-            if (currentRoute === 'import' || currentRoute === 'export') {
-                console.log('Redirigiendo a planificador...');
-                App.router.go('planificador');
-            } else {
-                console.log('Re-renderizando vista actual...');
-                App.router.go(currentRoute);
+
+            try {
+                App.uiState.isRestoringHistory = true;
+
+                App.uiState.historyIndex++;
+                const snapshot = App.uiState.history[App.uiState.historyIndex];
+
+                console.log('Restaurando snapshot:', snapshot.description);
+                console.log('Timestamp:', new Date(snapshot.timestamp).toLocaleString());
+
+                // Restaurar datos
+                App.data.empleados = JSON.parse(JSON.stringify(snapshot.data.empleados));
+                App.data.schedule = JSON.parse(JSON.stringify(snapshot.data.schedule));
+                App.data.shiftDefs = JSON.parse(JSON.stringify(snapshot.data.shiftDefs));
+                App.data.requests = JSON.parse(JSON.stringify(snapshot.data.requests));
+                App.data.storeConfig = JSON.parse(JSON.stringify(snapshot.data.storeConfig));
+
+                console.log('Datos restaurados');
+
+                // Guardar en localStorage
+                Safe.save('v40_db', App.data);
+                console.log('Guardado en localStorage');
+
+                // Re-renderizar
+                const currentRoute = App.router.current();
+                console.log('currentRoute:', currentRoute);
+
+                if (currentRoute === 'import' || currentRoute === 'export') {
+                    console.log('Redirigiendo a planificador...');
+                    App.router.go('planificador');
+                } else if (typeof App.router.refreshCurrent === 'function') {
+                    console.log('Refrescando vista actual (sin navegar)...');
+                    App.router.refreshCurrent();
+                } else {
+                    console.log('Re-renderizando vista actual...');
+                    App.router.go(currentRoute);
+                }
+
+                console.log(`⟳ Rehacer: ${snapshot.description}`);
+                console.log('=== REDO COMPLETADO ===');
+            } finally {
+                App.uiState.isRestoringHistory = false;
+                this.updateUndoRedoButtons();
             }
-            
-            this.updateUndoRedoButtons();
-            console.log(`⟳ Rehacer: ${snapshot.description}`);
-            console.log('=== REDO COMPLETADO ===');
         },
         
         updateUndoRedoButtons: function() {
