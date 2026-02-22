@@ -798,18 +798,72 @@
 <div class="modal-overlay" id="export-modal">
     <div class="modal">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <h3 style="margin:0">📤 Exportar Datos</h3>
+            <h3 style="margin:0">📤 Exportar Backup Modular</h3>
             <button onclick="document.getElementById('export-modal').classList.remove('open')" style="background:none; border:none; cursor:pointer; font-size:1.2rem;">✕</button>
         </div>
         <div style="font-size:0.75rem; color:#64748b; margin-bottom:15px; padding:10px; background:#f8fafc; border-radius:4px; border-left:3px solid #3b82f6;">
-            💡 <strong>Exportación granular:</strong> Exporta solo los datos que necesites. Los archivos incluyen fecha y hora para fácil identificación.
+            💡 Selecciona qué módulos quieres incluir en este archivo de copia de seguridad.
         </div>
-        <div class="export-option" onclick="App.io.export('all')"><span style="font-size:1.5rem">💾</span><div><strong>Backup Completo</strong><div style="font-size:0.7rem; color:#64748b;">Todo: turnos, equipo, config, planificación</div></div></div>
-        <div class="export-option" onclick="App.io.export('holidays')"><span style="font-size:1.5rem">🎉</span><div><strong>Solo Festivos</strong><div style="font-size:0.7rem; color:#64748b;">Lista de días festivos del año</div></div></div>
-        <div class="export-option" onclick="App.io.export('special')"><span style="font-size:1.5rem">⚙️</span><div><strong>Solo Días Especiales</strong><div style="font-size:0.7rem; color:#64748b;">Horarios especiales y cierres puntuales</div></div></div>
-        <div class="export-option" onclick="App.io.export('store')"><span style="font-size:1.5rem">🏢</span><div><strong>Config. Tienda</strong><div style="font-size:0.7rem; color:#64748b;">Horarios base + festivos + especiales</div></div></div>
-        <div class="export-option" onclick="App.io.export('shifts')"><span style="font-size:1.5rem">🎨</span><div><strong>Paleta de Turnos</strong><div style="font-size:0.7rem; color:#64748b;">Catálogo de turnos disponibles</div></div></div>
-        <div class="export-option" onclick="App.io.export('team')"><span style="font-size:1.5rem">👥</span><div><strong>Solo Equipo</strong><div style="font-size:0.7rem; color:#64748b;">Empleados y sus configuraciones</div></div></div>
+        
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-exp-team" checked style="width:16px; height:16px;"> <span style="font-weight:600;">👥 Equipo (Empleados y contratos)</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-exp-shifts" checked style="width:16px; height:16px;"> <span style="font-weight:600;">🎨 Paleta de Turnos</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-exp-holidays" checked style="width:16px; height:16px;"> <span style="font-weight:600;">🎉 Festivos</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-exp-special" checked style="width:16px; height:16px;"> <span style="font-weight:600;">⚙️ Días Especiales y Cierres</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-exp-schedule" checked style="width:16px; height:16px;"> <span style="font-weight:600;">📅 Planificación (Cuadrante asignado)</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-exp-config" checked style="width:16px; height:16px;"> <span style="font-weight:600;">🏢 Configuración Base de Tienda</span>
+            </label>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%; padding:12px; font-size:1rem;" onclick="App.io.generateModularExport()">Descargar Archivo .json</button>
+    </div>
+</div>
+<div class="modal-overlay" id="import-staging-modal">
+    <div class="modal">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0">📥 Importar Backup</h3>
+            <button onclick="document.getElementById('import-staging-modal').classList.remove('open'); App.uiState.pendingImportData = null;" style="background:none; border:none; cursor:pointer; font-size:1.2rem;">✕</button>
+        </div>
+        <div style="font-size:0.75rem; color:#92400e; margin-bottom:15px; padding:10px; background:#fef3c7; border-radius:4px; border-left:3px solid #f59e0b;">
+            ⚠️ <strong>ATENCIÓN:</strong> Lo que selecciones <strong>SOBREESCRIBIRÁ</strong> tu configuración actual. Las casillas en gris no existen en el archivo subido.
+        </div>
+        
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+            <label class="checkbox-wrapper" id="wrap-imp-team" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-imp-team" style="width:16px; height:16px;"> <span style="font-weight:600;">👥 Equipo</span>
+            </label>
+            <label class="checkbox-wrapper" id="wrap-imp-shifts" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-imp-shifts" style="width:16px; height:16px;"> <span style="font-weight:600;">🎨 Paleta de Turnos</span>
+            </label>
+            <label class="checkbox-wrapper" id="wrap-imp-holidays" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-imp-holidays" style="width:16px; height:16px;"> <span style="font-weight:600;">🎉 Festivos</span>
+            </label>
+            <label class="checkbox-wrapper" id="wrap-imp-special" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-imp-special" style="width:16px; height:16px;"> <span style="font-weight:600;">⚙️ Días Especiales</span>
+            </label>
+            <label class="checkbox-wrapper" id="wrap-imp-schedule" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-imp-schedule" style="width:16px; height:16px;"> <span style="font-weight:600;">📅 Planificación</span>
+            </label>
+            <label class="checkbox-wrapper" id="wrap-imp-config" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-imp-config" style="width:16px; height:16px;"> <span style="font-weight:600;">🏢 Configuración Base</span>
+            </label>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <button class="btn" style="flex:1; background:#f1f5f9; color:#64748b;" onclick="document.getElementById('import-staging-modal').classList.remove('open'); App.uiState.pendingImportData = null;">Cancelar</button>
+            <button class="btn btn-primary" style="flex:2;" onclick="App.io.applyModularImport()">Aplicar Importación</button>
+        </div>
     </div>
 </div>
 
@@ -2877,274 +2931,311 @@ const App = {
             const alertCount = alerts.length;
             const pendingReqs = App.data.requests.filter(r => r.status === 'pending' && !r.archived).length;
             const wkCode = Utils.getWeekCode(App.uiState.currentDate);
-            const storeNombre = App.data.storeConfig?.nombre || 'Madrid Islazul';
+            const storeNombre = App.data.storeConfig?.nombre || 'Mi Tienda';
+            
+            // Extraer el número de semana y año para hacerlo conversacional
+            const year = wkCode.substring(0, 4);
+            const weekNum = parseInt(wkCode.substring(6, 8), 10);
+            
+            // Datos útiles para las píldoras
+            const activeEmps = App.data.empleados.filter(e => e.active !== false).length;
+            const shiftCount = App.data.shiftDefs.length;
 
-            // Lucide icons as inline SVG strings for use inside template literals
-            const icon = (name, size=22, sw=1.5) =>
-                `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>`;
+            // Saludo dinámico según la hora
+            const hour = new Date().getHours();
+            let greeting = 'Buenas noches';
+            let greetIcon = '🌙';
+            if(hour >= 6 && hour < 12) { greeting = 'Buenos días'; greetIcon = '☀️'; }
+            else if(hour >= 12 && hour < 20) { greeting = 'Buenas tardes'; greetIcon = '👋'; }
 
-            const tile = (id, iconName, label, sublabel, badge='', accent='#2563eb') => `
-                <button class="home-tile" onclick="App.router.go('${id}')" style="--accent:${accent};">
-                    <div class="home-tile-icon">${icon(iconName, 26, 1.5)}</div>
+            // Lucide icons as inline SVG
+            const icon = (name, size=24, sw=1.5) => {
+                const paths = {
+                    'users': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+                    'inbox': '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+                    'palette': '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
+                    'calendar-range': '<rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M7 14h2"/><path d="M7 18h5"/><path d="M15 14h2"/>',
+                    'bar-chart-2': '<line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>',
+                    'printer': '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>',
+                    'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+                    'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'
+                };
+                return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${paths[name]||''}</svg>`;
+            };
+
+            // Constructor de Tile adaptado para modo Espejo (align)
+            const tile = (id, iconName, label, dataPill='', badge=false, accent='#2563eb', align='left') => `
+                <button class="home-tile ${align === 'right' ? 'home-tile-right' : ''}" onclick="App.router.go('${id}')" style="--accent:${accent};">
+                    <div class="home-tile-icon" style="background:${accent}15; color:${accent};">${icon(iconName, 20, 2)}</div>
                     <div class="home-tile-text">
                         <span class="home-tile-label">${label}</span>
-                        ${sublabel ? `<span class="home-tile-sub">${sublabel}</span>` : ''}
+                        ${dataPill ? `<span class="home-tile-pill ${badge?'has-badge':''}">${dataPill}</span>` : ''}
                     </div>
-                    ${badge ? `<span class="home-tile-badge">${badge}</span>` : ''}
                 </button>`;
 
-            const group = (title, tiles) => `
+            // Constructor de Grupo adaptado para modo Espejo
+            const group = (title, tiles, align='left') => `
                 <div class="home-group">
-                    <div class="home-group-title">${title}</div>
+                    <div class="home-group-title" style="text-align: ${align}; padding-${align}: 4px;">${title}</div>
                     <div class="home-group-tiles">${tiles}</div>
                 </div>`;
+                
+            // Lógica inline para editar la tienda al hacer clic
+            const editStoreLogic = `const n = prompt('Nombre de la tienda:', '${storeNombre}'); if(n && n.trim() !== ''){ if(!App.data.storeConfig) App.data.storeConfig={base:{},special:[],holidays:[]}; App.data.storeConfig.nombre=n.trim(); Safe.save('v40_db',App.data); App.router.refreshCurrent(); }`;
 
             c.innerHTML = `
             <style>
                 .home-wrap {
                     display: grid;
-                    grid-template-columns: 1fr 200px 1fr;
-                    grid-template-rows: auto 1fr auto;
-                    gap: 16px;
-                    padding: 20px 24px;
+                    grid-template-columns: 1fr 260px 1fr;
+                    grid-template-rows: min-content 1fr min-content;
+                    gap: 24px;
+                    padding: 40px 40px;
                     height: 100%;
                     box-sizing: border-box;
-                    max-width: 900px;
+                    max-width: 1040px;
                     margin: 0 auto;
                 }
+                
+                /* Cabecera Conversacional */
                 .home-header {
                     grid-column: 1 / -1;
                     display: flex;
-                    align-items: baseline;
-                    gap: 12px;
-                    padding-bottom: 10px;
-                    border-bottom: 1px solid var(--border);
+                    flex-direction: column;
+                    align-items: center;
+                    margin-bottom: 20px;
+                    text-align: center;
                 }
-                .home-store-name {
-                    font-size: 1.15rem;
+                .home-greeting {
+                    font-size: 1.8rem;
+                    font-weight: 800;
+                    color: #0f172a;
+                    letter-spacing: -0.03em;
+                    margin-bottom: 10px;
+                }
+                .home-context {
+                    font-size: 0.95rem;
+                    color: #64748b;
+                    font-weight: 500;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .store-badge {
+                    color: var(--primary);
+                    background: #eff6ff;
+                    padding: 4px 12px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.2s;
                     font-weight: 700;
-                    color: var(--text-main);
-                    letter-spacing: -0.02em;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
                 }
-                .home-week-badge {
-                    font-size: 0.72rem;
-                    font-weight: 700;
-                    background: #1e293b;
-                    color: #94a3b8;
-                    padding: 2px 8px;
-                    border-radius: 4px;
-                    letter-spacing: 0.05em;
+                .store-badge:hover {
+                    background: #dbeafe;
+                    transform: translateY(-1px);
                 }
-                .home-col-left  { grid-column: 1; display: flex; flex-direction: column; gap: 14px; justify-content: space-around; }
-                .home-col-mid   { grid-column: 2; display: flex; align-items: center; justify-content: center; }
-                .home-col-right { grid-column: 3; display: flex; flex-direction: column; gap: 14px; justify-content: space-around; }
-                .home-alerts-row { grid-column: 1 / -1; }
 
-                .home-group { display: flex; flex-direction: column; gap: 6px; }
+                .home-col-left  { grid-column: 1; display: flex; flex-direction: column; gap: 32px; justify-content: center; }
+                .home-col-mid   { grid-column: 2; display: flex; align-items: center; justify-content: center; }
+                .home-col-right { grid-column: 3; display: flex; flex-direction: column; gap: 32px; justify-content: center; }
+                .home-alerts-row { grid-column: 1 / -1; display: flex; justify-content: center; }
+
+                .home-group { display: flex; flex-direction: column; gap: 10px; }
                 .home-group-title {
-                    font-size: 0.62rem;
+                    font-size: 0.65rem;
                     font-weight: 700;
                     text-transform: uppercase;
-                    letter-spacing: 0.1em;
+                    letter-spacing: 0.12em;
                     color: #94a3b8;
-                    padding-left: 2px;
                 }
-                .home-group-tiles { display: flex; flex-direction: column; gap: 5px; }
+                .home-group-tiles { display: flex; flex-direction: column; gap: 8px; }
 
+                /* Tiles Sustractivos */
                 .home-tile {
                     display: flex;
                     align-items: center;
-                    gap: 11px;
-                    padding: 10px 13px;
-                    background: white;
-                    border: 1px solid var(--border);
-                    border-radius: 8px;
+                    gap: 14px;
+                    padding: 0 16px;
+                    height: 68px; /* Altura fija para simetría */
+                    background: transparent;
+                    border: none;
+                    border-radius: 12px;
                     cursor: pointer;
                     text-align: left;
-                    transition: all 0.15s ease;
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
                     position: relative;
-                    overflow: hidden;
                 }
-                .home-tile::before {
-                    content: '';
-                    position: absolute;
-                    left: 0; top: 0; bottom: 0;
-                    width: 3px;
-                    background: var(--accent);
-                    opacity: 0;
-                    transition: opacity 0.15s;
+                
+                /* Modificador para efecto ESPEJO (columna derecha) */
+                .home-tile-right {
+                    flex-direction: row-reverse;
+                    text-align: right;
                 }
+                
                 .home-tile:hover {
-                    border-color: var(--accent);
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-                    transform: translateX(2px);
+                    background: white;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+                    transform: translateY(-2px);
                 }
-                .home-tile:hover::before { opacity: 1; }
                 .home-tile-icon {
-                    color: var(--accent);
-                    flex-shrink: 0;
-                    display: flex;
-                    align-items: center;
-                }
-                .home-tile-icon svg { stroke: var(--accent); }
-                .home-planner-btn svg { stroke: white; }
-                .home-alerts-bar svg { stroke: currentColor; }
-                .home-tile-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-                .home-tile-label { font-size: 0.82rem; font-weight: 600; color: var(--text-main); }
-                .home-tile-sub   { font-size: 0.64rem; color: #94a3b8; margin-top: 2px; line-height: 1.5; }
-                .home-tile-badge {
-                    background: #ef4444;
-                    color: white;
-                    font-size: 0.62rem;
-                    font-weight: 700;
-                    padding: 1px 6px;
+                    width: 40px; height: 40px;
                     border-radius: 10px;
+                    display: flex; align-items: center; justify-content: center;
                     flex-shrink: 0;
+                    transition: transform 0.2s;
+                }
+                .home-tile:hover .home-tile-icon {
+                    transform: scale(1.05);
+                }
+                
+                .home-tile-text { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+                /* Ajuste de flexbox para alinear el texto a la derecha en el modo espejo */
+                .home-tile-right .home-tile-text { align-items: flex-end; }
+                
+                .home-tile-label { font-size: 0.9rem; font-weight: 600; color: #1e293b; line-height: 1; }
+                
+                /* Píldoras de datos suaves */
+                .home-tile-pill { 
+                    font-size: 0.7rem; 
+                    color: #64748b; 
+                    font-weight: 500;
+                    line-height: 1.2;
+                }
+                .home-tile-pill.has-badge {
+                    color: #ea580c;
+                    font-weight: 600;
                 }
 
-                /* Centro — botón planificador */
+                /* Botón Héroe Central */
                 .home-planner-btn {
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    gap: 10px;
-                    width: 160px;
-                    height: 160px;
-                    background: #1e293b;
-                    border: none;
-                    border-radius: 16px;
+                    gap: 12px;
+                    width: 100%;
+                    aspect-ratio: 1;
+                    background: linear-gradient(145deg, #1e293b, #0f172a);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 24px;
                     cursor: pointer;
                     color: white;
-                    transition: all 0.2s ease;
-                    box-shadow: 0 4px 20px rgba(30,41,59,0.25);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+                    position: relative;
+                    overflow: hidden;
+                }
+                .home-planner-btn::before {
+                    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+                    background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.3), transparent 60%);
+                    opacity: 0; transition: opacity 0.3s;
                 }
                 .home-planner-btn:hover {
-                    background: var(--primary);
-                    box-shadow: 0 8px 30px rgba(37,99,235,0.35);
-                    transform: translateY(-2px);
+                    box-shadow: 0 25px 50px rgba(37, 99, 235, 0.3);
+                    transform: translateY(-4px);
+                    border-color: rgba(59, 130, 246, 0.4);
                 }
+                .home-planner-btn:hover::before { opacity: 1; }
+                
+                .home-planner-btn svg { stroke: white; position: relative; z-index: 1; }
                 .home-planner-label {
-                    font-size: 0.78rem;
+                    font-size: 1.1rem;
                     font-weight: 700;
-                    text-transform: uppercase;
-                    letter-spacing: 0.1em;
-                    opacity: 0.85;
+                    letter-spacing: 0.05em;
+                    position: relative; z-index: 1;
+                }
+                .home-planner-sub {
+                    font-size: 0.75rem;
+                    color: #94a3b8;
+                    font-weight: 500;
+                    position: relative; z-index: 1;
                 }
 
-                /* Alertas */
+                /* Alertas Estilo Toast */
                 .home-alerts-bar {
                     display: flex;
-                    align-items: flex-start;
+                    align-items: center;
                     gap: 12px;
-                    padding: 12px 14px;
-                    background: white;
-                    border: 1px solid var(--border);
-                    border-radius: 8px;
-                    cursor: pointer;
-                    transition: all 0.15s;
-                    min-height: 56px;
+                    padding: 10px 20px;
+                    background: ${alertCount > 0 ? '#fffbeb' : 'transparent'};
+                    border: 1px solid ${alertCount > 0 ? '#fde68a' : 'transparent'};
+                    border-radius: 99px;
+                    cursor: ${alertCount > 0 ? 'pointer' : 'default'};
+                    transition: all 0.2s;
                 }
-                .home-alerts-bar:hover { border-color: #f59e0b; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-                .home-alerts-bar svg { margin-top: 2px; flex-shrink: 0; }
-                .home-alerts-empty { color: var(--text-muted); font-size: 0.8rem; align-self: center; }
-                .home-alerts-count {
-                    background: #fef3c7;
-                    color: #92400e;
-                    font-size: 0.72rem;
-                    font-weight: 700;
-                    padding: 2px 8px;
-                    border-radius: 10px;
-                    white-space: nowrap;
-                    align-self: flex-start;
-                    margin-top: 1px;
+                .home-alerts-bar:hover { 
+                    transform: ${alertCount > 0 ? 'translateY(-2px)' : 'none'}; 
+                    box-shadow: ${alertCount > 0 ? '0 10px 20px rgba(245,158,11,0.1)' : 'none'};
                 }
-                .home-alerts-list {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 5px;
-                    flex: 1;
-                    align-content: flex-start;
-                }
-                .home-alert-chip {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1px;
-                    font-size: 0.68rem;
-                    color: #92400e;
-                    background: #fef9c3;
-                    border: 1px solid #fde047;
-                    border-radius: 4px;
-                    padding: 3px 8px;
-                    min-width: 150px;
-                    max-width: 240px;
-                }
-                .home-alert-chip-title {
+                .home-alerts-text {
+                    font-size: 0.8rem;
                     font-weight: 600;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                }
-                .home-alert-chip-date {
-                    font-size: 0.62rem;
-                    color: #b45309;
-                    opacity: 0.85;
+                    color: ${alertCount > 0 ? '#b45309' : '#94a3b8'};
                 }
             </style>
 
             <div class="home-wrap">
                 <div class="home-header">
-                    <span class="home-store-name">${storeNombre}</span>
-                    <span class="home-week-badge">${wkCode}</span>
-
+                    <div class="home-greeting">${greetIcon} ${greeting}</div>
+                    <div class="home-context">
+                        <div class="store-badge" onclick="${editStoreLogic}" title="Haz clic para editar el nombre">
+                            🏪 ${storeNombre}
+                        </div>
+                        <span style="color:#cbd5e1;">|</span>
+                        <span>Estás en la semana <strong>${weekNum}</strong> de <strong>${year}</strong></span>
+                    </div>
                 </div>
 
                 <div class="home-col-left">
-                    ${group('Plantilla & Peticiones',
-                        tile('empleados', 'users',  'Plantilla',   'Equipo · Contratos · Desvío · Festivos', pendingReqs||'', '#2563eb') +
-                        tile('requests',  'inbox',  'Peticiones',  'VAC · HRL · Bajas · Permisos · Calendario', pendingReqs>0?pendingReqs:'', '#f59e0b')
+                    ${group('Ingredientes',
+                        tile('empleados', 'users', 'Plantilla', `${activeEmps} activos`, false, '#2563eb', 'left') +
+                        tile('requests',  'inbox', 'Peticiones', pendingReqs > 0 ? `${pendingReqs} por revisar` : 'Todo al día', pendingReqs > 0, '#f59e0b', 'left'),
+                        'left'
                     )}
-                    ${group('Turnos & Calendario',
-                        tile('shifts',  'palette',  'Turnos',  'Paleta · Códigos · Colores · Partidos', '', '#8b5cf6') +
-                        tile('calendario',  'calendar-range', 'Calendario',  'Bloqueos · Festivos · Horarios de tienda', '', '#10b981')
+                    ${group('Catálogos',
+                        tile('shifts',  'palette', 'Turnos', `${shiftCount} turnos base`, false, '#8b5cf6', 'left') +
+                        tile('calendario', 'calendar-range', 'Calendario', 'Festivos y cierres', false, '#10b981', 'left'),
+                        'left'
                     )}
                 </div>
 
                 <div class="home-col-mid">
                     <button class="home-planner-btn" onclick="App.router.go('planificador')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>
-                        <span class="home-planner-label">Planificador</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>
+                        <div>
+                            <div class="home-planner-label">PLANIFICADOR</div>
+                            <div class="home-planner-sub">Abrir cuadrante</div>
+                        </div>
                     </button>
                 </div>
 
                 <div class="home-col-right">
-                    ${group('Revisión & Presentación',
-                        tile('analisis',     'bar-chart-2', 'Análisis',      'Balance · Equilibrio · Desvíos · Cobertura', '', '#3b82f6') +
-                        tile('presentacion', 'printer',     'Presentación',  'Semanal grupal · Mensual individual · PDF',  '', '#64748b')
+                    ${group('Revisión',
+                        tile('analisis', 'bar-chart-2', 'Análisis', 'Desvíos y métricas', false, '#3b82f6', 'right') +
+                        tile('presentacion', 'printer', 'Presentación', 'Vista PDF e impresión', false, '#64748b', 'right'),
+                        'right'
                     )}
                     ${group('Datos',
-                        tile('export', 'upload',   'Exportar', 'Excel · JSON · Copia de seguridad', '', '#059669') +
-                        tile('import', 'download', 'Importar', 'Restaurar · Cargar desde Excel',    '', '#0891b2')
+                        tile('export', 'upload', 'Exportar', 'Crear Backup o Excel', false, '#059669', 'right') +
+                        tile('import', 'download', 'Importar', 'Restaurar datos', false, '#0891b2', 'right'),
+                        'right'
                     )}
                 </div>
 
                 <div class="home-alerts-row">
-                    <div class="home-alerts-bar" onclick="App.router.go('alerts')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${alertCount>0?'#f59e0b':'#94a3b8'}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-                        ${alertCount === 0
-                            ? `<span class="home-alerts-empty">Sin alertas activas</span>`
-                            : `<span class="home-alerts-count">${alertCount} alerta${alertCount>1?'s':''}</span>
-                               <div class="home-alerts-list">
-                                 ${alerts.slice(0,5).map(a=>`<div class="home-alert-chip"><span class="home-alert-chip-title">${a.title.replace(/^[^a-zA-Z\u2000-\u3300]+/,'')}</span><span class="home-alert-chip-date">${[a.empName, a.date ? Utils.formatDateES(a.date) : ''].filter(Boolean).join(' · ')}</span></div>`).join('')}
-                                 ${alertCount>5?`<div class="home-alert-chip" style="background:#f1f5f9;color:#64748b;border-color:#e2e8f0;align-self:center;"><span class="home-alert-chip-title">+${alertCount-5} más</span></div>`:''}
-                               </div>`
-                        }
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    <div class="home-alerts-bar" onclick="${alertCount > 0 ? "App.router.go('alerts')" : ""}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${alertCount>0?'#ea580c':'#cbd5e1'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                        <span class="home-alerts-text">
+                            ${alertCount === 0 ? 'Sin conflictos en el planificador' : `Atención: ${alertCount} alerta${alertCount>1?'s':''} detectada${alertCount>1?'s':''}`}
+                        </span>
+                        ${alertCount > 0 ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>` : ''}
                     </div>
                 </div>
             </div>`;
-
-},
+        },
 
         // --- ALERTS ---
         renderAlerts: function(c) {
@@ -3663,16 +3754,25 @@ const App = {
                         <span style="font-size:1.5rem;">⚠️</span> ZONA DE PELIGRO
                     </h3>
                     <p style="color:#7f1d1d; font-size:0.9rem; margin-bottom:15px;">
-                        Esta acción es <strong>IRREVERSIBLE</strong> y eliminará permanentemente toda la planificación.
+                        Acciones destructivas e irreversibles.
                     </p>
-                    <button class="btn" style="width:100%; background:#7f1d1d; color:#fef2f2; border:2px solid #991b1b; font-weight:700; padding:12px;" 
-                            onclick="App.logic.massClearAll()" 
-                            title="PELIGRO EXTREMO: Borrar todo el planificador">
-                        💣 BORRAR TODO EL PLANIFICADOR
-                    </button>
+                    
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="btn" style="width:100%; background:#7f1d1d; color:#fef2f2; border:2px solid #991b1b; font-weight:700; padding:12px;" 
+                                onclick="App.logic.massClearAll()" 
+                                title="Borrar solo las semanas planificadas">
+                            🧹 VACIAR SOLO EL PLANIFICADOR
+                        </button>
+                        
+                        <button class="btn" style="width:100%; background:black; color:white; border:2px solid #ef4444; font-weight:700; padding:12px;" 
+                                onclick="App.logic.factoryReset()" 
+                                title="PELIGRO EXTREMO: Borrado total de fábrica">
+                            💣 RESTABLECIMIENTO DE FÁBRICA (BORRAR TODO)
+                        </button>
+                    </div>
+                    
                     <div style="margin-top:10px; font-size:0.75rem; color:#991b1b; text-align:center;">
-                        Se eliminarán todas las semanas, días y asignaciones de turnos.<br>
-                        Los empleados, turnos y configuración NO se verán afectados.
+                        El restablecimiento de fábrica borrará empleados, turnos, configuración y planificador.
                     </div>
                 </div>
             </div>`;
@@ -3715,22 +3815,59 @@ const App = {
             const canPrev = cy > 2025, canNext = cy < 2027;
 
             html += `<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
-                    <div>
-                        <h2 style="margin:0; font-size:1.2rem; font-weight:700; color:#1e293b;">🔒 Bloqueo de días</h2>
-                        <p style="margin:4px 0 0; font-size:0.8rem; color:#94a3b8;">Los días bloqueados no se pueden editar desde la vista individual</p>
+                <div style="position: relative;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <h2 style="margin:0; font-size:1.2rem; font-weight:700; color:#1e293b; line-height:1.1;">
+                            🔒 Bloqueo de días
+                        </h2>
+                        <button
+                            type="button"
+                            aria-label="Información sobre bloqueos"
+                            style="width:18px; height:18px; border-radius:999px; border:1px solid #e2e8f0; background:#fff; padding:0; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#64748b;"
+                            onclick="App.toggleLockInfo(event)"
+                        >i</button>
                     </div>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <button type="button" onclick="App.uiState.calendarioUi.courseYear=${cy-1}; App.ui.renderCalendario(document.querySelector('.main-scroll'))"
-                            ${canPrev?'':'disabled'}
-                            style="width:32px;height:32px;border:1px solid #e2e8f0;border-radius:6px;background:${canPrev?'white':'#f8fafc'};color:${canPrev?'#374151':'#d1d5db'};cursor:${canPrev?'pointer':'default'};font-size:16px;">◀</button>
-                        <span style="font-size:0.95rem;font-weight:700;color:#1e293b;white-space:nowrap;">Mar ${cy} – Feb ${cy+1}</span>
-                        <button type="button" onclick="App.uiState.calendarioUi.courseYear=${cy+1}; App.ui.renderCalendario(document.querySelector('.main-scroll'))"
-                            ${canNext?'':'disabled'}
-                            style="width:32px;height:32px;border:1px solid #e2e8f0;border-radius:6px;background:${canNext?'white':'#f8fafc'};color:${canNext?'#374151':'#d1d5db'};cursor:${canNext?'pointer':'default'};font-size:16px;">▶</button>
-                        <div style="font-size:0.8rem; color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 14px;">
-                            ${totalLocked} día${totalLocked !== 1 ? 's' : ''} bloqueado${totalLocked !== 1 ? 's' : ''}
+
+                    <div id="lockInfoTooltip"
+                        style="display:none; position:absolute; top:100%; left:0; margin-top:8px; padding:12px; width:280px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; box-shadow:0 10px 25px rgba(0,0,0,0.15); font-size:0.75rem; color:#475569; line-height:1.4; z-index:100;"
+                    >
+                        Los días bloqueados no se pueden editar desde la vista individual.<br>
+                        Para modificarlos, usa la vista global.
+                        
+                        <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid #e2e8f0; color:#1e293b;">
+                            <span style="display:inline-flex; align-items:center; gap:8px;">
+                                <span style="width:16px; height:16px; border-radius:4px; border:2px solid #1e293b; box-sizing:border-box; flex-shrink:0;"></span>
+                                <strong>Día bloqueado</strong>
+                            </span>
+                            <span style="display:inline-flex; align-items:center; gap:8px;">
+                                <span style="width:16px; height:16px; border-radius:4px; border:1px solid #e2e8f0; box-sizing:border-box; flex-shrink:0;"></span>
+                                <strong>Día desbloqueado</strong>
+                            </span>
                         </div>
                     </div>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px;">
+    <button type="button" onclick="App.uiState.calendarioUi.courseYear=${cy-1}; App.ui.renderCalendario(document.querySelector('.main-scroll'))"
+        ${canPrev?'':'disabled'}
+        style="width:32px;height:32px;border:1px solid #e2e8f0;border-radius:6px;background:${canPrev?'white':'#f8fafc'};color:${canPrev?'#374151':'#d1d5db'};cursor:${canPrev?'pointer':'default'};font-size:16px;">
+        ◀
+    </button>
+
+    <span style="font-size:0.95rem;font-weight:700;color:#1e293b;white-space:nowrap;">
+        Mar ${cy} – Feb ${cy+1}
+    </span>
+
+    <button type="button" onclick="App.uiState.calendarioUi.courseYear=${cy+1}; App.ui.renderCalendario(document.querySelector('.main-scroll'))"
+        ${canNext?'':'disabled'}
+        style="width:32px;height:32px;border:1px solid #e2e8f0;border-radius:6px;background:${canNext?'white':'#f8fafc'};color:${canNext?'#374151':'#d1d5db'};cursor:${canNext?'pointer':'default'};font-size:16px;">
+        ▶
+    </button>
+
+    <div style="font-size:0.8rem; color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 14px;">
+        ${totalLocked} día${totalLocked !== 1 ? 's' : ''} bloqueado${totalLocked !== 1 ? 's' : ''}
+    </div>
+</div>
                 </div>
 
                 <!-- Panel de acciones por rango -->
@@ -3891,6 +4028,7 @@ const App = {
         },
 
         // --- ANÁLISIS ---
+        // --- ANÁLISIS ---
         renderAnalisis: function(c) {
             const tab = App.uiState.analisisTab || 'horas';
             const setTab = t => `App.uiState.analisisTab='${t}'; App.ui.renderAnalisis(document.querySelector('.main-scroll'));`;
@@ -3904,31 +4042,52 @@ const App = {
                         background:${tab===id?'#1e293b':'white'};color:${tab===id?'white':'#64748b'};border-right:1px solid var(--border);">${label}</button>`).join('')}
                 </div>`;
 
+            // --- Helpers Globales para el Selector de Semanas ---
+            const fyStart = App.data.config.weekStart || "2025-02-17";
+            const fyEndObj = new Date(fyStart + 'T00:00:00');
+            fyEndObj.setDate(fyEndObj.getDate() + (51 * 7)); // Semana 52 (51 semanas sumadas a la 01)
+            const fyEnd = fyEndObj.toISOString().slice(0,10);
+
+            const buildAllWeekOpts = (sel) => {
+                const anchor = new Date(fyStart + 'T00:00:00');
+                const min = new Date(anchor); min.setDate(min.getDate() - 8 * 7); // Rango fijo: empieza 8 sem antes (WK44 prev)
+                const max = new Date(anchor); max.setDate(max.getDate() + 61 * 7); // Rango fijo: termina 61 sem despues (WK10 próx)
+                
+                let opts = ''; 
+                let cur = new Date(min);
+                while(cur <= max) { 
+                    const iso = cur.toISOString().slice(0,10); 
+                    opts += `<option value="${iso}" ${iso === sel ? 'selected' : ''}>${Utils.getWeekCode(iso)}</option>`; 
+                    cur.setDate(cur.getDate() + 7); 
+                }
+                return opts;
+            };
+            const wkSelectStyle = `padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:white;min-width:180px;cursor:pointer;`;
+
             let body = '';
 
             // ─── TAB 1: EQUILIBRIO ───────────────────────────────────────────
             if(tab === 'equilibrio') {
                 if(!App.uiState.analisisEqStart) {
-                    const allDates = Object.keys(App.data.schedule).sort();
-                    if(allDates.length > 0) {
-                        App.uiState.analisisEqStart = allDates[0];
-                        App.uiState.analisisEqEnd   = allDates[allDates.length-1];
-                    } else {
-                        const m = Utils.getMonday(App.uiState.currentDate);
-                        const s = new Date(m+'T00:00:00'); s.setDate(s.getDate()-7*8);
-                        App.uiState.analisisEqStart = s.toISOString().slice(0,10);
-                        App.uiState.analisisEqEnd   = m;
-                    }
+                    App.uiState.analisisEqStart = fyStart;
+                    App.uiState.analisisEqEnd   = fyEnd;
                 }
+                // Si el usuario invierte las fechas, las rotamos automáticamente
+                if(App.uiState.analisisEqStart > App.uiState.analisisEqEnd) {
+                    const temp = App.uiState.analisisEqStart;
+                    App.uiState.analisisEqStart = App.uiState.analisisEqEnd;
+                    App.uiState.analisisEqEnd = temp;
+                }
+                
+                const startISO = App.uiState.analisisEqStart;
+                const endISO   = App.uiState.analisisEqEnd;
+
                 if(!App.uiState.analisisEqHidden)    App.uiState.analisisEqHidden = [];
                 if(!App.uiState.analisisEqFavFilter) App.uiState.analisisEqFavFilter = 'all';
 
-                const startISO    = App.uiState.analisisEqStart;
-                const endISO      = App.uiState.analisisEqEnd;
                 const hiddenEmps  = App.uiState.analisisEqHidden;
                 const favFilter   = App.uiState.analisisEqFavFilter;
 
-                // Helper: resolve pref.shift → M/T/I/P or 'any'
                 const empFavType = emp => {
                     const prefId = emp.prefs?.shift;
                     if(!prefId || prefId === 'any') return 'any';
@@ -3937,7 +4096,6 @@ const App = {
                     return Utils.classifyShift(sh) || 'any';
                 };
 
-                // Collect data: per employee → {countM,countT,countI,countP,total,favType}
                 let totalM=0, totalT=0, totalI=0, totalP=0, totalAll=0;
                 let empStats = emps.map(emp => {
                     let countM=0, countT=0, countI=0, countP=0;
@@ -3958,7 +4116,6 @@ const App = {
                     return { emp, countM, countT, countI, countP, total, favType: empFavType(emp) };
                 });
 
-                // Apply fav filter
                 const visibleStats = empStats.filter(d => {
                     if(hiddenEmps.includes(d.emp.id)) return false;
                     if(favFilter === 'all') return true;
@@ -3966,12 +4123,10 @@ const App = {
                     return d.favType === favFilter;
                 });
 
-                // Recalc visible totals for EQUIPO row
                 let vTotalM=0,vTotalT=0,vTotalI=0,vTotalP=0,vTotalAll=0;
                 visibleStats.forEach(d=>{ vTotalM+=d.countM; vTotalT+=d.countT; vTotalI+=d.countI; vTotalP+=d.countP; vTotalAll+=d.total; });
                 const vTotals = {M:vTotalM,T:vTotalT,I:vTotalI,P:vTotalP};
 
-                // Sorting
                 const eqSortKey = App.uiState.analisisEqSortKey || null;
                 const eqSortDir = App.uiState.analisisEqSortDir || 'desc';
                 if(eqSortKey) {
@@ -3985,7 +4140,6 @@ const App = {
                 const sortArrow = key => eqSortKey===key ? (eqSortDir==='asc'?' ↑':' ↓') : '';
                 const sortClick = key => `App.uiState.analisisEqSortDir=(App.uiState.analisisEqSortKey==='${key}'&&App.uiState.analisisEqSortDir==='desc')?'asc':'desc';App.uiState.analisisEqSortKey='${key}';App.ui.renderAnalisis(document.querySelector('.main-scroll'));`;
 
-                // Color gradient fn
                 const gradStyle = (type, perc) => {
                     if(type==='M') {
                         if(perc>=60) return `background:#1e40af;color:white;font-weight:700;`;
@@ -4022,13 +4176,11 @@ const App = {
                     }
                 };
 
-                // Fav badge colors (discrete, not gradient)
                 const favBadgeStyle = { M:'background:#dbeafe;color:#1e40af;', T:'background:#fed7aa;color:#9a3412;', I:'background:#fef08a;color:#92400e;', P:'background:#fecaca;color:#991b1b;' };
                 const favBadge = type => type === 'any'
                     ? `<span style="font-size:0.65rem;color:#cbd5e1;">–</span>`
                     : `<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.7rem;font-weight:700;${favBadgeStyle[type]||''}">${type}</span>`;
 
-                // Cell: % + abs count + ratio/5
                 const cell = (count, total, type) => {
                     const perc = total>0 ? count/total*100 : 0;
                     const ratio = total>0 ? ((count/total)*5).toFixed(1) : '0.0';
@@ -4042,17 +4194,9 @@ const App = {
                 const typeNames = {M:'Mañana',T:'Tarde',I:'Intermedio',P:'Partido'};
                 const thStyle = `padding:9px 6px;font-size:0.78rem;font-weight:700;color:#1e293b;text-align:center;background:#f8fafc;min-width:120px;width:120px;cursor:pointer;user-select:none;`;
 
-                const wkSelectStyle = `padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:white;min-width:180px;`;
-                const buildOpts = sel => {
-                    const allDates = Object.keys(App.data.schedule).sort();
-                    if(allDates.length === 0) return `<option value="${sel}">${Utils.formatDateES(sel)}</option>`;
-                    return [...new Set(allDates)].map(d => `<option value="${d}" ${d===sel?'selected':''}>${Utils.formatDateES(d)}</option>`).join('');
-                };
-
-                // Fav filter buttons
+                const setFavFilter = key => `App.uiState.analisisEqFavFilter='${key}';App.ui.renderAnalisis(document.querySelector('.main-scroll'));`;
                 const favBtnStyle = (key) => `padding:5px 12px;border-radius:6px;border:1px solid var(--border);font-size:0.75rem;font-weight:600;cursor:pointer;
                     background:${favFilter===key?'#1e293b':'white'};color:${favFilter===key?'white':'#64748b'};`;
-                const setFavFilter = key => `App.uiState.analisisEqFavFilter='${key}';App.ui.renderAnalisis(document.querySelector('.main-scroll'));`;
                 const favButtons = `
                     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
                         <span style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-right:4px;">Favorito</span>
@@ -4061,7 +4205,6 @@ const App = {
                         ).join('')}
                     </div>`;
 
-                // Hidden employees banner
                 const hiddenCount = hiddenEmps.length;
                 const hiddenBanner = hiddenCount > 0
                     ? `<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
@@ -4073,9 +4216,9 @@ const App = {
                 body = `
                 <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;">
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Desde</div>
-                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisEqStart=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildOpts(startISO)}</select></div>
+                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisEqStart=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(startISO)}</select></div>
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Hasta</div>
-                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisEqEnd=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildOpts(endISO)}</select></div>
+                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisEqEnd=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(endISO)}</select></div>
                     <div style="font-size:0.75rem;color:#94a3b8;padding-bottom:8px;">${vTotalAll} turnos · ${visibleStats.length} empleados visibles</div>
                 </div>
                 <div style="margin-bottom:12px;">${favButtons}</div>
@@ -4127,17 +4270,17 @@ const App = {
             // ─── TAB 2: HORAS SEMANALES ──────────────────────────────────────
             } else if(tab === 'horas') {
                 if(!App.uiState.analisisHorasStart) {
-                    const m = Utils.getMonday(App.uiState.currentDate);
-                    const s = new Date(m+'T00:00:00'); s.setDate(s.getDate()-7*12);
-                    App.uiState.analisisHorasStart = s.toISOString().slice(0,10);
-                    App.uiState.analisisHorasEnd   = m;
+                    App.uiState.analisisHorasStart = fyStart;
+                    App.uiState.analisisHorasEnd   = fyEnd;
                 }
-                // Asegurar que start <= end (swap silencioso si el usuario invierte el orden)
-                let startISO = App.uiState.analisisHorasStart;
-                let endISO   = App.uiState.analisisHorasEnd;
-                if(startISO > endISO) { [startISO, endISO] = [endISO, startISO]; }
+                if(App.uiState.analisisHorasStart > App.uiState.analisisHorasEnd) {
+                    const temp = App.uiState.analisisHorasStart;
+                    App.uiState.analisisHorasStart = App.uiState.analisisHorasEnd;
+                    App.uiState.analisisHorasEnd = temp;
+                }
+                const startISO = App.uiState.analisisHorasStart;
+                const endISO   = App.uiState.analisisHorasEnd;
 
-                // Acumular horas totales y esperadas por semana
                 const weeks = [];
                 let cur = new Date(Utils.getMonday(startISO)+'T00:00:00');
                 const endD = new Date(Utils.getMonday(endISO)+'T00:00:00');
@@ -4162,17 +4305,6 @@ const App = {
                 const barW = Math.max(14, Math.min(40, Math.floor(860 / Math.max(weeks.length,1)) - 4));
                 const totalW = weeks.length * (barW + 4) + 60;
 
-                const buildWeekOpts2 = sel => {
-                    const anchor = new Date((App.data.config.weekStart||App.uiState.currentDate)+'T00:00:00');
-                    const min = new Date(anchor); min.setDate(min.getDate()-60*7);
-                    const max = new Date(anchor); max.setDate(max.getDate()+20*7);
-                    let opts=''; let c=new Date(min);
-                    while(c<=max){ const iso=c.toISOString().slice(0,10); opts+=`<option value="${iso}" ${iso===sel?'selected':''}>${Utils.getWeekCode(iso)}</option>`; c.setDate(c.getDate()+7); }
-                    return opts;
-                };
-                const wkSel2 = `padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:white;min-width:180px;`;
-
-                // SVG chart
                 const svgBars = weekData.map((w,i) => {
                     const x = 40 + i*(barW+4);
                     const wH = Math.round(w.worked/maxH*chartH);
@@ -4184,7 +4316,6 @@ const App = {
                     `;
                 }).join('');
 
-                // Y axis labels
                 const yLabels = [0, 0.25, 0.5, 0.75, 1].map(pct => {
                     const val = Math.round(maxH*pct);
                     const y = chartH - Math.round(chartH*pct) + 10;
@@ -4198,9 +4329,9 @@ const App = {
                 body = `
                 <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Desde</div>
-                        <select style="${wkSel2}" onchange="App.uiState.analisisHorasStart=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildWeekOpts2(startISO)}</select></div>
+                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisHorasStart=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(startISO)}</select></div>
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Hasta</div>
-                        <select style="${wkSel2}" onchange="App.uiState.analisisHorasEnd=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildWeekOpts2(endISO)}</select></div>
+                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisHorasEnd=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(endISO)}</select></div>
                 </div>
 
                 <div style="display:flex;gap:12px;margin-bottom:16px;">
@@ -4221,15 +4352,16 @@ const App = {
             // ─── TAB 3: TURNOS MÁS USADOS ────────────────────────────────────
             } else if(tab === 'ranking') {
                 if(!App.uiState.analisisRankStart) {
-                    const m = Utils.getMonday(App.uiState.currentDate);
-                    const s = new Date(m+'T00:00:00'); s.setDate(s.getDate()-7*12);
-                    App.uiState.analisisRankStart = s.toISOString().slice(0,10);
-                    App.uiState.analisisRankEnd   = m;
+                    App.uiState.analisisRankStart = fyStart;
+                    App.uiState.analisisRankEnd   = fyEnd;
                 }
-                // Swap silencioso si el usuario invierte el orden
-                let startISO = App.uiState.analisisRankStart;
-                let endISO   = App.uiState.analisisRankEnd;
-                if(startISO > endISO) { [startISO, endISO] = [endISO, startISO]; }
+                if(App.uiState.analisisRankStart > App.uiState.analisisRankEnd) {
+                    const temp = App.uiState.analisisRankStart;
+                    App.uiState.analisisRankStart = App.uiState.analisisRankEnd;
+                    App.uiState.analisisRankEnd = temp;
+                }
+                const startISO = App.uiState.analisisRankStart;
+                const endISO   = App.uiState.analisisRankEnd;
 
                 const weeks = [];
                 let cur2 = new Date(Utils.getMonday(startISO)+'T00:00:00');
@@ -4246,7 +4378,6 @@ const App = {
                             if(sh.fixed) return;
 
                             if(Utils.isCustomShift(sid)) {
-                                // Turno CUSTOM: agrupar por horario
                                 const key = `${sh.start}|${sh.end}|${sh.breakStart||''}|${sh.breakEnd||''}`;
                                 const label = sh.breakStart && sh.breakEnd
                                     ? `${sh.start}–${sh.end}`
@@ -4255,7 +4386,6 @@ const App = {
                                 codeCounts[key].count++;
                                 codeCounts[key].hours += Utils.calcHours(sh.start,sh.end,sh.breakStart,sh.breakEnd);
                             } else {
-                                // Turno de catálogo
                                 if(!sh.code) return;
                                 const code = sh.code;
                                 if(!codeCounts[code]) codeCounts[code] = { code, count:0, hours:0, color: sh.color||'#94a3b8', desc: sh.desc||'', isCustom:false, shiftDef: sh };
@@ -4270,22 +4400,12 @@ const App = {
                 const ranked = Object.values(codeCounts).sort((a,b)=>b.count-a.count).slice(0, 15);
                 const maxCount = ranked[0]?.count || 1;
 
-                const buildWeekOpts3 = sel => {
-                    const anchor = new Date((App.data.config.weekStart||App.uiState.currentDate)+'T00:00:00');
-                    const min = new Date(anchor); min.setDate(min.getDate()-60*7);
-                    const max = new Date(anchor); max.setDate(max.getDate()+20*7);
-                    let opts=''; let c=new Date(min);
-                    while(c<=max){ const iso=c.toISOString().slice(0,10); opts+=`<option value="${iso}" ${iso===sel?'selected':''}>${Utils.getWeekCode(iso)}</option>`; c.setDate(c.getDate()+7); }
-                    return opts;
-                };
-                const wkSel3 = `padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:white;min-width:180px;`;
-
                 body = `
                 <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;">
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Desde</div>
-                        <select style="${wkSel3}" onchange="App.uiState.analisisRankStart=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildWeekOpts3(startISO)}</select></div>
+                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisRankStart=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(startISO)}</select></div>
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Hasta</div>
-                        <select style="${wkSel3}" onchange="App.uiState.analisisRankEnd=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildWeekOpts3(endISO)}</select></div>
+                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisRankEnd=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(endISO)}</select></div>
                     <div style="font-size:0.75rem;color:#94a3b8;padding-bottom:8px;">${grandTotal} asignaciones · ${weeks.length} semanas</div>
                 </div>
                 ${ranked.length === 0
@@ -8549,6 +8669,7 @@ const App = {
             alert(`✅ Semana vaciada.\n\nSe han eliminado los turnos de ${deletedDays} día(s).`);
         },
         massClearAll: function() {
+            
             // PRIMERA CONFIRMACIÓN
             if(!confirm("🚨 BORRAR TODO EL PLANIFICADOR 🚨\n\n¡PELIGRO EXTREMO!\n\nEstás a punto de ELIMINAR TODAS LAS PLANIFICACIONES de TODAS las semanas, TODOS los días, TODOS los empleados.\n\nSE PERDERÁ TODO EL TRABAJO REALIZADO.\n\nEsta acción NO SE PUEDE DESHACER.\n\n¿Realmente quieres continuar?")) return;
             
@@ -8566,6 +8687,15 @@ const App = {
             App.logic.checkAlerts();
             
             alert(`✅ Planificador completamente vaciado.\n\nSe han eliminado ${totalDays} día(s) de planificaciones.\n\nPuedes empezar de cero.`);
+        },
+        factoryReset: function() {
+            if(!confirm("⚠️ RESTABLECIMIENTO DE FÁBRICA ⚠️\n\nEsto borrará ABSOLUTAMENTE TODO:\n- Empleados\n- Turnos\n- Configuración y Festivos\n- Solicitudes\n- Cuadrante de turnos\n\nLa app quedará como recién instalada. ¿Estás completamente seguro?")) return;
+            
+            if(!confirm("🛑 ÚLTIMA CONFIRMACIÓN\n\nSi no has exportado un backup, perderás todos los datos para siempre.\n\n¿Proceder con el borrado total?")) return;
+            
+            localStorage.removeItem('v40_db');
+            alert("✅ Datos borrados. La aplicación se reiniciará ahora.");
+            location.reload();
         },
         calcCoverage: function(date, minute) {
             let total = 0; let tag3 = 0;
@@ -10938,7 +11068,6 @@ const App = {
     },
 
     io: {
-        // Generar timestamp para nombres de archivo
         getTimestamp: function() {
             const now = new Date();
             const fecha = now.toISOString().slice(0,10).replace(/-/g,'');
@@ -10946,44 +11075,41 @@ const App = {
             return `${fecha}_${hora}`;
         },
         
-        // Exportación granular
-        export: function(type) {
-            Safe.flush('v40_db'); // Asegurar que el debounce ha escrito antes de exportar
-            const timestamp = this.getTimestamp();
-            let data, filename;
+        generateModularExport: function() {
+            Safe.flush('v40_db'); 
             
-            switch(type) {
-                case 'all':
-                    data = App.data;
-                    filename = `BackupCompleto_${timestamp}.json`;
-                    break;
-                case 'holidays':
-                    data = { holidays: App.data.storeConfig.holidays };
-                    filename = `Festivos_${timestamp}.json`;
-                    break;
-                case 'special':
-                    data = { specialDays: App.data.storeConfig.special };
-                    filename = `DiasEspeciales_${timestamp}.json`;
-                    break;
-                case 'store':
-                    data = { storeConfig: App.data.storeConfig };
-                    filename = `ConfigTienda_${timestamp}.json`;
-                    break;
-                case 'shifts':
-                    data = { shiftDefs: App.data.shiftDefs };
-                    filename = `PaletaTurnos_${timestamp}.json`;
-                    break;
-                case 'team':
-                    data = { empleados: App.data.empleados };
-                    filename = `Equipo_${timestamp}.json`;
-                    break;
-                default:
-                    alert('Tipo de exportación no válido');
-                    return;
+            const exportData = { 
+                meta: { ver: App.data.meta.ver, type: "modular", timestamp: new Date().toISOString() } 
+            };
+
+            if(document.getElementById('cb-exp-team').checked) exportData.empleados = App.data.empleados;
+            if(document.getElementById('cb-exp-shifts').checked) {
+                exportData.shiftDefs = App.data.shiftDefs;
+                exportData.fixedShifts = App.data.fixedShifts;
+            }
+            if(document.getElementById('cb-exp-schedule').checked) {
+                exportData.schedule = App.data.schedule;
+                exportData.requests = App.data.requests; 
+                exportData.lockedDays = App.data.lockedDays || {};
             }
             
+            // Inicializar vacío
+            exportData.storeConfig = {}; 
+            
+            if(document.getElementById('cb-exp-config').checked) {
+                exportData.storeConfig.base = App.data.storeConfig.base;
+                exportData.config = App.data.config; 
+            }
+            if(document.getElementById('cb-exp-holidays').checked) {
+                exportData.storeConfig.holidays = App.data.storeConfig.holidays;
+            }
+            if(document.getElementById('cb-exp-special').checked) {
+                exportData.storeConfig.special = App.data.storeConfig.special;
+            }
+
+            const filename = `Backup_Modular_${this.getTimestamp()}.json`;
             const a = document.createElement('a');
-            a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+            a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
             a.download = filename;
             document.body.appendChild(a);
             a.click();
@@ -10991,7 +11117,6 @@ const App = {
             document.getElementById('export-modal').classList.remove('open');
         },
         
-        // Importación inteligente
         upload: function(input) {
             const f = input.files[0];
             if (!f) return;
@@ -11001,148 +11126,127 @@ const App = {
                 try {
                     const imported = JSON.parse(e.target.result);
                     
-                    // Detectar tipo de importación
-                    if (imported.holidays && !imported.specialDays && !imported.storeConfig && !imported.shiftDefs && !imported.empleados && !imported.schedule) {
-                        // Solo festivos
-                        if (confirm('¿Importar festivos? Esto SOBREESCRIBIRÁ los festivos actuales.')) {
-                            App.data.storeConfig.holidays = imported.holidays;
-                            Safe.save('v40_db', App.data);
-                            alert(`✅ Importados ${imported.holidays.length} festivos`);
-                            App.router.go('tienda');
+                    // Almacenar en RAM sin aplicar aún
+                    App.uiState.pendingImportData = imported;
+                    
+                    // Función para actualizar el estado visual de cada checkbox
+                    const updateCB = (id, exists) => {
+                        const cb = document.getElementById('cb-imp-' + id);
+                        const wrap = document.getElementById('wrap-imp-' + id);
+                        if(exists) {
+                            cb.disabled = false;
+                            cb.checked = true;
+                            wrap.style.opacity = '1';
+                            wrap.style.pointerEvents = 'auto';
+                        } else {
+                            cb.disabled = true;
+                            cb.checked = false;
+                            wrap.style.opacity = '0.4';
+                            wrap.style.pointerEvents = 'none';
                         }
-                    } else if (imported.specialDays && !imported.holidays && !imported.shiftDefs && !imported.empleados && !imported.schedule) {
-                        // Solo días especiales
-                        if (confirm('¿Importar días especiales? Esto SOBREESCRIBIRÁ los días especiales actuales.')) {
-                            App.data.storeConfig.special = imported.specialDays;
-                            Safe.save('v40_db', App.data);
-                            alert(`✅ Importados ${imported.specialDays.length} días especiales`);
-                            App.router.go('tienda');
-                        }
-                    } else if (imported.storeConfig && !imported.shiftDefs && !imported.empleados && !imported.schedule) {
-                        // Config tienda completa
-                        if (confirm('¿Importar configuración de tienda? Esto SOBREESCRIBIRÁ la configuración actual.')) {
-                            App.data.storeConfig = imported.storeConfig;
-                            Safe.save('v40_db', App.data);
-                            alert('✅ Configuración de tienda importada');
-                            App.router.go('tienda');
-                        }
-                    } else if (imported.shiftDefs && !imported.empleados && !imported.schedule && !imported.storeConfig) {
-                        // Paleta de turnos - MOSTRAR MODAL DE 3 OPCIONES
-                        App.logic.showImportShiftsDialog(imported.shiftDefs);
-                    } else if (imported.empleados && !imported.shiftDefs && !imported.schedule && !imported.storeConfig) {
-                        // Solo equipo
-                        if (confirm('¿Importar equipo? Esto SOBREESCRIBIRÁ el equipo actual.')) {
-                            App.data.empleados = imported.empleados;
-                            Safe.save('v40_db', App.data);
-                            alert(`✅ Importados ${imported.empleados.length} empleados`);
-                            App.router.go('empleados');
-                        }
-                    } else {
-                        // Backup completo (reemplazo total) — validar mínimos antes de aplicar
-                        const isFullBackup = imported && typeof imported === 'object'
-                            && imported.meta && typeof imported.meta.ver === 'string'
-                            && Array.isArray(imported.empleados)
-                            && Array.isArray(imported.shiftDefs)
-                            && Array.isArray(imported.fixedShifts)
-                            && imported.schedule && typeof imported.schedule === 'object' && !Array.isArray(imported.schedule);
+                    };
 
-                        if (!isFullBackup) {
-                            alert('El archivo importado no corresponde al formato de "BackupCompleto" esperado o está corrupto. Importación cancelada.');
-                            return;
-                        }
+                    // Detectar qué trae el JSON
+                    const hasTeam = imported.empleados && imported.empleados.length > 0;
+                    const hasShifts = imported.shiftDefs && imported.shiftDefs.length > 0;
+                    const hasSchedule = imported.schedule && Object.keys(imported.schedule).length > 0;
+                    const hasConfig = imported.storeConfig && imported.storeConfig.base && Object.keys(imported.storeConfig.base).length > 0;
+                    const hasHolidays = imported.storeConfig && imported.storeConfig.holidays && imported.storeConfig.holidays.length > 0;
+                    const hasSpecial = imported.storeConfig && imported.storeConfig.special && imported.storeConfig.special.length > 0;
+                    
+                    // Compatibilidad antigua
+                    const hasOldHolidays = imported.holidays && imported.holidays.length > 0;
+                    const hasOldSpecial = imported.specialDays && imported.specialDays.length > 0;
 
-                        if (!confirm('¿Importar backup completo? Esto SUSTITUIRÁ TODOS los datos actuales.')) return;
+                    updateCB('team', hasTeam);
+                    updateCB('shifts', hasShifts);
+                    updateCB('schedule', hasSchedule);
+                    updateCB('config', hasConfig);
+                    updateCB('holidays', hasHolidays || hasOldHolidays);
+                    updateCB('special', hasSpecial || hasOldSpecial);
 
-                        try {
-                            // Validaciones referenciales antes de reemplazar
-                            const errors = [];
+                    document.getElementById('import-staging-modal').classList.add('open');
 
-                            // a) Empleados: construir set de ids
-                            const empIdSet = new Set();
-                            if (Array.isArray(imported.empleados)) {
-                                for (const e of imported.empleados) {
-                                    if (e && (typeof e.id === 'string' || typeof e.id === 'number')) empIdSet.add(String(e.id));
-                                }
-                            }
-
-                            // b) Shifts: reunir ids válidos (shiftDefs + fixedShifts)
-                            const shiftIdSet = new Set();
-                            if (Array.isArray(imported.shiftDefs)) {
-                                for (const s of imported.shiftDefs) if (s && s.id) shiftIdSet.add(String(s.id));
-                            }
-                            if (Array.isArray(imported.fixedShifts)) {
-                                for (const s of imported.fixedShifts) if (s && s.id) shiftIdSet.add(String(s.id));
-                            }
-
-                            // Helper: validar HH:MM (00-23):(00-59)
-                            const hhmmRe = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-                            // Recorrer schedule
-                            if (imported.schedule && typeof imported.schedule === 'object') {
-                                for (const date of Object.keys(imported.schedule)) {
-                                    const dayMap = imported.schedule[date];
-                                    if (!dayMap || typeof dayMap !== 'object') continue;
-                                    for (const empIdRaw of Object.keys(dayMap)) {
-                                        const empId = String(empIdRaw);
-                                        const val = dayMap[empIdRaw];
-
-                                        // Empleado debe existir
-                                        if (!empIdSet.has(empId)) {
-                                            errors.push({ date, empId, value: val, reason: 'Empleado desconocido' });
-                                            if (errors.length >= 50) break; // límite de recolección
-                                            continue;
-                                        }
-
-                                        // Si es string -> debe ser id de turno
-                                        if (typeof val === 'string') {
-                                            if (!shiftIdSet.has(val)) {
-                                                errors.push({ date, empId, value: val, reason: 'Turno referenciado no existe en shiftDefs/fixedShifts' });
-                                                if (errors.length >= 50) break;
-                                            }
-                                        }
-                                        // Si es objeto -> validar start/end
-                                        else if (val && typeof val === 'object') {
-                                            const s = val.start; const e = val.end;
-                                            if (typeof s !== 'string' || typeof e !== 'string' || !hhmmRe.test(s) || !hhmmRe.test(e)) {
-                                                errors.push({ date, empId, value: val, reason: 'Shift CUSTOM inválido (se requiere start/end en formato HH:MM)' });
-                                                if (errors.length >= 50) break;
-                                            }
-                                        }
-                                        // Otros tipos inesperados
-                                        else {
-                                            errors.push({ date, empId, value: val, reason: 'Valor de asignación no válido' });
-                                            if (errors.length >= 50) break;
-                                        }
-                                    }
-                                    if (errors.length >= 50) break;
-                                }
-                            }
-
-                            if (errors.length > 0) {
-                                // Preparar ejemplos (máx 3)
-                                const examples = errors.slice(0,3).map(e => `${e.date} · ${e.empId} · ${typeof e.value === 'string' ? e.value : JSON.stringify(e.value)} (${e.reason})`);
-                                alert(`Importación CANCELADA: se detectaron ${errors.length} error(es) de coherencia referencial. Ejemplos:\n\n- ${examples.join('\n- ')}`);
-                                console.error('Import errors sample:', examples, 'total:', errors.length);
-                                return;
-                            }
-
-                            // Todo OK — reemplazo TOTAL del estado en memoria
-                            App.data = imported;
-                            Safe.save('v40_db', App.data);
-                            alert('✅ Backup completo importado (reemplazo total).');
-                            App.init();
-                        } catch (err) {
-                            alert('Error aplicando backup completo: ' + (err && err.message ? err.message : String(err)));
-                            console.error('Import error:', err);
-                        }
-                    }
                 } catch (x) {
-                    alert('❌ Error al importar: ' + x.message);
+                    alert('❌ Error al leer el archivo. Asegúrate de que es un JSON válido.');
                     console.error(x);
                 }
             };
             reader.readAsText(f);
             input.value = '';
+        },
+
+        applyModularImport: function() {
+            const data = App.uiState.pendingImportData;
+            if(!data) return;
+
+            let affected = [];
+
+            if(document.getElementById('cb-imp-team').checked && !document.getElementById('cb-imp-team').disabled) {
+                // FUSIÓN INTELIGENTE: Prevenir pérdida de preferencias y registro de festivos
+                const localEmpsMap = {};
+                App.data.empleados.forEach(e => localEmpsMap[e.id] = e);
+
+                data.empleados.forEach(importedEmp => {
+                    const local = localEmpsMap[importedEmp.id];
+                    if (local) {
+                        // Si el backup no trae preferencias (o están vacías), conservamos las locales
+                        if (!importedEmp.prefs || Object.keys(importedEmp.prefs).length === 0) {
+                            importedEmp.prefs = local.prefs || {};
+                        }
+                        // Hacemos lo mismo para el registro de festivos (Factorial y Recuperaciones)
+                        if (!importedEmp.festivoTracking || Object.keys(importedEmp.festivoTracking).length === 0) {
+                            importedEmp.festivoTracking = local.festivoTracking || {};
+                        }
+                    } else {
+                        // Empleado nuevo, inicializar sus campos para evitar errores
+                        if (!importedEmp.prefs) importedEmp.prefs = {};
+                        if (!importedEmp.festivoTracking) importedEmp.festivoTracking = {};
+                    }
+                });
+
+                App.data.empleados = data.empleados;
+                affected.push("Equipo");
+            }
+            
+            if(document.getElementById('cb-imp-shifts').checked && !document.getElementById('cb-imp-shifts').disabled) {
+                App.data.shiftDefs = data.shiftDefs;
+                if(data.fixedShifts) App.data.fixedShifts = data.fixedShifts;
+                affected.push("Paleta de Turnos");
+            }
+            if(document.getElementById('cb-imp-schedule').checked && !document.getElementById('cb-imp-schedule').disabled) {
+                App.data.schedule = data.schedule;
+                if(data.requests) App.data.requests = data.requests;
+                if(data.lockedDays) App.data.lockedDays = data.lockedDays;
+                affected.push("Planificación y Solicitudes");
+            }
+            if(document.getElementById('cb-imp-config').checked && !document.getElementById('cb-imp-config').disabled) {
+                App.data.storeConfig.base = data.storeConfig.base;
+                if(data.config) App.data.config = data.config;
+                affected.push("Configuración Base");
+            }
+            if(document.getElementById('cb-imp-holidays').checked && !document.getElementById('cb-imp-holidays').disabled) {
+                App.data.storeConfig.holidays = data.storeConfig ? data.storeConfig.holidays : (data.holidays || []);
+                affected.push("Festivos");
+            }
+            if(document.getElementById('cb-imp-special').checked && !document.getElementById('cb-imp-special').disabled) {
+                App.data.storeConfig.special = data.storeConfig ? data.storeConfig.special : (data.specialDays || []);
+                affected.push("Días Especiales");
+            }
+
+            if(affected.length === 0) {
+                alert("No has seleccionado nada para importar.");
+                return;
+            }
+
+            Safe.save('v40_db', App.data);
+            App.uiState.pendingImportData = null;
+            document.getElementById('import-staging-modal').classList.remove('open');
+            
+            alert(`✅ Importación completada.\n\nSe han actualizado los siguientes módulos:\n- ${affected.join('\n- ')}`);
+            
+            // Recargar la app para refrescar UI
+            App.init(); 
         }
     }
 };
@@ -11251,6 +11355,23 @@ window.addEventListener('resize', () => {
 
 window.onload = App.init;
 window.addEventListener('beforeunload', function(){ try { Safe.flush('v40_db'); } catch(e) {} });
+</script>
+<script>
+  App.toggleLockInfo = function(event) {
+    const tooltip = document.getElementById('lockInfoTooltip');
+    if (tooltip.style.display === 'none' || tooltip.style.display === '') {
+      tooltip.style.display = 'block';
+      const hideTooltip = (e) => {
+        if (!tooltip.contains(e.target) && e.target !== event.target) {
+          tooltip.style.display = 'none';
+          document.removeEventListener('click', hideTooltip);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', hideTooltip), 0);
+    } else {
+      tooltip.style.display = 'none';
+    }
+  };
 </script>
 </body>
 </html>
