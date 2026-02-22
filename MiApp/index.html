@@ -1277,7 +1277,7 @@ const Utils = {
     getDayKey: function(iso) { return ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"][new Date(iso).getDay()]; },
     
     getFiscalWeek: function(dateStr) {
-        const anchorStr = App.data.config?.weekStart || "2025-02-17";
+        const anchorStr = App.data.config?.weekStart || "2025-12-29";
         const anchor = new Date(anchorStr);
         const current = new Date(dateStr);
         const diffTime = current - anchor;
@@ -1618,7 +1618,7 @@ const Safe = {
 const App = {
     data: {
         meta: { ver: "41.93" },
-        config: { weekStart: "2025-02-17", stdHours: 1800 }, 
+        config: { weekStart: "2025-12-29", stdHours: 1800 }, 
         empleados: [], requests: [], storeConfig: { base: {}, special: [], holidays: [] },
         fixedShifts: [
             { id: "fixed_L", code: "L", desc: "Libre", start: "", end: "", color: "#22c55e", fixed: true },
@@ -1640,11 +1640,11 @@ const App = {
         selectedId: null, 
         currentDate: (() => {
             const today = Utils.getMonday(new Date());
-            const MIN = new Date("2025-02-17");
+            const MIN = new Date("2025-12-29");
             const MAX = new Date("2027-03-02");
             const current = new Date(today);
             // Si está dentro del rango, usar hoy; si no, usar inicio
-            return (current >= MIN && current <= MAX) ? today : "2025-02-17";
+            return (current >= MIN && current <= MAX) ? today : "2025-12-29";
         })(), 
         paintShiftId: null, 
         empViewMode: 'data', 
@@ -1693,7 +1693,7 @@ const App = {
         if(s) { try { App.data = { ...App.data, ...JSON.parse(s) }; } catch(e){} }
         
         if(!App.data.schedule) App.data.schedule = {};
-        if(!App.data.config) App.data.config = { weekStart: "2025-02-17", stdHours: 1800 };
+        if(!App.data.config) App.data.config = { weekStart: "2025-12-29", stdHours: 1800 };
         if(!App.data.config.colors) App.data.config.colors = { L: '#94a3b8', V: '#22c55e', F: '#eab308', R: '#6366f1' };
         
         // Ensure fixedShifts always exist (these are NOT saved in backup, always from code)
@@ -4043,7 +4043,7 @@ const App = {
                 </div>`;
 
             // --- Helpers Globales para el Selector de Semanas ---
-            const fyStart = App.data.config.weekStart || "2025-02-17";
+            const fyStart = App.data.config.weekStart || "2025-12-29";
             const fyEndObj = new Date(fyStart + 'T00:00:00');
             fyEndObj.setDate(fyEndObj.getDate() + (51 * 7)); // Semana 52 (51 semanas sumadas a la 01)
             const fyEnd = fyEndObj.toISOString().slice(0,10);
