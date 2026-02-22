@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planificador v41.58 - Análisis equilibrio transpuesto + ranking solo horas</title>
+    <title>Planificador v41.92 - Fix tabs Calendario + Home tile actualizado</title>
     <style>
         :root {
             --primary: #2563eb; --primary-light: #eff6ff; 
@@ -218,6 +218,26 @@
             width: 336px; 
             border-radius: 8px; 
         }
+        /* week-state-row eliminado: badge+switch van inline en week-selector */
+        .week-state-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .week-state-dot.dot-empty   { background: #d1d5db; }
+        .week-state-dot.dot-partial { background: #f59e0b; }
+        .week-state-dot.dot-closed  { background: #10b981; }
+        .week-state-badge { font-size: 10px; font-weight: 700; padding: 1px 7px 1px 5px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.3px; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .week-lock-divider { width: 1px; height: 16px; background: #e5e7eb; flex-shrink: 0; margin: 0 4px; }
+        .week-state-badge.badge-empty   { background: #f3f4f6; color: #9ca3af; }
+        .week-state-badge.badge-partial { background: #fef3c7; color: #d97706; }
+        .week-state-badge.badge-closed  { background: #d1fae5; color: #059669; }
+        .week-lock-switch { display: flex; align-items: center; gap: 5px; margin-left: auto; border-left: 1px solid #e5e7eb; padding-left: 8px; }
+        .week-lock-icon { font-size: 13px; line-height: 1; }
+        .week-lock-track { width: 36px; height: 20px; border-radius: 10px; cursor: pointer; position: relative; transition: background 0.25s; flex-shrink: 0; border: none; padding: 0; }
+        .week-lock-track.open   { background: #d1d5db; }
+        .week-lock-track.closed { background: #10b981; }
+        .week-lock-thumb { width: 14px; height: 14px; background: white; border-radius: 50%; position: absolute; top: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: left 0.25s; }
+        .week-lock-track.open   .week-lock-thumb { left: 3px; }
+        .week-lock-track.closed .week-lock-thumb { left: 19px; }
+        .week-lock-label { font-size: 10px; font-weight: 700; color: #6b7280; min-width: 42px; }
+        .week-lock-label.is-closed { color: #059669; }
         
         /* Paleta: AMPLIADA (323 + 116 = 439px) */
         .planner-palette-inline { 
@@ -890,8 +910,8 @@
         <button class="nav-btn" id="nav-shifts" onclick="App.router.go('shifts')" title="Turnos">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
         </button>
-        <button class="nav-btn" id="nav-store" onclick="App.router.go('tienda')" title="Tienda">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/></svg>
+        <button class="nav-btn" id="nav-calendario" onclick="App.router.go('calendario')" title="Calendario">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M7 14h2"/><path d="M7 18h5"/><path d="M15 14h2"/></svg>
         </button>
         <div class="nav-separator"></div>
         <button class="nav-btn" id="nav-analisis" onclick="App.router.go('analisis')" title="Análisis">
@@ -1543,7 +1563,7 @@ const Safe = {
 
 const App = {
     data: {
-        meta: { ver: "41.58" },
+        meta: { ver: "41.93" },
         config: { weekStart: "2025-02-17", stdHours: 1800 }, 
         empleados: [], requests: [], storeConfig: { base: {}, special: [], holidays: [] },
         fixedShifts: [
@@ -1559,7 +1579,8 @@ const App = {
             { id: "s2", code: "T8", desc: "Tarde", start: "14:00", end: "22:00", breakStart: "", breakEnd: "", color: "#8b5cf6", customOrder: 1 },
             { id: "s3", code: "P8", desc: "Partido 8h", start: "10:00", end: "20:00", breakStart: "14:00", breakEnd: "16:00", color: "#f59e0b", customOrder: 2 }
         ],
-        schedule: {} 
+        schedule: {},
+        lockedDays: {}  // { "YYYY-MM-DD": true } — días bloqueados individualmente
     },
     uiState: { 
         selectedId: null, 
@@ -1585,6 +1606,9 @@ const App = {
         exportEmps: [], 
         exportStartDate: '', 
         exportEndDate: '',
+        icsLabelMode: 'code',   // 'code' | 'desc' | 'custom'
+        icsLabelCustom: 'Turno',
+        icsIncludeFixed: true,
         dragMode: 'edit', // 'edit' or 'swap'
         tempDragMode: null, // para Ctrl temporal
         customGalleryPage: 0, // Página actual del popup CUSTOM (0-indexed)
@@ -1655,6 +1679,8 @@ const App = {
         
         // Atajos de teclado para Undo/Redo
         window.addEventListener('keydown', (e) => {
+            // Ctrl+Z / Ctrl+Y solo activos en el planificador
+            if(App.router.current() !== 'planificador') return;
             // Ctrl+Z = Undo
             if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
                 e.preventDefault();
@@ -1686,11 +1712,54 @@ const App = {
         current: function() {
             return this.currentRoute;
         },
+
+        // Re-renderiza la vista activa sin resetear selectedId ni el inspector.
+        // Usado por undo/redo para reflejar cambios de datos sin efectos colaterales.
+        refreshCurrent: function() {
+            const v = this.currentRoute;
+            const main = document.getElementById('main-view');
+            const inspectorContent = document.getElementById('inspector-content');
+
+            if(v === 'planificador') {
+                App.ui.renderPlanner(main);
+                App.ui.renderPlannerInspector(inspectorContent);
+            } else {
+                // Re-renderizar el main-scroll preservando el selectedId
+                const existingScroll = main.querySelector('.main-scroll');
+                if(existingScroll) {
+                    existingScroll.innerHTML = '';
+                    if(v === 'home')         App.ui.renderHome(existingScroll);
+                    else if(v === 'empleados')    App.ui.renderEmp(existingScroll);
+                    else if(v === 'tienda')       App.ui.renderCalendario(existingScroll);
+                    else if(v === 'requests')     App.ui.renderRequests(existingScroll);
+                    else if(v === 'shifts')       App.ui.renderShifts(existingScroll);
+                    else if(v === 'export')       App.ui.renderExport(existingScroll);
+                    else if(v === 'import')       App.ui.renderImport(existingScroll);
+                    else if(v === 'config')       App.ui.renderConfig(existingScroll);
+                    else if(v === 'alerts')       App.ui.renderAlerts(existingScroll);
+                    else if(v === 'analisis')     App.ui.renderAnalisis(existingScroll);
+                    else if(v === 'presentacion') App.ui.renderPresentacion(existingScroll);
+                    else if(v === 'calendario')   App.ui.renderCalendario(existingScroll);
+                } else {
+                    // Fallback: navegación completa si no existe el contenedor
+                    this.go(v);
+                    return;
+                }
+                // Re-renderizar inspector si hay algo seleccionado
+                if(App.uiState.selectedId) {
+                    if(v === 'empleados') App.ui.renderEmpInspector(App.uiState.selectedId);
+                    else if(v === 'shifts') App.ui.renderShiftInspector(App.uiState.selectedId);
+                    else if(v === 'requests') App.ui.renderReqInspector(App.uiState.selectedId);
+                }
+            }
+            App.logic.checkAlerts();
+            if(window.lucide) setTimeout(()=>lucide.createIcons(), 10);
+        },
         
         go: function(v) {
             this.currentRoute = v; // Guardar ruta actual
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            const map = { 'home':'nav-home', 'planificador':'nav-plan', 'empleados':'nav-emp', 'requests':'nav-req', 'tienda':'nav-store', 'shifts':'nav-shifts', 'export':'nav-export', 'import':'nav-import', 'config':'nav-config', 'alerts':'nav-alerts', 'analisis':'nav-analisis', 'presentacion':'nav-presentacion' };
+            const map = { 'home':'nav-home', 'planificador':'nav-plan', 'empleados':'nav-emp', 'requests':'nav-req', 'shifts':'nav-shifts', 'export':'nav-export', 'import':'nav-import', 'config':'nav-config', 'alerts':'nav-alerts', 'analisis':'nav-analisis', 'presentacion':'nav-presentacion', 'calendario':'nav-calendario' };
             if(map[v]) document.getElementById(map[v]).classList.add('active');
             const main = document.getElementById('main-view');
             const inspector = document.getElementById('inspector');
@@ -1699,7 +1768,7 @@ const App = {
             App.uiState.selectedId = null; App.ui.inspectorEmpty();
             
             // Ocultar inspector en vistas que no lo necesitan
-            const hideInspector = ['home', 'tienda', 'config', 'alerts', 'export', 'import', 'analisis', 'presentacion'].includes(v);
+            const hideInspector = ['home', 'tienda', 'config', 'alerts', 'export', 'import', 'analisis', 'presentacion', 'calendario'].includes(v);
             inspector.style.display = hideInspector ? 'none' : 'flex';
             main.style.gridColumn = hideInspector ? '2 / span 2' : '2';
             if(!hideInspector) setTimeout(scaleInspector, 20);
@@ -1711,7 +1780,7 @@ const App = {
                 const div = document.createElement('div'); div.className = 'main-scroll'; main.appendChild(div);
                 if(v === 'home') App.ui.renderHome(div);
                 else if(v === 'empleados') App.ui.renderEmp(div);
-                else if(v === 'tienda') App.ui.renderStore(div);
+                else if(v === 'tienda') { App.uiState.calendarioUi = App.uiState.calendarioUi || {}; App.uiState.calendarioUi.tab = 'tienda'; App.router.go('calendario'); return; }
                 else if(v === 'requests') App.ui.renderRequests(div);
                 else if(v === 'shifts') App.ui.renderShifts(div);
                 else if(v === 'export') App.ui.renderExport(div);
@@ -1720,8 +1789,10 @@ const App = {
                 else if(v === 'alerts') App.ui.renderAlerts(div);
                 else if(v === 'analisis') App.ui.renderAnalisis(div);
                 else if(v === 'presentacion') App.ui.renderPresentacion(div);
+                else if(v === 'calendario') App.ui.renderCalendario(div);
             }
             App.logic.checkAlerts();
+            App.logic.updateUndoRedoButtons();
         }
     },
 
@@ -1790,7 +1861,8 @@ const App = {
                 // Filtrar por activo Y vigente en esta semana
                 return e.active && Utils.empleadoVigenteEnFecha(e, monday);
             }).sort((a,b)=>a.customOrder-b.customOrder).forEach(e => {
-                let planned = 0;
+                let planned = 0;  // horas para cobertura de tienda (sin externos)
+                let asig = 0;     // horas totales del empleado (con externos)
                 let dayStatuses = [];
                 
                 days.forEach(d => {
@@ -1819,9 +1891,11 @@ const App = {
                                 label: `${shift.code || 'CUSTOM'} (${shift.start}-${shift.end})${shift.external ? ' · Externo' : ''}`,
                                 code: shift.code || 'CUSTOM'
                             };
-                            // Externos no suman a planned (no cuentan para cobertura de tienda)
+                            // Externos no suman a cobertura de tienda, pero SÍ cuentan para el empleado
+                            const h = Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break);
+                            asig += h;
                             if(!shift.external) {
-                                planned += Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break);
+                                planned += h;
                             }
                         }
                     } else if(req && req.status === 'approved') {
@@ -1843,7 +1917,8 @@ const App = {
                 stats.push({ 
                     name: e.nombre, 
                     contract: Utils.getContrato(e, monday), 
-                    planned, 
+                    planned,
+                    asig,
                     justifiedH,
                     dayStatuses,
                     consecutiveDays,
@@ -1901,9 +1976,9 @@ const App = {
                 <tbody>`;
             
             stats.forEach(st => {
-                // Diff neto: trabajo + ausencias justificadas - contrato
-                const coveredDiff = Math.round((st.planned + st.justifiedH - st.contract) * 10) / 10;
-                const rawDiff = Math.round((st.planned - st.contract) * 10) / 10;
+                // Diff neto: trabajo (incl. externos) + ausencias justificadas - contrato
+                const coveredDiff = Math.round((st.asig + st.justifiedH - st.contract) * 10) / 10;
+                const rawDiff = Math.round((st.asig - st.contract) * 10) / 10;
                 const hasJustified = st.justifiedH > 0;
                 const isFullyCovered = coveredDiff >= -0.5;
 
@@ -1915,7 +1990,7 @@ const App = {
                         // Cubierto gracias a ausencias → gris con ✦
                         diffClass = 'val-justified';
                         diffDisplay = `0<span style="font-size:0.6rem;vertical-align:super;">✦</span>`;
-                        diffTitle = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desglose de horas</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">🔵 Trabajo</span><span style="font-weight:600;">${f1(st.planned)}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">✦ Ausencias</span><span style="color:#a78bfa;font-weight:600;">+${f1(st.justifiedH)}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid rgba(255,255,255,0.1);margin-top:5px;padding-top:5px;"><span style="color:#94a3b8;">📋 Contrato</span><span style="font-weight:600;">${f1(st.contract)}h</span></div><div style="margin-top:6px;font-size:10px;color:#64748b;">L (libranzas) no justifican horas</div>`;
+                        diffTitle = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desglose de horas</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">🔵 Trabajo</span><span style="font-weight:600;">${f1(st.asig)}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">✦ Ausencias</span><span style="color:#a78bfa;font-weight:600;">+${f1(st.justifiedH)}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid rgba(255,255,255,0.1);margin-top:5px;padding-top:5px;"><span style="color:#94a3b8;">📋 Contrato</span><span style="font-weight:600;">${f1(st.contract)}h</span></div><div style="margin-top:6px;font-size:10px;color:#64748b;">L (libranzas) no justifican horas</div>`;
                     } else {
                         // Cubierto solo con trabajo → verde normal
                         diffClass = 'val-good';
@@ -1927,7 +2002,7 @@ const App = {
                     diffClass = 'val-warn';
                     diffDisplay = coveredDiff > 0 ? `+${coveredDiff}` : `${coveredDiff}`;
                     diffTitle = hasJustified
-                        ? `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desglose de horas</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">🔵 Trabajo</span><span style="font-weight:600;">${st.planned}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">✦ Ausencias</span><span style="color:#a78bfa;font-weight:600;">+${st.justifiedH}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid rgba(255,255,255,0.1);margin-top:5px;padding-top:5px;"><span style="color:#94a3b8;">📋 Contrato</span><span style="font-weight:600;">${st.contract}h</span></div><div style="margin-top:6px;padding:4px 6px;background:rgba(245,158,11,0.2);border-radius:4px;color:#fbbf24;font-size:10px;">⚠️ Faltan ${Math.abs(coveredDiff)}h por cubrir</div>`
+                        ? `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desglose de horas</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">🔵 Trabajo</span><span style="font-weight:600;">${st.asig}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">✦ Ausencias</span><span style="color:#a78bfa;font-weight:600;">+${st.justifiedH}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid rgba(255,255,255,0.1);margin-top:5px;padding-top:5px;"><span style="color:#94a3b8;">📋 Contrato</span><span style="font-weight:600;">${st.contract}h</span></div><div style="margin-top:6px;padding:4px 6px;background:rgba(245,158,11,0.2);border-radius:4px;color:#fbbf24;font-size:10px;">⚠️ Faltan ${Math.abs(coveredDiff)}h por cubrir</div>`
                         : null;
                 }
                 
@@ -2079,7 +2154,7 @@ const App = {
                         const tooltip = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desvío acumulado</div><div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:4px;"><span style="color:#94a3b8;">Periodo</span><span style="font-weight:600;font-size:10px;text-align:right;">${Utils.getWeekCode(rangeStart)} → ${Utils.getWeekCode(rangeEnd)}</span></div><div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;">Desvío total</span><span style="color:${color};font-weight:700;">${sign}${f1(acum)}h ${label}</span></div>${pendHTML}<div style="margin-top:8px;font-size:10px;color:#64748b;border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;">Configura en 📈 Análisis · ficha del empleado</div>`;
                         return `<span class="diff-tooltip-wrap" style="cursor:help;">${f1(st.contract)}<sup style="font-size:0.5rem;opacity:0.6;">⏱</sup><div class="diff-tooltip" style="min-width:260px; white-space:normal; line-height:1.7;">${tooltip}</div></span>`;
                     })()}</td>
-                    <td class="b-hrs" style="white-space:nowrap;">${f1(st.planned)}</td>
+                    <td class="b-hrs" style="white-space:nowrap;">${f1(st.asig)}</td>
                     <td class="b-hrs ${diffClass}" style="position:relative;">${diffTitle ? `<span class="diff-tooltip-wrap">${diffDisplay}<div class="diff-tooltip">${diffTitle}</div></span>` : diffDisplay}</td>
                     <td style="text-align: center; padding: 4px;">${consHtml}</td>
                     <td style="text-align: center; padding: 4px;">${chivatoHtml || '—'}</td>
@@ -2829,7 +2904,7 @@ const App = {
                 .home-wrap {
                     display: grid;
                     grid-template-columns: 1fr 200px 1fr;
-                    grid-template-rows: auto auto auto;
+                    grid-template-rows: auto 1fr auto;
                     gap: 16px;
                     padding: 20px 24px;
                     height: 100%;
@@ -2860,9 +2935,9 @@ const App = {
                     border-radius: 4px;
                     letter-spacing: 0.05em;
                 }
-                .home-col-left  { grid-column: 1; display: flex; flex-direction: column; gap: 14px; }
+                .home-col-left  { grid-column: 1; display: flex; flex-direction: column; gap: 14px; justify-content: space-around; }
                 .home-col-mid   { grid-column: 2; display: flex; align-items: center; justify-content: center; }
-                .home-col-right { grid-column: 3; display: flex; flex-direction: column; gap: 14px; }
+                .home-col-right { grid-column: 3; display: flex; flex-direction: column; gap: 14px; justify-content: space-around; }
                 .home-alerts-row { grid-column: 1 / -1; }
 
                 .home-group { display: flex; flex-direction: column; gap: 6px; }
@@ -3029,9 +3104,9 @@ const App = {
                         tile('empleados', 'users',  'Plantilla',   'Equipo · Contratos · Desvío · Festivos', pendingReqs||'', '#2563eb') +
                         tile('requests',  'inbox',  'Peticiones',  'VAC · HRL · Bajas · Permisos · Calendario', pendingReqs>0?pendingReqs:'', '#f59e0b')
                     )}
-                    ${group('Turnos & Tienda',
+                    ${group('Turnos & Calendario',
                         tile('shifts',  'palette',  'Turnos',  'Paleta · Códigos · Colores · Partidos', '', '#8b5cf6') +
-                        tile('tienda',  'store',    'Tienda',  'Configuración · Festivos · Calendario', '', '#10b981')
+                        tile('calendario',  'calendar-range', 'Calendario',  'Bloqueos · Festivos · Horarios de tienda', '', '#10b981')
                     )}
                 </div>
 
@@ -3603,16 +3678,228 @@ const App = {
             </div>`;
         },
 
+        // --- CALENDARIO ---
+        renderCalendario: function(c) {
+            const locked = App.data.lockedDays || {};
+            if(!App.uiState.calendarioUi) App.uiState.calendarioUi = { rangeStart: '', rangeEnd: '', dowFilter: [], action: 'lock', courseYear: 2026, tab: 'bloqueos' };
+            const calUiState = App.uiState.calendarioUi;
+            if(!calUiState.courseYear) calUiState.courseYear = 2026;
+            if(!calUiState.tab) calUiState.tab = 'bloqueos';
+
+            const tab = calUiState.tab;
+            const setTab = t => 'App.uiState.calendarioUi.tab=&quot;' + t + '&quot;; App.ui.renderCalendario(document.querySelector(\'.main-scroll\'))';
+
+            // Tabs header
+            const tabs = [
+                { id: 'bloqueos', label: '🔒 Bloqueos' },
+                { id: 'festivos', label: '🎉 Festivos' },
+                { id: 'tienda',   label: '🏪 Horarios de tienda' },
+            ];
+            let html = `<div style="padding:24px; max-width:1100px; margin:0 auto;">
+                <div style="display:flex; gap:0; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; width:fit-content; margin-bottom:20px;">
+                    ${tabs.map(t => `<button type="button" onclick="${setTab(t.id)}"
+                        style="padding:8px 18px; font-size:0.82rem; font-weight:600; border:none; border-right:1px solid #e2e8f0; cursor:pointer;
+                        background:${tab===t.id?'#1e293b':'white'}; color:${tab===t.id?'white':'#64748b'};">${t.label}</button>`).join('')}
+                </div>`;
+
+            if(tab === 'festivos') { html += App.ui._calRenderFestivos(); html += '</div>'; c.innerHTML = html; return; }
+            if(tab === 'tienda')   { html += App.ui._calRenderTienda();   html += '</div>'; c.innerHTML = html; return; }
+
+            // ── TAB BLOQUEOS ────────────────────────────────────────────────
+            const cy = calUiState.courseYear;
+            const months = [];
+            for(let m = 2; m <= 11; m++) months.push({y: cy, m});
+            for(let m = 0; m <= 1;  m++) months.push({y: cy+1, m});
+            const monthName = i => ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][i];
+            const totalLocked = Object.keys(locked).length;
+            const canPrev = cy > 2025, canNext = cy < 2027;
+
+            html += `<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+                    <div>
+                        <h2 style="margin:0; font-size:1.2rem; font-weight:700; color:#1e293b;">🔒 Bloqueo de días</h2>
+                        <p style="margin:4px 0 0; font-size:0.8rem; color:#94a3b8;">Los días bloqueados no se pueden editar desde la vista individual</p>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button type="button" onclick="App.uiState.calendarioUi.courseYear=${cy-1}; App.ui.renderCalendario(document.querySelector('.main-scroll'))"
+                            ${canPrev?'':'disabled'}
+                            style="width:32px;height:32px;border:1px solid #e2e8f0;border-radius:6px;background:${canPrev?'white':'#f8fafc'};color:${canPrev?'#374151':'#d1d5db'};cursor:${canPrev?'pointer':'default'};font-size:16px;">◀</button>
+                        <span style="font-size:0.95rem;font-weight:700;color:#1e293b;white-space:nowrap;">Mar ${cy} – Feb ${cy+1}</span>
+                        <button type="button" onclick="App.uiState.calendarioUi.courseYear=${cy+1}; App.ui.renderCalendario(document.querySelector('.main-scroll'))"
+                            ${canNext?'':'disabled'}
+                            style="width:32px;height:32px;border:1px solid #e2e8f0;border-radius:6px;background:${canNext?'white':'#f8fafc'};color:${canNext?'#374151':'#d1d5db'};cursor:${canNext?'pointer':'default'};font-size:16px;">▶</button>
+                        <div style="font-size:0.8rem; color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 14px;">
+                            ${totalLocked} día${totalLocked !== 1 ? 's' : ''} bloqueado${totalLocked !== 1 ? 's' : ''}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel de acciones por rango -->
+                <div style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:20px; display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
+                    <div>
+                        <label style="font-size:0.72rem; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">DESDE</label>
+                        ${Utils.getDateInputHTML('cal-range-start', calUiState.rangeStart || '2026-03-01', "App.uiState.calendarioUi.rangeStart=this.dataset.isoValue")}
+                    </div>
+                    <div>
+                        <label style="font-size:0.72rem; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">HASTA</label>
+                        ${Utils.getDateInputHTML('cal-range-end', calUiState.rangeEnd || '2026-03-31', "App.uiState.calendarioUi.rangeEnd=this.dataset.isoValue")}
+                    </div>
+                    <div>
+                        <label style="font-size:0.72rem; font-weight:600; color:#64748b; display:block; margin-bottom:4px;">DÍAS DE SEMANA</label>
+                        <div style="display:flex; gap:4px;">
+                            ${['L','M','X','J','V','S','D'].map((d,i) => {
+                                const sel = calUiState.dowFilter.includes(i);
+                                return `<button type="button"
+                                    style="width:28px; height:28px; border-radius:6px; border:1px solid ${sel?'#3b82f6':'#e2e8f0'}; background:${sel?'#eff6ff':'white'}; color:${sel?'#3b82f6':'#64748b'}; font-size:0.72rem; font-weight:700; cursor:pointer;"
+                                    onclick="App.ui._calToggleDow(${i})">${d}</button>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-left:auto;">
+                        <button type="button" onclick="App.ui._calApplyRange('lock')"
+                            style="padding:7px 14px; background:#1e293b; color:white; border:none; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer;">
+                            🔒 Bloquear rango
+                        </button>
+                        <button type="button" onclick="App.ui._calApplyRange('unlock')"
+                            style="padding:7px 14px; background:white; color:#64748b; border:1px solid #e2e8f0; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer;">
+                            🔓 Desbloquear rango
+                        </button>
+                        <button type="button" onclick="App.ui._calClearAll()"
+                            style="padding:7px 14px; background:#fef2f2; color:#ef4444; border:1px solid #fecaca; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer;">
+                            Desbloquear todo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Grid de meses -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:16px;">`;
+
+            months.forEach(({y, m}) => {
+                const firstDay = new Date(y, m, 1);
+                const lastDay  = new Date(y, m+1, 0);
+                // Offset: Monday=0
+                let startOffset = firstDay.getDay() - 1;
+                if(startOffset < 0) startOffset = 6;
+
+                html += `<div style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                        <span style="font-size:0.8rem; font-weight:700; color:#1e293b;">${monthName(m)} ${y}</span>
+                        <div style="display:flex; gap:4px;">
+                            <button type="button" onclick="App.ui._calLockMonth(${y},${m},true)"
+                                style="font-size:10px; padding:2px 6px; border:1px solid #e2e8f0; border-radius:4px; background:white; cursor:pointer; color:#64748b;" title="Bloquear mes">🔒</button>
+                            <button type="button" onclick="App.ui._calLockMonth(${y},${m},false)"
+                                style="font-size:10px; padding:2px 6px; border:1px solid #e2e8f0; border-radius:4px; background:white; cursor:pointer; color:#64748b;" title="Desbloquear mes">🔓</button>
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:2px; text-align:center;">
+                        ${['L','M','X','J','V','S','D'].map(d=>`<div style="font-size:9px; font-weight:700; color:#94a3b8; padding-bottom:3px;">${d}</div>`).join('')}
+                        ${Array(startOffset).fill('<div></div>').join('')}`;
+
+                for(let day = 1; day <= lastDay.getDate(); day++) {
+                    const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                    const isLocked = locked[dateStr];
+                    const dow = new Date(y, m, day).getDay(); // 0=Sun
+                    const isWeekend = dow === 0 || dow === 6;
+                    const isHoliday = App.data.storeConfig.holidays.some(h => h.date === dateStr);
+
+                    // Base styles
+                    let bg = 'transparent';
+                    let color = isWeekend ? '#94a3b8' : '#374151';
+                    let border = '1px solid transparent';
+                    let fontWeight = '500';
+                    let extraStyle = '';
+
+                    if(isLocked && isHoliday) {
+                        // Locked + festivo: festivo bg + lock border
+                        bg = '#fef3c7'; color = '#d97706';
+                        border = '2px solid #1e293b'; fontWeight = '700';
+                    } else if(isLocked) {
+                        // Locked: borde oscuro + número en color oscuro
+                        bg = 'transparent'; color = '#1e293b';
+                        border = '2px solid #1e293b'; fontWeight = '700';
+                    } else if(isHoliday) {
+                        bg = '#fef3c7'; color = '#d97706';
+                        border = '1px solid transparent';
+                    }
+
+                    html += `<button type="button"
+                        onclick="App.ui._calToggleDay('${dateStr}')"
+                        title="${dateStr}${isLocked?' — Bloqueado':''}"
+                        style="aspect-ratio:1; border-radius:4px; border:${border}; background:${bg}; color:${color}; font-size:10px; font-weight:${fontWeight}; cursor:pointer; padding:0; line-height:1; transition:all 0.1s; box-sizing:border-box;"
+                        onmouseover="this.style.background='${isLocked ? '#f1f5f9' : '#f1f5f9'}'"
+                        onmouseout="this.style.background='${bg}'"
+                        >${day}</button>`;
+                }
+                html += `</div></div>`;
+            });
+
+            html += `</div></div>`;
+            c.innerHTML = html;
+        },
+
+        _calToggleDay: function(dateStr) {
+            if(!App.data.lockedDays) App.data.lockedDays = {};
+            if(App.data.lockedDays[dateStr]) delete App.data.lockedDays[dateStr];
+            else App.data.lockedDays[dateStr] = true;
+            Safe.save('v40_db', App.data);
+            App.ui.renderCalendario(document.querySelector('.main-scroll'));
+        },
+
+        _calToggleDow: function(idx) {
+            const ui = App.uiState.calendarioUi;
+            const i = ui.dowFilter.indexOf(idx);
+            if(i >= 0) ui.dowFilter.splice(i, 1);
+            else ui.dowFilter.push(idx);
+            App.ui.renderCalendario(document.querySelector('.main-scroll'));
+        },
+
+        _calLockMonth: function(y, m, lock) {
+            if(!App.data.lockedDays) App.data.lockedDays = {};
+            const last = new Date(y, m+1, 0).getDate();
+            for(let d = 1; d <= last; d++) {
+                const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                if(lock) App.data.lockedDays[dateStr] = true;
+                else delete App.data.lockedDays[dateStr];
+            }
+            Safe.save('v40_db', App.data);
+            App.ui.renderCalendario(document.querySelector('.main-scroll'));
+        },
+
+        _calApplyRange: function(action) {
+            const ui = App.uiState.calendarioUi;
+            if(!ui.rangeStart || !ui.rangeEnd) { alert('Selecciona un rango de fechas (Desde y Hasta)'); return; }
+            if(!App.data.lockedDays) App.data.lockedDays = {};
+            const start = new Date(ui.rangeStart);
+            const end   = new Date(ui.rangeEnd);
+            if(start > end) { alert('La fecha de inicio debe ser anterior a la fecha final'); return; }
+            const dowFilter = ui.dowFilter; // empty = all days
+            for(let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+                const dow = (d.getDay() + 6) % 7; // 0=Mon
+                if(dowFilter.length > 0 && !dowFilter.includes(dow)) continue;
+                const dateStr = d.toISOString().slice(0,10);
+                if(action === 'lock') App.data.lockedDays[dateStr] = true;
+                else delete App.data.lockedDays[dateStr];
+            }
+            Safe.save('v40_db', App.data);
+            App.ui.renderCalendario(document.querySelector('.main-scroll'));
+        },
+
+        _calClearAll: function() {
+            if(!confirm('¿Desbloquear todos los días? Esta acción no se puede deshacer.')) return;
+            App.data.lockedDays = {};
+            Safe.save('v40_db', App.data);
+            App.ui.renderCalendario(document.querySelector('.main-scroll'));
+        },
+
         // --- ANÁLISIS ---
         renderAnalisis: function(c) {
-            const tab = App.uiState.analisisTab || 'equilibrio';
+            const tab = App.uiState.analisisTab || 'horas';
             const setTab = t => `App.uiState.analisisTab='${t}'; App.ui.renderAnalisis(document.querySelector('.main-scroll'));`;
             const emps = App.data.empleados.filter(e => e.active !== false)
                 .sort((a,b) => (App.uiState.sortKey==='custom' ? a.customOrder-b.customOrder : a.nombre.localeCompare(b.nombre)));
 
             const tabBar = `
                 <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content;margin-bottom:20px;">
-                    ${[['equilibrio','Equilibrio de Turnos'],['horas','Horas Semanales'],['ranking','Turnos Más Usados']].map(([id,label])=>`
+                    ${[['horas','Horas Semanales'],['equilibrio','Equilibrio de Turnos'],['ranking','Turnos Más Usados']].map(([id,label])=>`
                     <button onclick="${setTab(id)}" style="padding:8px 18px;border:none;cursor:pointer;font-size:0.8rem;font-weight:600;
                         background:${tab===id?'#1e293b':'white'};color:${tab===id?'white':'#64748b'};border-right:1px solid var(--border);">${label}</button>`).join('')}
                 </div>`;
@@ -3633,12 +3920,26 @@ const App = {
                         App.uiState.analisisEqEnd   = m;
                     }
                 }
-                const startISO = App.uiState.analisisEqStart;
-                const endISO   = App.uiState.analisisEqEnd;
+                if(!App.uiState.analisisEqHidden)    App.uiState.analisisEqHidden = [];
+                if(!App.uiState.analisisEqFavFilter) App.uiState.analisisEqFavFilter = 'all';
 
-                // Collect data: per employee → {countM,countT,countI,countP,total}
+                const startISO    = App.uiState.analisisEqStart;
+                const endISO      = App.uiState.analisisEqEnd;
+                const hiddenEmps  = App.uiState.analisisEqHidden;
+                const favFilter   = App.uiState.analisisEqFavFilter;
+
+                // Helper: resolve pref.shift → M/T/I/P or 'any'
+                const empFavType = emp => {
+                    const prefId = emp.prefs?.shift;
+                    if(!prefId || prefId === 'any') return 'any';
+                    const sh = App.data.shiftDefs.find(s => s.id === prefId);
+                    if(!sh || !sh.start || !sh.end) return 'any';
+                    return Utils.classifyShift(sh) || 'any';
+                };
+
+                // Collect data: per employee → {countM,countT,countI,countP,total,favType}
                 let totalM=0, totalT=0, totalI=0, totalP=0, totalAll=0;
-                const empStats = emps.map(emp => {
+                let empStats = emps.map(emp => {
                     let countM=0, countT=0, countI=0, countP=0;
                     Object.keys(App.data.schedule).forEach(date => {
                         if(date < startISO || date > endISO) return;
@@ -3654,10 +3955,37 @@ const App = {
                     });
                     const total = countM+countT+countI+countP;
                     totalM+=countM; totalT+=countT; totalI+=countI; totalP+=countP; totalAll+=total;
-                    return { emp, countM, countT, countI, countP, total };
+                    return { emp, countM, countT, countI, countP, total, favType: empFavType(emp) };
                 });
 
-                // Color gradient fn — same as in planificador inspector
+                // Apply fav filter
+                const visibleStats = empStats.filter(d => {
+                    if(hiddenEmps.includes(d.emp.id)) return false;
+                    if(favFilter === 'all') return true;
+                    if(favFilter === 'any') return d.favType === 'any';
+                    return d.favType === favFilter;
+                });
+
+                // Recalc visible totals for EQUIPO row
+                let vTotalM=0,vTotalT=0,vTotalI=0,vTotalP=0,vTotalAll=0;
+                visibleStats.forEach(d=>{ vTotalM+=d.countM; vTotalT+=d.countT; vTotalI+=d.countI; vTotalP+=d.countP; vTotalAll+=d.total; });
+                const vTotals = {M:vTotalM,T:vTotalT,I:vTotalI,P:vTotalP};
+
+                // Sorting
+                const eqSortKey = App.uiState.analisisEqSortKey || null;
+                const eqSortDir = App.uiState.analisisEqSortDir || 'desc';
+                if(eqSortKey) {
+                    visibleStats.sort((a,b) => {
+                        const av = eqSortKey==='nombre' ? a.emp.nombre : (a.total>0 ? a['count'+eqSortKey]/a.total : 0);
+                        const bv = eqSortKey==='nombre' ? b.emp.nombre : (b.total>0 ? b['count'+eqSortKey]/b.total : 0);
+                        if(eqSortKey==='nombre') return eqSortDir==='asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+                        return eqSortDir==='asc' ? av-bv : bv-av;
+                    });
+                }
+                const sortArrow = key => eqSortKey===key ? (eqSortDir==='asc'?' ↑':' ↓') : '';
+                const sortClick = key => `App.uiState.analisisEqSortDir=(App.uiState.analisisEqSortKey==='${key}'&&App.uiState.analisisEqSortDir==='desc')?'asc':'desc';App.uiState.analisisEqSortKey='${key}';App.ui.renderAnalisis(document.querySelector('.main-scroll'));`;
+
+                // Color gradient fn
                 const gradStyle = (type, perc) => {
                     if(type==='M') {
                         if(perc>=60) return `background:#1e40af;color:white;font-weight:700;`;
@@ -3694,62 +4022,103 @@ const App = {
                     }
                 };
 
+                // Fav badge colors (discrete, not gradient)
+                const favBadgeStyle = { M:'background:#dbeafe;color:#1e40af;', T:'background:#fed7aa;color:#9a3412;', I:'background:#fef08a;color:#92400e;', P:'background:#fecaca;color:#991b1b;' };
+                const favBadge = type => type === 'any'
+                    ? `<span style="font-size:0.65rem;color:#cbd5e1;">–</span>`
+                    : `<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.7rem;font-weight:700;${favBadgeStyle[type]||''}">${type}</span>`;
+
+                // Cell: % + abs count + ratio/5
                 const cell = (count, total, type) => {
                     const perc = total>0 ? count/total*100 : 0;
                     const ratio = total>0 ? ((count/total)*5).toFixed(1) : '0.0';
-                    return `<td style="text-align:center;padding:7px 5px;${gradStyle(type,perc)}" title="${count} turnos · ${perc.toFixed(1)}%">
-                        <div style="font-size:0.85rem;font-weight:700;line-height:1.3;">${perc.toFixed(0)}%</div>
-                        <div style="font-size:0.72rem;opacity:0.9;line-height:1.3;">${ratio}/5</div>
+                    return `<td style="text-align:center;padding:8px 6px;min-width:120px;width:120px;${gradStyle(type,perc)}" title="${count} turnos · ${perc.toFixed(1)}%">
+                        <div style="font-size:0.9rem;font-weight:700;line-height:1.3;">${perc.toFixed(0)}%</div>
+                        <div style="font-size:0.72rem;opacity:0.9;line-height:1.4;">${count} t · ${ratio}/5</div>
                     </td>`;
                 };
 
-                const typeLabels = {M:'M · Mañana', T:'T · Tarde', I:'I · Intermedio', P:'P · Partido'};
                 const types = ['M','T','I','P'];
-                const totals = {M:totalM, T:totalT, I:totalI, P:totalP};
-                const thStyle = `padding:7px 8px;font-size:0.72rem;font-weight:700;color:#1e293b;text-align:center;white-space:nowrap;background:#f8fafc;`;
+                const typeNames = {M:'Mañana',T:'Tarde',I:'Intermedio',P:'Partido'};
+                const thStyle = `padding:9px 6px;font-size:0.78rem;font-weight:700;color:#1e293b;text-align:center;background:#f8fafc;min-width:120px;width:120px;cursor:pointer;user-select:none;`;
 
                 const wkSelectStyle = `padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:white;min-width:180px;`;
                 const buildOpts = sel => {
                     const allDates = Object.keys(App.data.schedule).sort();
                     if(allDates.length === 0) return `<option value="${sel}">${Utils.formatDateES(sel)}</option>`;
-                    const opts = [];
-                    // Use unique dates directly
-                    const uniq = [...new Set(allDates)];
-                    // Group by month for readability - just list all dates
-                    uniq.forEach(d => opts.push(`<option value="${d}" ${d===sel?'selected':''}>${Utils.formatDateES(d)}</option>`));
-                    return opts.join('');
+                    return [...new Set(allDates)].map(d => `<option value="${d}" ${d===sel?'selected':''}>${Utils.formatDateES(d)}</option>`).join('');
                 };
 
+                // Fav filter buttons
+                const favBtnStyle = (key) => `padding:5px 12px;border-radius:6px;border:1px solid var(--border);font-size:0.75rem;font-weight:600;cursor:pointer;
+                    background:${favFilter===key?'#1e293b':'white'};color:${favFilter===key?'white':'#64748b'};`;
+                const setFavFilter = key => `App.uiState.analisisEqFavFilter='${key}';App.ui.renderAnalisis(document.querySelector('.main-scroll'));`;
+                const favButtons = `
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                        <span style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-right:4px;">Favorito</span>
+                        ${[['all','Todos'],['M','Mañana'],['T','Tarde'],['I','Intermedio'],['P','Partido'],['any','Indiferente']].map(([k,l])=>
+                            `<button onclick="${setFavFilter(k)}" style="${favBtnStyle(k)}">${l}</button>`
+                        ).join('')}
+                    </div>`;
+
+                // Hidden employees banner
+                const hiddenCount = hiddenEmps.length;
+                const hiddenBanner = hiddenCount > 0
+                    ? `<div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                        <span style="font-size:0.78rem;color:#92400e;">👁 ${hiddenCount} empleado${hiddenCount>1?'s':''} oculto${hiddenCount>1?'s':''}.</span>
+                        <button onclick="App.uiState.analisisEqHidden=[];App.ui.renderAnalisis(document.querySelector('.main-scroll'));" style="padding:4px 12px;border-radius:6px;border:1px solid #ca8a04;background:white;font-size:0.75rem;font-weight:600;cursor:pointer;color:#92400e;">Mostrar todos</button>
+                      </div>`
+                    : '';
+
                 body = `
-                <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
+                <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;">
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Desde</div>
                         <select style="${wkSelectStyle}" onchange="App.uiState.analisisEqStart=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildOpts(startISO)}</select></div>
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Hasta</div>
                         <select style="${wkSelectStyle}" onchange="App.uiState.analisisEqEnd=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildOpts(endISO)}</select></div>
-                    <div style="font-size:0.75rem;color:#94a3b8;padding-bottom:8px;">${totalAll} turnos clasificados</div>
+                    <div style="font-size:0.75rem;color:#94a3b8;padding-bottom:8px;">${vTotalAll} turnos · ${visibleStats.length} empleados visibles</div>
                 </div>
+                <div style="margin-bottom:12px;">${favButtons}</div>
+                ${hiddenBanner ? `<div style="margin-bottom:12px;">${hiddenBanner}</div>` : ''}
                 <div style="background:white;border:1px solid var(--border);border-radius:10px;overflow-x:auto;">
-                    <table style="border-collapse:collapse;width:100%;">
+                    <table style="border-collapse:collapse;">
                         <thead>
                             <tr style="border-bottom:2px solid var(--border);">
-                                <th style="${thStyle} text-align:left;min-width:110px;">Tipo</th>
-                                ${empStats.map(d=>`<th style="${thStyle}">${d.emp.nombre.split(' ')[0]}<div style="font-weight:400;font-size:0.65rem;color:#94a3b8;">${d.total} t</div></th>`).join('')}
-                                <th style="${thStyle} background:#1e293b;color:white;">EQUIPO</th>
+                                <th style="${thStyle} text-align:center;min-width:36px;width:36px;cursor:default;" title="Turno favorito">Fav</th>
+                                <th style="${thStyle} text-align:left;min-width:160px;width:160px;cursor:pointer;" onclick="${sortClick('nombre')}">Empleado${sortArrow('nombre')}</th>
+                                ${types.map(t=>`<th style="${thStyle}" onclick="${sortClick(t)}" title="Ordenar por ${typeNames[t]}">${t} · ${typeNames[t]}${sortArrow(t)}</th>`).join('')}
+                                <th style="${thStyle} background:#1e293b;color:white;cursor:default;">Total</th>
+                                <th style="${thStyle} min-width:36px;width:36px;cursor:default;"></th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${types.map(type => `
-                            <tr style="border-bottom:1px solid #f1f5f9;">
-                                <td style="padding:7px 12px;font-size:0.8rem;font-weight:700;color:#1e293b;white-space:nowrap;background:#fafafa;">${typeLabels[type]}</td>
-                                ${empStats.map(d => cell(d['count'+type], d.total, type)).join('')}
-                                ${cell(totals[type], totalAll, type).replace('<td ','<td style="border-left:2px solid var(--border);" ').replace('style="text-align','style="border-left:2px solid var(--border);text-align')}
-                            </tr>`).join('')}
+                            ${visibleStats.map((d,i)=>{
+                                const hideClick = `App.uiState.analisisEqHidden=[...App.uiState.analisisEqHidden,'${d.emp.id}'];App.ui.renderAnalisis(document.querySelector('.main-scroll'));`;
+                                return `<tr style="border-bottom:1px solid #f1f5f9;${i%2===1?'background:#fafafa':''}">
+                                    <td style="text-align:center;padding:8px 4px;min-width:36px;">${favBadge(d.favType)}</td>
+                                    <td style="padding:8px 14px;font-weight:600;font-size:0.82rem;color:#1e293b;white-space:nowrap;min-width:160px;">${d.emp.nombre}</td>
+                                    ${types.map(t => cell(d['count'+t], d.total, t)).join('')}
+                                    <td style="text-align:center;padding:8px 6px;font-weight:800;color:#1e293b;font-size:0.9rem;background:#f8fafc;">${d.total}</td>
+                                    <td style="text-align:center;padding:8px 4px;">
+                                        <button onclick="${hideClick}" title="Ocultar ${d.emp.nombre}" style="background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:0.85rem;padding:2px 4px;border-radius:4px;" onmouseover="this.style.color='#64748b'" onmouseout="this.style.color='#cbd5e1'">👁</button>
+                                    </td>
+                                </tr>`;
+                            }).join('')}
                         </tbody>
                         <tfoot>
                             <tr style="border-top:3px solid var(--border);background:#f1f5f9;">
-                                <td style="padding:8px 12px;font-size:0.78rem;font-weight:800;color:#1e293b;">TOTAL</td>
-                                ${empStats.map(d=>`<td style="text-align:center;padding:8px 5px;font-weight:800;color:#1e293b;font-size:0.85rem;">${d.total}</td>`).join('')}
-                                <td style="text-align:center;padding:8px 5px;font-weight:800;color:#1e293b;font-size:0.95rem;background:#e2e8f0;border-left:2px solid var(--border);">${totalAll}</td>
+                                <td style="padding:9px 4px;"></td>
+                                <td style="padding:9px 14px;font-size:0.78rem;font-weight:800;color:#1e293b;">EQUIPO</td>
+                                ${types.map(t => {
+                                    const perc = vTotalAll>0 ? vTotals[t]/vTotalAll*100 : 0;
+                                    const ratio = vTotalAll>0 ? ((vTotals[t]/vTotalAll)*5).toFixed(1) : '0.0';
+                                    return `<td style="text-align:center;padding:9px 6px;font-weight:700;${gradStyle(t,perc)}">
+                                        <div style="font-size:0.9rem;font-weight:700;">${perc.toFixed(0)}%</div>
+                                        <div style="font-size:0.72rem;opacity:0.9;">${vTotals[t]} t · ${ratio}/5</div>
+                                    </td>`;
+                                }).join('')}
+                                <td style="text-align:center;padding:9px 6px;font-weight:800;font-size:0.95rem;color:#1e293b;background:#e2e8f0;">${vTotalAll}</td>
+                                <td style="padding:9px 4px;"></td>
                             </tr>
                         </tfoot>
                     </table>
@@ -3763,8 +4132,10 @@ const App = {
                     App.uiState.analisisHorasStart = s.toISOString().slice(0,10);
                     App.uiState.analisisHorasEnd   = m;
                 }
-                const startISO = App.uiState.analisisHorasStart;
-                const endISO   = App.uiState.analisisHorasEnd;
+                // Asegurar que start <= end (swap silencioso si el usuario invierte el orden)
+                let startISO = App.uiState.analisisHorasStart;
+                let endISO   = App.uiState.analisisHorasEnd;
+                if(startISO > endISO) { [startISO, endISO] = [endISO, startISO]; }
 
                 // Acumular horas totales y esperadas por semana
                 const weeks = [];
@@ -3773,7 +4144,7 @@ const App = {
                 while(cur <= endD) { weeks.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+7); }
 
                 const weekData = weeks.map(monday => {
-                    let worked = 0; let expected = 0;
+                    let worked = 0;
                     emps.forEach(emp => {
                         if(!Utils.empleadoVigenteEnFecha(emp, monday)) return;
                         const wdays = Utils.getWeekDays(monday);
@@ -3782,14 +4153,11 @@ const App = {
                             const sh = sid ? Utils.getShift(sid) : null;
                             if(sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd);
                         });
-                        const contrato = Utils.getContrato(emp, monday);
-                        const { esperadas } = Utils.calcEsperadas(contrato, Utils.getWeekDays(monday), emp.id);
-                        expected += esperadas;
                     });
-                    return { monday, worked: Math.round(worked*10)/10, expected: Math.round(expected*10)/10 };
+                    return { monday, worked: Math.round(worked*10)/10 };
                 });
 
-                const maxH = Math.max(...weekData.map(w=>Math.max(w.worked, w.expected)), 1);
+                const maxH = Math.max(...weekData.map(w=>w.worked), 1);
                 const chartH = 200;
                 const barW = Math.max(14, Math.min(40, Math.floor(860 / Math.max(weeks.length,1)) - 4));
                 const totalW = weeks.length * (barW + 4) + 60;
@@ -3808,16 +4176,11 @@ const App = {
                 const svgBars = weekData.map((w,i) => {
                     const x = 40 + i*(barW+4);
                     const wH = Math.round(w.worked/maxH*chartH);
-                    const eH = Math.round(w.expected/maxH*chartH);
                     const wkLabel = Utils.getWeekCode(w.monday).replace(/.*WK/,'W');
-                    const isOver = w.worked > w.expected + 2;
-                    const isUnder = w.worked < w.expected - 2;
-                    const barColor = isOver ? '#f59e0b' : isUnder ? '#3b82f6' : '#10b981';
                     return `
-                        <rect x="${x}" y="${chartH-eH+10}" width="${barW}" height="${eH}" fill="#e2e8f0" rx="2"/>
-                        <rect x="${x}" y="${chartH-wH+10}" width="${barW}" height="${wH}" fill="${barColor}" rx="2" opacity="0.9"/>
+                        <rect x="${x}" y="${chartH-wH+10}" width="${barW}" height="${wH}" fill="#3b82f6" rx="2" opacity="0.85"/>
                         <text x="${x+barW/2}" y="${chartH+22}" text-anchor="middle" font-size="${barW>20?9:7}" fill="#94a3b8" font-family="monospace">${wkLabel}</text>
-                        ${w.worked>0?`<text x="${x+barW/2}" y="${chartH-wH+7}" text-anchor="middle" font-size="8" fill="${barColor}" font-weight="700">${w.worked}</text>`:''}
+                        ${w.worked>0?`<text x="${x+barW/2}" y="${chartH-wH+7}" text-anchor="middle" font-size="8" fill="#3b82f6" font-weight="700">${w.worked}</text>`:''}
                     `;
                 }).join('');
 
@@ -3830,9 +4193,7 @@ const App = {
                 }).join('');
 
                 const totalWorked = Math.round(weekData.reduce((s,w)=>s+w.worked,0)*10)/10;
-                const totalExpected = Math.round(weekData.reduce((s,w)=>s+w.expected,0)*10)/10;
-                const diff = Math.round((totalWorked-totalExpected)*10)/10;
-                const diffColor = diff > 2 ? '#f59e0b' : diff < -2 ? '#3b82f6' : '#10b981';
+                const avgWorked   = weeks.length > 0 ? Math.round(totalWorked/weeks.length*10)/10 : 0;
 
                 body = `
                 <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
@@ -3843,7 +4204,7 @@ const App = {
                 </div>
 
                 <div style="display:flex;gap:12px;margin-bottom:16px;">
-                    ${[['Total trabajadas', totalWorked+'h', '#1e293b'],['Total esperadas', totalExpected+'h', '#64748b'],['Diferencia', (diff>=0?'+':'')+diff+'h', diffColor]].map(([l,v,col])=>`
+                    ${[['Total trabajadas', totalWorked+'h', '#1e293b'],['Media semanal', avgWorked+'h', '#3b82f6'],['Semanas', weeks.length, '#64748b']].map(([l,v,col])=>`
                     <div style="background:white;border:1px solid var(--border);border-radius:8px;padding:14px 20px;flex:1;">
                         <div style="font-size:0.68rem;color:#94a3b8;font-weight:600;text-transform:uppercase;margin-bottom:4px;">${l}</div>
                         <div style="font-size:1.4rem;font-weight:800;color:${col};">${v}</div>
@@ -3851,12 +4212,6 @@ const App = {
                 </div>
 
                 <div style="background:white;border:1px solid var(--border);border-radius:10px;padding:20px;overflow-x:auto;">
-                    <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:12px;display:flex;gap:16px;align-items:center;">
-                        <span><span style="display:inline-block;width:10px;height:10px;background:#e2e8f0;border-radius:2px;margin-right:4px;"></span>Horas esperadas</span>
-                        <span><span style="display:inline-block;width:10px;height:10px;background:#10b981;border-radius:2px;margin-right:4px;"></span>Horas trabajadas</span>
-                        <span style="color:#f59e0b;">▪ Sobretiempo</span>
-                        <span style="color:#3b82f6;">▪ Por debajo</span>
-                    </div>
                     <svg width="${Math.max(totalW, 400)}" height="${chartH+40}" style="display:block;">
                         ${yLabels}
                         ${svgBars}
@@ -3871,8 +4226,10 @@ const App = {
                     App.uiState.analisisRankStart = s.toISOString().slice(0,10);
                     App.uiState.analisisRankEnd   = m;
                 }
-                const startISO = App.uiState.analisisRankStart;
-                const endISO   = App.uiState.analisisRankEnd;
+                // Swap silencioso si el usuario invierte el orden
+                let startISO = App.uiState.analisisRankStart;
+                let endISO   = App.uiState.analisisRankEnd;
+                if(startISO > endISO) { [startISO, endISO] = [endISO, startISO]; }
 
                 const weeks = [];
                 let cur2 = new Date(Utils.getMonday(startISO)+'T00:00:00');
@@ -3883,21 +4240,34 @@ const App = {
                 weeks.forEach(monday => {
                     Utils.getWeekDays(monday).forEach(d => {
                         const daySched = App.data.schedule[d] || {};
-                        Object.values(daySched).forEach(sid => {
+                        Object.entries(daySched).forEach(([,sid]) => {
                             const sh = Utils.getShift(sid);
-                            if(!sh) return;
-                            // Solo turnos con horas reales — excluir libranzas y ausencias
-                            if(sh.fixed || !sh.start || !sh.end) return;
-                            const code = sh.code || 'CUSTOM';
-                            if(!codeCounts[code]) codeCounts[code] = { code, count:0, hours:0, color: sh.color||'#94a3b8', desc: sh.desc||'' };
-                            codeCounts[code].count++;
-                            codeCounts[code].hours += Utils.calcHours(sh.start,sh.end,sh.breakStart,sh.breakEnd);
+                            if(!sh || !sh.start || !sh.end) return;
+                            if(sh.fixed) return;
+
+                            if(Utils.isCustomShift(sid)) {
+                                // Turno CUSTOM: agrupar por horario
+                                const key = `${sh.start}|${sh.end}|${sh.breakStart||''}|${sh.breakEnd||''}`;
+                                const label = sh.breakStart && sh.breakEnd
+                                    ? `${sh.start}–${sh.end}`
+                                    : `${sh.start}–${sh.end}`;
+                                if(!codeCounts[key]) codeCounts[key] = { code: label, count:0, hours:0, color:'#9ca3af', desc:'Turno personalizado', isCustom:true, customKey:key, shiftDef: sh };
+                                codeCounts[key].count++;
+                                codeCounts[key].hours += Utils.calcHours(sh.start,sh.end,sh.breakStart,sh.breakEnd);
+                            } else {
+                                // Turno de catálogo
+                                if(!sh.code) return;
+                                const code = sh.code;
+                                if(!codeCounts[code]) codeCounts[code] = { code, count:0, hours:0, color: sh.color||'#94a3b8', desc: sh.desc||'', isCustom:false, shiftDef: sh };
+                                codeCounts[code].count++;
+                                codeCounts[code].hours += Utils.calcHours(sh.start,sh.end,sh.breakStart,sh.breakEnd);
+                            }
                             grandTotal++;
                         });
                     });
                 });
 
-                const ranked = Object.values(codeCounts).sort((a,b)=>b.count-a.count);
+                const ranked = Object.values(codeCounts).sort((a,b)=>b.count-a.count).slice(0, 15);
                 const maxCount = ranked[0]?.count || 1;
 
                 const buildWeekOpts3 = sel => {
@@ -3925,13 +4295,21 @@ const App = {
                             const pct = Math.round(r.count/grandTotal*100);
                             const barPct = Math.round(r.count/maxCount*100);
                             const avgH = r.count > 0 ? Math.round(r.hours/r.count*10)/10 : 0;
-                            return `<div style="display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid #f1f5f9;${i===0?'background:#fafafa':''}">
-                                <div style="width:24px;text-align:center;font-size:0.75rem;font-weight:700;color:#94a3b8;">${i+1}</div>
-                                <div style="background:${r.color}22;color:${r.color};border:1px solid ${r.color}44;border-radius:5px;padding:3px 10px;font-weight:800;font-size:0.85rem;min-width:50px;text-align:center;">${r.code}</div>
-                                <div style="flex:1;">
+                            const shiftDef = r.isCustom ? r.shiftDef : App.data.shiftDefs.find(s => s.code === r.code);
+                            const hoursLabel = shiftDef
+                                ? (shiftDef.breakStart && shiftDef.breakEnd
+                                    ? `<div>${shiftDef.start}–${shiftDef.end}</div><div style="color:#94a3b8;">(${shiftDef.breakStart}–${shiftDef.breakEnd})</div>`
+                                    : `<div>${shiftDef.start}–${shiftDef.end}</div>`)
+                                : '';
+                            const badgeExtra = r.isCustom ? `border-style:dashed;` : '';
+                            return `<div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #f1f5f9;${i===0?'background:#fafafa':''}">
+                                <div style="width:22px;text-align:center;font-size:0.75rem;font-weight:700;color:#94a3b8;flex-shrink:0;">${i+1}</div>
+                                <div style="background:${r.color}22;color:${r.color};border:1px solid ${r.color}44;${badgeExtra}border-radius:5px;padding:3px 8px;font-weight:800;font-size:0.8rem;width:90px;flex-shrink:0;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${r.code}">${r.code}</div>
+                                <div style="width:90px;flex-shrink:0;font-size:0.72rem;color:#64748b;font-family:monospace;line-height:1.4;">${hoursLabel}</div>
+                                <div style="flex:1;min-width:0;">
                                     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-                                        <span style="font-size:0.78rem;font-weight:600;color:#1e293b;">${r.desc||r.code}</span>
-                                        <span style="font-size:0.75rem;color:#64748b;">${r.count} veces · ${pct}% · ${avgH?avgH+'h/asig':''}</span>
+                                        <span style="font-size:0.78rem;font-weight:600;color:${r.isCustom?'#94a3b8':'#1e293b'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.isCustom?'Sin código asignado':r.desc||r.code}</span>
+                                        <span style="font-size:0.75rem;color:#64748b;flex-shrink:0;margin-left:8px;">${r.count} veces · ${pct}% · ${avgH?avgH+'h/asig':''}</span>
                                     </div>
                                     <div style="background:#f1f5f9;border-radius:3px;height:6px;overflow:hidden;">
                                         <div style="background:${r.color};height:100%;width:${barPct}%;border-radius:3px;transition:width 0.3s;"></div>
@@ -4148,177 +4526,190 @@ const App = {
             }
             
             let html = `
-            <div style="max-width:1300px; margin:20px auto; display:grid; grid-template-columns:240px 147px 1fr; gap:15px;">
-                
-                <!-- COLUMNA 1: Empleados -->
-                <div style="background:white; padding:12px; border-radius:6px; border:1px solid var(--border);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:8px; border-bottom:2px solid var(--border);">
-                        <h3 style="margin:0; font-size:0.75rem; font-weight:700; color:var(--text-main);">
-                            👥 Empleados (${App.uiState.exportEmps.filter(i => typeof i === 'string').length})
-                        </h3>
-                        <div style="display:flex; gap:4px;">
-                            <button class="btn-header" onclick="App.logic.exportSelectAll()" 
-                                    style="padding:3px 6px; font-size:0.65rem; border-radius:3px;">Todos</button>
-                            <button class="btn-header" onclick="App.logic.exportSelectNone()" 
-                                    style="padding:3px 6px; font-size:0.65rem; border-radius:3px;">Ninguno</button>
-                            <button class="btn-header" onclick="document.getElementById('gap-modal').classList.add('open')" 
-                                    style="padding:3px 6px; font-size:0.65rem; border-radius:3px; background:#f0fdf4; border-color:#86efac;">+ Hueco</button>
+            <div style="max-width:1300px; margin:20px auto; display:flex; flex-direction:column; gap:15px;">
+
+                <!-- FILA 1: Fechas compartidas -->
+                <div style="background:white; padding:14px 18px; border-radius:8px; border:1px solid var(--border); display:flex; gap:20px; align-items:flex-end; flex-wrap:wrap;">
+                    <div style="font-size:0.75rem; font-weight:700; color:var(--text-main); margin-right:4px; padding-bottom:2px;">📅 Rango de fechas</div>
+                    <div style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
+                        <div>
+                            <label style="font-size:0.65rem; font-weight:600; color:#94a3b8; text-transform:uppercase; display:block; margin-bottom:4px;">Desde</label>
+                            ${Utils.getDateInputHTML('exp-start', App.uiState.exportStartDate, 'App.uiState.exportStartDate=this.dataset.isoValue; App.ui.updateExportPreview();')}
+                        </div>
+                        <div>
+                            <label style="font-size:0.65rem; font-weight:600; color:#94a3b8; text-transform:uppercase; display:block; margin-bottom:4px;">Hasta</label>
+                            ${Utils.getDateInputHTML('exp-end', App.uiState.exportEndDate, 'App.uiState.exportEndDate=this.dataset.isoValue; App.ui.updateExportPreview();')}
                         </div>
                     </div>
-                    
-                    <div style="font-size:0.65rem; color:var(--text-muted); margin-bottom:8px; padding:5px 6px; background:#f8fafc; border-radius:3px;">
-                        💡 Arrastra ☰ para reordenar
+                    <div style="font-size:0.7rem; color:#94a3b8; padding-bottom:4px;">Este rango se aplica a todas las exportaciones</div>
+                </div>
+
+                <!-- FILA 2: Dos tarjetas -->
+                <div style="display:grid; grid-template-columns:260px 1fr; gap:15px; align-items:stretch;">
+
+                    <!-- TARJETA A: Google Calendar -->
+                    <div style="background:white; padding:16px; border-radius:8px; border:1px solid var(--border);">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding-bottom:10px; border-bottom:2px solid var(--border);">
+                            <span style="font-size:1.2rem;">📆</span>
+                            <div>
+                                <div style="font-size:0.82rem; font-weight:700; color:#1e293b;">Google Calendar</div>
+                                <div style="font-size:0.65rem; color:#64748b;">Exporta los turnos de un empleado como .ics</div>
+                            </div>
+                        </div>
+                        <div style="font-size:0.7rem; color:#64748b; background:#f8fafc; border-radius:6px; padding:8px 10px; margin-bottom:12px; line-height:1.5;">
+                            Genera un fichero <strong>.ics</strong> importable en Google Calendar, Apple Calendar u Outlook.<br>
+                            Los turnos de trabajo aparecen con hora exacta. Las libranzas, vacaciones y festivos aparecen como eventos de todo el día.
+                        </div>
+                        <div class="form-group" style="margin-bottom:10px;">
+                            <label style="font-size:0.65rem; font-weight:600; color:#94a3b8; text-transform:uppercase; display:block; margin-bottom:4px;">Empleado</label>
+                            <select id="ics-emp-select" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:white;">
+                                ${App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder).map(e=>`<option value="${e.id}">${e.nombre}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:10px;">
+                            <label style="font-size:0.65rem; font-weight:600; color:#94a3b8; text-transform:uppercase; display:block; margin-bottom:4px;">Nombre de los bloques</label>
+                            <select id="ics-label-mode" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:white;"
+                                onchange="App.uiState.icsLabelMode=this.value; document.getElementById('ics-label-custom-wrap').style.display=this.value==='custom'?'block':'none';">
+                                <option value="code" ${App.uiState.icsLabelMode==='code'?'selected':''}>Código del turno (M9, T6…)</option>
+                                <option value="custom" ${App.uiState.icsLabelMode==='custom'?'selected':''}>Nombre personalizado</option>
+                            </select>
+                            <div id="ics-label-custom-wrap" style="display:${App.uiState.icsLabelMode==='custom'?'block':'none'};margin-top:6px;">
+                                <input type="text" value="${App.uiState.icsLabelCustom}"
+                                    oninput="App.uiState.icsLabelCustom=this.value"
+                                    placeholder="Ej: Turno"
+                                    style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;box-sizing:border-box;">
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:6px;">
+                            <button class="btn" onclick="App.logic.exportICS(document.getElementById('ics-emp-select').value,'work')"
+                                    style="width:100%;font-size:0.78rem;padding:9px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:600;background:#3b82f6;color:white;border-color:#2563eb;border-radius:6px;">
+                                🕐 Solo turnos de trabajo
+                            </button>
+                            <button class="btn" onclick="App.logic.exportICS(document.getElementById('ics-emp-select').value,'fixed')"
+                                    style="width:100%;font-size:0.78rem;padding:9px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:600;background:#8b5cf6;color:white;border-color:#7c3aed;border-radius:6px;">
+                                📅 Solo libranzas y ausencias
+                            </button>
+                            <button class="btn" onclick="App.logic.exportICS(document.getElementById('ics-emp-select').value,'all')"
+                                    style="width:100%;font-size:0.78rem;padding:9px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:600;background:#10b981;color:white;border-color:#059669;border-radius:6px;">
+                                ⬇️ Todo junto
+                            </button>
+                        </div>
                     </div>
-                    
-                    <div style="display:flex; flex-direction:column; gap:3px; max-height:500px; overflow-y:auto;">
+
+                    <!-- TARJETA B: Horario Eficiente + Master Data -->
+                    <div style="background:white; padding:16px; border-radius:8px; border:1px solid var(--border);">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; padding-bottom:10px; border-bottom:2px solid var(--border);">
+                            <span style="font-size:1.2rem;">📊</span>
+                            <div>
+                                <div style="font-size:0.82rem; font-weight:700; color:#1e293b;">Horario Eficiente &amp; Master Data</div>
+                                <div style="font-size:0.65rem; color:#64748b;">Exporta el cuadrante para usar en otras herramientas</div>
+                            </div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:222px 1fr; gap:14px;">
+
+                            <!-- Sub-col izq: empleados + botón master data -->
+                            <div style="display:flex; flex-direction:column; gap:10px;">
+                                <div style="background:white; border:1px solid var(--border); border-radius:6px; padding:10px;">
+                                    <div style="margin-bottom:6px;">
+                                        <span style="font-size:0.7rem; font-weight:700; color:#1e293b;">👥 Empleados (${App.uiState.exportEmps.filter(i => typeof i === 'string').length})</span>
+                                        <div style="display:flex; gap:3px; margin-top:5px;">
+                                            <button class="btn-header" onclick="App.logic.exportSelectAll()" style="padding:2px 5px; font-size:0.6rem; border-radius:3px;">Todos</button>
+                                            <button class="btn-header" onclick="App.logic.exportSelectNone()" style="padding:2px 5px; font-size:0.6rem; border-radius:3px;">Ninguno</button>
+                                            <button class="btn-header" onclick="document.getElementById('gap-modal').classList.add('open')" style="padding:2px 5px; font-size:0.6rem; border-radius:3px; background:#f0fdf4; border-color:#86efac;">+Hueco</button>
+                                        </div>
+                                    </div>
+                                    <div style="font-size:0.6rem; color:var(--text-muted); margin-bottom:6px; padding:3px 5px; background:#f8fafc; border-radius:3px;">💡 Arrastra ☰ para reordenar</div>
+                                    <div style="display:flex; flex-direction:column; gap:2px; max-height:480px; overflow-y:auto;">
             `;
-            
-            // EMPLEADOS SELECCIONADOS (arriba, ordenables)
+
+            // EMPLEADOS SELECCIONADOS
             if(App.uiState.exportEmps.length > 0) {
                 App.uiState.exportEmps.forEach((item, idx) => {
-                    // Detectar si es un gap o un empleado
                     const isGap = typeof item === 'object' && item.type === 'gap';
-                    
                     if(isGap) {
-                        // Renderizar GAP
                         const gapName = item.name || '───────';
                         html += `
-                            <div class="export-emp-item" 
-                                 draggable="true"
-                                 ondragstart="App.logic.exportDragStart(event, ${idx})"
-                                 ondragend="App.logic.exportDragEnd(event)"
-                                 ondragover="App.logic.exportDragOver(event)"
-                                 ondragleave="App.logic.exportDragLeave(event)"
-                                 ondrop="App.logic.exportDrop(event, ${idx})"
-                                 style="display:grid; grid-template-columns:14px 18px 1fr 20px; gap:6px; align-items:center;
-                                        padding:4px 6px; border:1px solid #d1d5db; background:#f9fafb; 
-                                        border-radius:3px; cursor:pointer; font-size:0.75rem;">
+                            <div class="export-emp-item" draggable="true"
+                                 ondragstart="App.logic.exportDragStart(event, ${idx})" ondragend="App.logic.exportDragEnd(event)"
+                                 ondragover="App.logic.exportDragOver(event)" ondragleave="App.logic.exportDragLeave(event)" ondrop="App.logic.exportDrop(event, ${idx})"
+                                 style="display:grid; grid-template-columns:14px 18px 1fr 20px; gap:4px; align-items:center;
+                                        padding:3px 5px; border:1px solid #d1d5db; background:#f9fafb; border-radius:3px; cursor:pointer; font-size:0.7rem;">
                                 <span style="color:#94a3b8; cursor:grab; font-size:0.8rem; text-align:center;">☰</span>
                                 <span style="color:#9ca3af; font-size:0.9rem; text-align:center;">➖</span>
                                 <span style="font-weight:500; color:#6b7280; font-style:italic; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${gapName}</span>
-                                <button onclick="event.stopPropagation(); App.logic.removeGap(${idx}); App.ui.updateExportPreview();" 
+                                <button onclick="event.stopPropagation(); App.logic.removeGap(${idx}); App.ui.updateExportPreview();"
                                         style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:0.9rem; padding:0; width:20px; height:20px; display:flex; align-items:center; justify-content:center;">✕</button>
-                            </div>
-                        `;
+                            </div>`;
                     } else {
-                        // Renderizar EMPLEADO
                         const e = App.data.empleados.find(emp => emp.id === item);
                         if(!e) return;
-                        
                         html += `
-                            <div class="export-emp-item" 
-                                 draggable="true"
-                                 ondragstart="App.logic.exportDragStart(event, ${idx})"
-                                 ondragend="App.logic.exportDragEnd(event)"
-                                 ondragover="App.logic.exportDragOver(event)"
-                                 ondragleave="App.logic.exportDragLeave(event)"
-                                 ondrop="App.logic.exportDrop(event, ${idx})"
-                                 style="display:grid; grid-template-columns:14px 18px 1fr 20px; gap:6px; align-items:center;
-                                        padding:4px 6px; border:1px solid var(--primary); background:#eff6ff; 
-                                        border-radius:3px; cursor:pointer; font-size:0.75rem;">
+                            <div class="export-emp-item" draggable="true"
+                                 ondragstart="App.logic.exportDragStart(event, ${idx})" ondragend="App.logic.exportDragEnd(event)"
+                                 ondragover="App.logic.exportDragOver(event)" ondragleave="App.logic.exportDragLeave(event)" ondrop="App.logic.exportDrop(event, ${idx})"
+                                 style="display:grid; grid-template-columns:14px 18px 1fr 20px; gap:4px; align-items:center;
+                                        padding:3px 5px; border:1px solid var(--primary); background:#eff6ff; border-radius:3px; cursor:pointer; font-size:0.7rem;">
                                 <span style="color:#94a3b8; cursor:grab; font-size:0.8rem; text-align:center;">☰</span>
-                                <input type="checkbox" checked 
-                                       onclick="event.stopPropagation(); App.logic.exportToggle('${e.id}'); App.ui.updateExportPreview();"
-                                       style="margin:0; cursor:pointer;">
+                                <input type="checkbox" checked onclick="event.stopPropagation(); App.logic.exportToggle('${e.id}'); App.ui.updateExportPreview();" style="margin:0; cursor:pointer;">
                                 <span style="font-weight:500; color:#1e293b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
                                       onclick="App.logic.exportToggle('${e.id}'); App.ui.updateExportPreview();">${e.nombre}</span>
-                                <span style="font-size:0.6rem; color:var(--text-muted); font-family:monospace; text-align:right;">#${idx + 1}</span>
-                            </div>
-                        `;
+                                <span style="font-size:0.55rem; color:var(--text-muted); font-family:monospace; text-align:right;">#${idx+1}</span>
+                            </div>`;
                     }
                 });
-                
-                html += `<div style="height:1px; background:var(--border); margin:6px 0;"></div>`;
+                html += `<div style="height:1px; background:var(--border); margin:4px 0;"></div>`;
             }
-            
-            // EMPLEADOS NO SELECCIONADOS (abajo, no ordenables)
+
+            // EMPLEADOS NO SELECCIONADOS
             const unselectedEmps = App.data.empleados
                 .filter(e => e.active !== false && !App.uiState.exportEmps.includes(e.id))
                 .sort((a,b) => a.customOrder - b.customOrder);
-            
             if(unselectedEmps.length > 0) {
                 unselectedEmps.forEach(e => {
                     html += `
                         <div onclick="App.logic.exportToggle('${e.id}'); App.ui.updateExportPreview();"
-                             style="display:grid; grid-template-columns:14px 18px 1fr; gap:6px; align-items:center;
-                                    padding:4px 6px; border:1px solid #e2e8f0; background:#fafafa; 
-                                    border-radius:3px; cursor:pointer; font-size:0.75rem; opacity:0.6;">
+                             style="display:grid; grid-template-columns:14px 18px 1fr; gap:4px; align-items:center;
+                                    padding:3px 5px; border:1px solid #e2e8f0; background:#fafafa; border-radius:3px; cursor:pointer; font-size:0.7rem; opacity:0.6;">
                             <span></span>
-                            <input type="checkbox" 
-                                   onclick="event.stopPropagation(); App.logic.exportToggle('${e.id}'); App.ui.updateExportPreview();"
-                                   style="margin:0; cursor:pointer;">
+                            <input type="checkbox" onclick="event.stopPropagation(); App.logic.exportToggle('${e.id}'); App.ui.updateExportPreview();" style="margin:0; cursor:pointer;">
                             <span style="color:#64748b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.nombre}</span>
-                        </div>
-                    `;
+                        </div>`;
                 });
             } else if(App.uiState.exportEmps.length === 0) {
-                html += `
-                    <div style="text-align:center; padding:15px; color:var(--text-muted); font-size:0.7rem;">
-                        ⚠️ Ningún empleado<br>seleccionado
-                    </div>
-                `;
+                html += `<div style="text-align:center; padding:15px; color:var(--text-muted); font-size:0.7rem;">⚠️ Ningún empleado<br>seleccionado</div>`;
             }
-            
+
             html += `
-                    </div>
-                </div>
-                
-                <!-- COLUMNA 2: Configuración -->
-                <div style="display:flex; flex-direction:column; gap:12px;">
-                    
-                    <!-- Fechas -->
-                    <div style="background:white; padding:12px; border-radius:6px; border:1px solid var(--border);">
-                        <h3 style="margin:0 0 10px 0; font-size:0.75rem; font-weight:700; color:var(--text-main); padding-bottom:6px; border-bottom:2px solid var(--border);">
-                            📅 Fechas
-                        </h3>
-                        <div class="form-group" style="margin-bottom:8px;">
-                            <label style="font-size:0.65rem; margin-bottom:3px; display:block;">Desde</label>
-                            ${Utils.getDateInputHTML('exp-start', App.uiState.exportStartDate, 'App.uiState.exportStartDate=this.dataset.isoValue; App.ui.updateExportPreview();')}
-                        </div>
-                        <div class="form-group" style="margin-bottom:0;">
-                            <label style="font-size:0.65rem; margin-bottom:3px; display:block;">Hasta</label>
-                            ${Utils.getDateInputHTML('exp-end', App.uiState.exportEndDate, 'App.uiState.exportEndDate=this.dataset.isoValue; App.ui.updateExportPreview();')}
-                        </div>
-                    </div>
-                    
-                    <!-- Generar -->
-                    <div style="background:white; padding:12px; border-radius:6px; border:1px solid var(--border);">
-                        <div style="margin-bottom:10px; padding:8px; background:#f0f9ff; border-left:3px solid var(--primary); border-radius:3px;">
-                            <div style="font-size:0.7rem; color:#0369a1; line-height:1.4;">
-                                <strong style="font-size:0.75rem;">📊 Master Data</strong><br>
-                                <span style="font-size:0.65rem; color:#0c4a6e;">
-                                    Exporta tabla plana con un turno por fila (formato análisis)
-                                </span>
+                                    </div>
+                                </div>
+
+                                <!-- Botón Master Data -->
+                                <button class="btn btn-primary" onclick="App.logic.exportMasterData()"
+                                        style="width:100%; font-size:0.78rem; padding:10px; display:flex; align-items:center; justify-content:center; gap:6px; font-weight:700; border-radius:6px;">
+                                    <span style="font-size:1rem;">📥</span> Master Data (.xlsx)
+                                </button>
                             </div>
-                        </div>
-                        
-                        <button class="btn btn-primary" onclick="App.logic.exportMasterData()" 
-                                style="width:100%; font-size:0.8rem; padding:10px; display:flex; align-items:center; justify-content:center; gap:6px; font-weight:700;">
-                            <span style="font-size:1rem;">📥</span> Exportar Master Data
-                        </button>
-                    </div>
-                    
-                </div>
-                
-                <!-- COLUMNA 3: Preview -->
-                <div style="background:white; padding:12px; border-radius:6px; border:1px solid var(--border); overflow:hidden;">
-                    <h3 style="margin:0 0 8px 0; font-size:0.75rem; font-weight:700; color:var(--text-main); padding-bottom:6px; border-bottom:2px solid var(--border);">
-                        👁️ Vista Previa para Horario Eficiente
-                    </h3>
-                    <div style="background:#f0fdf4; padding:6px 8px; margin-bottom:10px; border-left:3px solid #10b981; border-radius:3px; font-size:0.65rem; color:#166534; line-height:1.3;">
-                        ✓ Listo para pegar en la primera casilla del mismo día en el horario eficiente
-                    </div>
-                    <div id="export-preview" style="overflow:auto; max-height:500px; font-size:0.65rem;">
-                        <!-- Preview se renderiza aquí -->
-                    </div>
-                </div>
-                
-            </div>
+
+                            <!-- Sub-col dcha: preview -->
+                            <div>
+                                <div style="font-size:0.7rem; font-weight:700; color:#1e293b; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border);">
+                                    👁️ Vista Previa — Horario Eficiente
+                                </div>
+                                <div style="background:#f0fdf4; padding:5px 8px; margin-bottom:8px; border-left:3px solid #10b981; border-radius:3px; font-size:0.62rem; color:#166534;">
+                                    ✓ Listo para pegar en la primera casilla del mismo día en el horario eficiente
+                                </div>
+                                <div id="export-preview" style="overflow:auto; max-height:560px; font-size:0.65rem;"></div>
+                            </div>
+
+                        </div><!-- /grid interno -->
+                    </div><!-- /tarjeta B -->
+
+                </div><!-- /grid tarjetas -->
+            </div><!-- /wrapper -->
             `;
-            
+
             c.innerHTML = html;
-            
-            // Renderizar preview inicial
             App.ui.updateExportPreview();
         },
         
@@ -4603,8 +4994,8 @@ const App = {
                                     <span>Domingo</span>
                                 </div>
                             </div>
-                            <div style="font-size:0.7rem;">
-                                Total: <strong style="color:var(--primary); font-size:0.85rem;">${weekTotal.toFixed(0)}h</strong>
+                            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                                ${App.logic._weekStateRowHTML(monday)}
                             </div>
                         </div>
                     </div>
@@ -6282,7 +6673,7 @@ const App = {
                         <td>${Utils.getDateInputHTML('store-spec-' + i, s.date, specOnChange)}</td>
                         <td><select class="store-time-select" onchange="App.logic.specUpd(${i},'open',this.value)" ${s.closed?'disabled':''} style="min-width:65px;">${Utils.getTimeOptions(s.open)}</select></td>
                         <td><select class="store-time-select" onchange="App.logic.specUpd(${i},'close',this.value)" ${s.closed?'disabled':''} style="min-width:65px;">${Utils.getTimeOptions(s.close)}</select></td>
-                        <td style="text-align:center;"><input type="checkbox" class="store-checkbox" ${s.closed?'checked':''} onchange="App.logic.specUpd(${i},'closed',this.checked); App.ui.renderStore(document.querySelector('.main-scroll'));"></td>
+                        <td style="text-align:center;"><input type="checkbox" class="store-checkbox" ${s.closed?'checked':''} onchange="App.logic.specUpd(${i},'closed',this.checked); App.ui.renderCalendario(document.querySelector('.main-scroll'));"></td>
                         <td><button class="store-del-btn" onclick="App.logic.specDel(${i})">✕</button></td>
                     </tr>`;
                 });
@@ -6326,6 +6717,75 @@ const App = {
             
             html += `</div></div>`;
             c.innerHTML = html;
+        },
+
+        _calRenderFestivos: function() {
+            const rerender = "App.ui.renderCalendario(document.querySelector('.main-scroll'))";
+            let html = `<div class="store-card store-full-width" style="border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
+                <div class="store-card-header">
+                    <div class="store-card-title" style="font-weight:700; font-size:1rem;">🎊 Festivos ${Utils.infoTip(Utils.Tips.festivosVsDiasEspeciales)}</div>
+                    <button class="store-add-btn" onclick="App.logic.holAdd()">+ Añadir</button>
+                </div>`;
+            if(App.data.storeConfig.holidays.length === 0) {
+                html += `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.85rem;">No hay festivos configurados</div>`;
+            } else {
+                html += `<table class="store-table"><thead><tr><th>Fecha</th><th>Nombre</th><th style="width:60px;"></th></tr></thead><tbody>`;
+                App.data.storeConfig.holidays.forEach((hol, i) => {
+                    const holOnChange = `App.logic.holUpd(${i}, 'date', this.dataset.isoValue); ${rerender}`;
+                    html += `<tr>
+                        <td>${Utils.getDateInputHTML('cal-hol-' + i, hol.date, holOnChange)}</td>
+                        <td><input type="text" class="store-text-input" value="${hol.note}" onchange="App.logic.holUpd(${i},'note',this.value)" placeholder="Nombre del festivo"></td>
+                        <td><button class="store-del-btn" onclick="App.logic.holDel(${i})">✕</button></td>
+                    </tr>`;
+                });
+                html += `</tbody></table>`;
+            }
+            html += `</div>`;
+            return html;
+        },
+
+        _calRenderTienda: function() {
+            const rerender = "App.ui.renderCalendario(document.querySelector('.main-scroll'))";
+            let html = `<div class="store-grid">
+                <div class="store-card" style="border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
+                    <div class="store-card-header">
+                        <div class="store-card-title" style="font-weight:700; font-size:1rem;">📅 Horario Base</div>
+                    </div>
+                    <table class="store-table"><thead><tr><th>Día</th><th>Apertura</th><th>Cierre</th><th style="text-align:center;width:40px;">Cerrado</th></tr></thead><tbody>`;
+            ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo","Festivo"].forEach(d => {
+                const cf = App.data.storeConfig.base[d] || {open:"10:00", close:"22:00", closed:false};
+                const dayLabel = d === "Festivo" ? "🎉 Festivo" : d;
+                html += `<tr>
+                    <td class="store-day-name">${dayLabel}</td>
+                    <td><select class="store-time-select" onchange="App.logic.stBase('${d}','open',this.value)" ${cf.closed?'disabled':''}>${Utils.getTimeOptions(cf.open)}</select></td>
+                    <td><select class="store-time-select" onchange="App.logic.stBase('${d}','close',this.value)" ${cf.closed?'disabled':''}>${Utils.getTimeOptions(cf.close)}</select></td>
+                    <td style="text-align:center;"><input type="checkbox" class="store-checkbox" ${cf.closed?'checked':''} onchange="App.logic.stBase('${d}','closed',this.checked)"></td>
+                </tr>`;
+            });
+            html += `</tbody></table></div>
+                <div class="store-card" style="border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
+                    <div class="store-card-header">
+                        <div class="store-card-title" style="font-weight:700; font-size:1rem;">⚠️ Excepciones de Horario</div>
+                        <button class="store-add-btn" onclick="App.logic.specAdd()">+ Añadir</button>
+                    </div>`;
+            if(App.data.storeConfig.special.length === 0) {
+                html += `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.85rem;">No hay excepciones configuradas</div>`;
+            } else {
+                html += `<table class="store-table"><thead><tr><th style="width:110px;">Fecha</th><th style="width:70px;">Apert.</th><th style="width:70px;">Cierre</th><th style="width:40px;text-align:center;">Off</th><th style="width:60px;"></th></tr></thead><tbody>`;
+                App.data.storeConfig.special.forEach((s, i) => {
+                    const specOnChange = `App.logic.specUpd(${i}, 'date', this.dataset.isoValue)`;
+                    html += `<tr>
+                        <td>${Utils.getDateInputHTML('cal-spec-' + i, s.date, specOnChange)}</td>
+                        <td><select class="store-time-select" onchange="App.logic.specUpd(${i},'open',this.value)" ${s.closed?'disabled':''} style="min-width:65px;">${Utils.getTimeOptions(s.open)}</select></td>
+                        <td><select class="store-time-select" onchange="App.logic.specUpd(${i},'close',this.value)" ${s.closed?'disabled':''} style="min-width:65px;">${Utils.getTimeOptions(s.close)}</select></td>
+                        <td style="text-align:center;"><input type="checkbox" class="store-checkbox" ${s.closed?'checked':''} onchange="App.logic.specUpd(${i},'closed',this.checked); ${rerender}"></td>
+                        <td><button class="store-del-btn" onclick="App.logic.specDel(${i})">✕</button></td>
+                    </tr>`;
+                });
+                html += `</tbody></table>`;
+            }
+            html += `</div></div>`;
+            return html;
         }
     },
 
@@ -6404,7 +6864,8 @@ const App = {
                     schedule: JSON.parse(JSON.stringify(App.data.schedule)),
                     shiftDefs: JSON.parse(JSON.stringify(App.data.shiftDefs)),
                     requests: JSON.parse(JSON.stringify(App.data.requests)),
-                    storeConfig: JSON.parse(JSON.stringify(App.data.storeConfig))
+                    storeConfig: JSON.parse(JSON.stringify(App.data.storeConfig)),
+                    lockedDays: JSON.parse(JSON.stringify(App.data.lockedDays || {}))
                 }
             };
             
@@ -6544,22 +7005,23 @@ const App = {
             const undoBtn = document.getElementById('undo-btn');
             const redoBtn = document.getElementById('redo-btn');
             
-            const canUndo = App.uiState.historyIndex > 0;
-            const canRedo = App.uiState.historyIndex < App.uiState.history.length - 1;
+            const inPlanner = App.router.current() === 'planificador';
+            const canUndo = inPlanner && App.uiState.historyIndex > 0;
+            const canRedo = inPlanner && App.uiState.historyIndex < App.uiState.history.length - 1;
             
             if (undoBtn) {
                 undoBtn.disabled = !canUndo;
                 undoBtn.style.opacity = canUndo ? '1' : '0.3';
                 undoBtn.style.cursor = canUndo ? 'pointer' : 'not-allowed';
+                undoBtn.title = inPlanner ? (canUndo ? 'Deshacer (Ctrl+Z)' : 'Nada que deshacer') : 'Solo disponible en el planificador';
             }
             
             if (redoBtn) {
                 redoBtn.disabled = !canRedo;
                 redoBtn.style.opacity = canRedo ? '1' : '0.3';
                 redoBtn.style.cursor = canRedo ? 'pointer' : 'not-allowed';
+                redoBtn.title = inPlanner ? (canRedo ? 'Rehacer (Ctrl+Y)' : 'Nada que rehacer') : 'Solo disponible en el planificador';
             }
-            
-            console.log(`🔄 Botones actualizados: Undo=${canUndo ? 'ON' : 'OFF'}, Redo=${canRedo ? 'ON' : 'OFF'} [${App.uiState.historyIndex}/${App.uiState.history.length - 1}]`);
         },
         
         // GESTIÓN DE MODO DE DRAG (Editar / Intercambiar)
@@ -6597,6 +7059,99 @@ const App = {
             }
         },
         
+        _weekStateRowHTML: function(monday) {
+            const ws = this.getWeekState(monday);
+            const isClosed = ws === 'closed';
+            const trackCls = isClosed ? 'closed' : 'open';
+            const lblCls = isClosed ? 'is-closed' : '';
+            const lblTxt = isClosed ? 'Cerrada' : 'Abierta';
+            const title = isClosed ? 'Desbloquear semana' : 'Cerrar/bloquear semana';
+            return '<button type="button" class="week-lock-track ' + trackCls + '"'
+                 + ' data-monday="' + monday + '"'
+                 + ' onclick="App.logic.toggleWeekLock(this.dataset.monday)"'
+                 + ' title="' + title + '">'
+                 + '<div class="week-lock-thumb"></div></button>'
+                 + '<span class="week-lock-label ' + lblCls + '">' + lblTxt + '</span>';
+        },
+
+        // ── BLOQUEO DE DÍAS ──────────────────────────────────────────────────
+        // lockedDays: { "YYYY-MM-DD": true } — granularidad por día
+        // El estado de semana se deriva: todos bloqueados→cerrada, alguno→parcial, ninguno→vacía/abierta
+
+        isDayLocked: function(date) {
+            return !!(App.data.lockedDays && App.data.lockedDays[date]);
+        },
+
+        getWeekState: function(monday) {
+            const days = Utils.getWeekDays(monday);
+            const locked = App.data.lockedDays || {};
+            const allLocked = days.every(d => locked[d]);
+            if (allLocked) return 'closed';
+            // ¿Tiene algún turno asignado?
+            let hasAny = days.some(d => {
+                const dd = App.data.schedule[d];
+                return dd && Object.keys(dd).length > 0;
+            });
+            // ¿Tiene algún día bloqueado aunque no todos?
+            const someBlocked = days.some(d => locked[d]);
+            return (hasAny || someBlocked) ? 'partial' : 'empty';
+        },
+
+        toggleWeekLock: function(monday) {
+            if (!App.data.lockedDays) App.data.lockedDays = {};
+            const days = Utils.getWeekDays(monday);
+            const allLocked = days.every(d => App.data.lockedDays[d]);
+            if (allLocked) {
+                // Desbloquear todos
+                days.forEach(d => delete App.data.lockedDays[d]);
+            } else {
+                // Bloquear todos
+                days.forEach(d => App.data.lockedDays[d] = true);
+            }
+            Safe.save('v40_db', App.data);
+            App.ui.renderPlanner(document.getElementById('main-view'));
+        },
+
+        toggleDayLock: function(date) {
+            if (!App.data.lockedDays) App.data.lockedDays = {};
+            if (App.data.lockedDays[date]) {
+                delete App.data.lockedDays[date];
+            } else {
+                App.data.lockedDays[date] = true;
+            }
+            // Recalcular monday para actualizar UI de semana
+            const monday = Utils.getMonday(date);
+            Safe.save('v40_db', App.data);
+            App.ui.renderPlanner(document.getElementById('main-view'));
+        },
+
+        _refreshWeekStateUI: function(monday) {
+            // Actualización quirúrgica por IDs — sin re-render completo
+            const ws = this.getWeekState(monday);
+            const isClosed = ws === 'closed';
+            const dotCls = ws === 'empty' ? 'dot-empty' : ws === 'partial' ? 'dot-partial' : 'dot-closed';
+            const badgeCls = ws === 'empty' ? 'badge-empty' : ws === 'partial' ? 'badge-partial' : 'badge-closed';
+            const badgeLbl = ws === 'empty' ? 'Vacía' : ws === 'partial' ? 'Parcial' : 'Cerrada';
+
+            // Badge: reconstruir innerHTML (dot + texto)
+            const badge = document.getElementById('week-state-badge');
+            if (badge) {
+                badge.className = 'week-state-badge ' + badgeCls;
+                badge.innerHTML = '<span class="week-state-dot ' + dotCls + '"></span>' + badgeLbl;
+            }
+            const btn = document.getElementById('week-lock-btn');
+            if (btn) {
+                btn.className = 'week-lock-track ' + (isClosed ? 'closed' : 'open');
+                btn.title = isClosed ? 'Desbloquear semana' : 'Cerrar/bloquear semana';
+            }
+            const lbl = document.getElementById('week-lock-label');
+            if (lbl) {
+                lbl.className = 'week-lock-label' + (isClosed ? ' is-closed' : '');
+                lbl.textContent = isClosed ? 'Cerrada' : 'Abierta';
+            }
+        },
+        // ─────────────────────────────────────────────────────────────────────
+
         changeWeek: function(offset) {
             const weekStart = new Date(App.data.config?.weekStart || "2025-12-29");
             const week44_2025 = new Date(weekStart);
@@ -6722,7 +7277,10 @@ const App = {
                 
                 const weekLabel = `${weekCode} - De ${formatShortDate(monday)} a ${formatShortDate(sunday)}`;
                 const selected = monday === currentMonday ? 'selected' : '';
-                weekOptions += `<option value="${monday}" ${selected}>${indicator} ${weekLabel}</option>`;
+                // Dot based on weekState (locked > partial > empty)
+                const wsDot = App.logic.getWeekState(monday);
+                const dotChar = wsDot === 'closed' ? '🟢' : wsDot === 'partial' ? '🟡' : '⚪';
+                weekOptions += `<option value="${monday}" ${selected}>${dotChar} ${weekLabel}</option>`;
                 
                 // Avanzar a siguiente semana
                 current.setDate(current.getDate() + 7);
@@ -6769,8 +7327,8 @@ const App = {
                 
                 // SIEMPRE permitir borrador
                 if(sid === 'eraser') {
-                    this.saveSnapshot('Borrar turno');
                     delete App.data.schedule[date][empId];
+                    this.saveSnapshot('Borrar turno');
                     Safe.save('v40_db', App.data);
                     App.ui.renderPlanner(document.getElementById('main-view'));
                     App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
@@ -6816,17 +7374,14 @@ const App = {
                 action = 'Auto-asignar turno';
             }
             
-            // SEGUNDO: Guardar snapshot CON LA DESCRIPCIÓN CORRECTA
+            // SEGUNDO: Ejecutar la acción
             const emp = App.data.empleados.find(e => e.id === empId);
             const empName = emp ? emp.nombre : empId;
-            this.saveSnapshot(`${action} de ${empName}`);
-            
-            // TERCERO: Ejecutar la acción determinada
             if(sid === 'eraser') {
                 delete App.data.schedule[date][empId];
             } else if (sid === 'magic') {
-                const emp = App.data.empleados.find(e => e.id === empId);
-                const best = App.logic.getSmartShift(emp, finalConfig);
+                const empMagic = App.data.empleados.find(e => e.id === empId);
+                const best = App.logic.getSmartShift(empMagic, finalConfig);
                 if(best) App.data.schedule[date][empId] = best.id;
             } else { 
                 const shift = Utils.getShift(sid);
@@ -6836,6 +7391,8 @@ const App = {
                 }
                 App.data.schedule[date][empId] = sid; 
             }
+            // TERCERO: Snapshot DESPUÉS del cambio (para que redo pueda restaurar el estado con el turno)
+            this.saveSnapshot(`${action} de ${empName}`);
             Safe.save('v40_db', App.data); 
             App.ui.renderPlanner(document.getElementById('main-view'));
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
@@ -8229,8 +8786,10 @@ const App = {
             if(id){
                 const i=App.data.shiftDefs.findIndex(x=>x.id===id);
                 App.data.shiftDefs[i]=s;
+                this.saveSnapshot(`Editar turno ${s.code}`);
             } else {
                 App.data.shiftDefs.push(s);
+                this.saveSnapshot(`Crear turno ${s.code}`);
             }
             Safe.save('v40_db', App.data); 
             App.logic.shiftSelect(s.id); 
@@ -8342,7 +8901,6 @@ const App = {
             }
             
             if(confirm(confirmMsg)) { 
-                this.saveSnapshot('Eliminar turno de paleta');
                 if(usageCount > 0) {
                     // Convert all assignments to CUSTOM shifts
                     Object.keys(App.data.schedule).forEach(date => {
@@ -8365,6 +8923,7 @@ const App = {
                 
                 // Remove shift definition
                 App.data.shiftDefs = App.data.shiftDefs.filter(x => x.id !== id); 
+                this.saveSnapshot('Eliminar turno de paleta');
                 Safe.save('v40_db', App.data); 
                 // Deselect if was selected
                 if(App.uiState.paintShiftId === id) App.uiState.paintShiftId = null;
@@ -8632,13 +9191,13 @@ const App = {
             if(!confirm(lines.join('\n'))) return;
             if(!confirm(`🛑 ÚLTIMA CONFIRMACIÓN\n\nVas a eliminar ${total} turno${total!==1?'s':''} de ${emp.nombre} fuera de su vigencia.\n\n¿Proceder?`)) return;
 
-            this.saveSnapshot(`Limpiar vigencia: ${emp.nombre}`);
             Object.keys(App.data.schedule).forEach(date => {
                 if(App.data.schedule[date][empId] !== undefined && fueraDeVigencia(date)) {
                     delete App.data.schedule[date][empId];
                     if(Object.keys(App.data.schedule[date]).length === 0) delete App.data.schedule[date];
                 }
             });
+            this.saveSnapshot(`Limpiar vigencia: ${emp.nombre}`);
             Safe.save('v40_db', App.data);
             App.logic.checkAlerts();
             App.ui.renderEmpInspector(empId);
@@ -8662,8 +9221,6 @@ const App = {
        empDel: function(id) { 
     if(confirm("Estás a punto de borrar definitivamente este empleado. Esta acción eliminará también sus asignaciones del planificador y no se puede deshacer.\n\nSi la persona ha dejado tu equipo pero quieres conservar los datos de sus turnos en el historial, deshabilítalo, no la borres.\n\n¿Deseas continuar?")) { 
         
-        this.saveSnapshot('Eliminar empleado'); 
-        
         // Limpieza de schedule (hard delete real)
         let assignRemoved = 0;
         let datesTouched = 0;
@@ -8679,6 +9236,7 @@ const App = {
         }
 
         App.data.empleados = App.data.empleados.filter(x => x.id !== id);
+        this.saveSnapshot('Eliminar empleado');
         Safe.save('v40_db', App.data);
         App.uiState.selectedId = null;
         App.router.go('empleados');
@@ -8941,13 +9499,13 @@ const App = {
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
         },
         // STORE LOGIC
-        stBase: function(d,f,v) { if(!App.data.storeConfig.base[d]) App.data.storeConfig.base[d]={}; App.data.storeConfig.base[d][f]=v; Safe.save('v40_db',App.data); App.ui.renderStore(document.querySelector('.main-scroll')); },
-        holAdd: function() { App.data.storeConfig.holidays.push({date:"",note:""}); Safe.save('v40_db',App.data); App.ui.renderStore(document.querySelector('.main-scroll')); },
-        holUpd: function(i,f,v) { App.data.storeConfig.holidays[i][f]=v; Safe.save('v40_db',App.data); if(f==='date') App.ui.renderStore(document.querySelector('.main-scroll')); },
-        holDel: function(i) { App.data.storeConfig.holidays.splice(i,1); Safe.save('v40_db',App.data); App.ui.renderStore(document.querySelector('.main-scroll')); },
-        specAdd: function() { App.data.storeConfig.special.push({date:"", open:"10:00", close:"22:00", closed:false}); Safe.save('v40_db',App.data); App.ui.renderStore(document.querySelector('.main-scroll')); },
-        specUpd: function(i,f,v) { App.data.storeConfig.special[i][f]=v; Safe.save('v40_db',App.data); App.ui.renderStore(document.querySelector('.main-scroll')); },
-        specDel: function(i) { App.data.storeConfig.special.splice(i,1); Safe.save('v40_db',App.data); App.ui.renderStore(document.querySelector('.main-scroll')); },
+        stBase: function(d,f,v) { if(!App.data.storeConfig.base[d]) App.data.storeConfig.base[d]={}; App.data.storeConfig.base[d][f]=v; Safe.save('v40_db',App.data); App.ui.renderCalendario(document.querySelector('.main-scroll')); },
+        holAdd: function() { App.data.storeConfig.holidays.push({date:"",note:""}); Safe.save('v40_db',App.data); App.ui.renderCalendario(document.querySelector('.main-scroll')); },
+        holUpd: function(i,f,v) { App.data.storeConfig.holidays[i][f]=v; Safe.save('v40_db',App.data); if(f==='date') App.ui.renderCalendario(document.querySelector('.main-scroll')); },
+        holDel: function(i) { App.data.storeConfig.holidays.splice(i,1); Safe.save('v40_db',App.data); App.ui.renderCalendario(document.querySelector('.main-scroll')); },
+        specAdd: function() { App.data.storeConfig.special.push({date:"", open:"10:00", close:"22:00", closed:false}); Safe.save('v40_db',App.data); App.ui.renderCalendario(document.querySelector('.main-scroll')); },
+        specUpd: function(i,f,v) { App.data.storeConfig.special[i][f]=v; Safe.save('v40_db',App.data); App.ui.renderCalendario(document.querySelector('.main-scroll')); },
+        specDel: function(i) { App.data.storeConfig.special.splice(i,1); Safe.save('v40_db',App.data); App.ui.renderCalendario(document.querySelector('.main-scroll')); },
         
         // EXPORT LOGIC
         exportToggle: function(empId) {
@@ -9519,8 +10077,129 @@ const App = {
             
             alert(`✅ Master Data exportado correctamente!\n\nArchivo: ${filename}\nFilas: ${rows.length - 1} turnos`);
         },
-        
-        // --- IMPORT FUNCTIONS ---
+
+        exportICS: function(empId, mode = 'all') {
+            const emp = App.data.empleados.find(e => e.id === empId);
+            if(!emp) { alert('⚠️ Selecciona un empleado'); return; }
+
+            const start = App.uiState.exportStartDate;
+            const end   = App.uiState.exportEndDate;
+            if(!start || !end) { alert('⚠️ Selecciona un rango de fechas'); return; }
+
+            const labelMode   = App.uiState.icsLabelMode   || 'code';
+            const labelCustom = App.uiState.icsLabelCustom || 'Turno';
+
+            const getLabel = (shift) => {
+                if(labelMode === 'custom') return labelCustom;
+                return shift.code || 'Turno';
+            };
+
+            // Calname según modo
+            const calName = mode === 'fixed' ? `Libranzas ${emp.nombre}` : `Turnos ${emp.nombre}`;
+            const toICSdt = (dateISO, timeStr) => {
+                const [y,mo,d] = dateISO.split('-');
+                const [h,mi]   = timeStr.split(':');
+                return `${y}${mo}${d}T${h}${mi}00`;
+            };
+            // UID estable por evento (empleado + fecha + turno)
+            const uid = (dateISO, suffix) =>
+                `planificador-${empId}-${dateISO}-${suffix}@islazul`;
+
+            const lines = [
+                'BEGIN:VCALENDAR',
+                'VERSION:2.0',
+                'PRODID:-//Planificador Turnos//ES',
+                'CALSCALE:GREGORIAN',
+                'METHOD:PUBLISH',
+                `X-WR-CALNAME:${calName}`,
+                'X-WR-TIMEZONE:Europe/Madrid',
+            ];
+
+            let count = 0;
+            let cur = new Date(start + 'T00:00:00');
+            const endD = new Date(end + 'T00:00:00');
+
+            while(cur <= endD) {
+                const dateISO = cur.toISOString().slice(0,10);
+                const sid   = App.data.schedule[dateISO]?.[empId];
+                const shift = sid ? Utils.getShift(sid) : null;
+
+                if(shift && !shift.fixed && shift.start && shift.end && mode !== 'fixed') {
+                    const code     = getLabel(shift);
+                    const hasBreak = shift.breakStart && shift.breakEnd;
+
+                    if(hasBreak) {
+                        lines.push(
+                            'BEGIN:VEVENT',
+                            `UID:${uid(dateISO,'m')}`,
+                            `DTSTART:${toICSdt(dateISO, shift.start)}`,
+                            `DTEND:${toICSdt(dateISO, shift.breakStart)}`,
+                            `SUMMARY:${code}`,
+                            `DESCRIPTION:${code} – ${emp.nombre}`,
+                            'END:VEVENT'
+                        );
+                        lines.push(
+                            'BEGIN:VEVENT',
+                            `UID:${uid(dateISO,'t')}`,
+                            `DTSTART:${toICSdt(dateISO, shift.breakEnd)}`,
+                            `DTEND:${toICSdt(dateISO, shift.end)}`,
+                            `SUMMARY:${code}`,
+                            `DESCRIPTION:${code} – ${emp.nombre}`,
+                            'END:VEVENT'
+                        );
+                    } else {
+                        lines.push(
+                            'BEGIN:VEVENT',
+                            `UID:${uid(dateISO,'w')}`,
+                            `DTSTART:${toICSdt(dateISO, shift.start)}`,
+                            `DTEND:${toICSdt(dateISO, shift.end)}`,
+                            `SUMMARY:${code}`,
+                            `DESCRIPTION:${code} – ${emp.nombre}`,
+                            'END:VEVENT'
+                        );
+                    }
+                    count++;
+
+                } else if(shift && shift.fixed && mode !== 'work') {
+                    // Turno fijo (libranza, vacaciones, festivo, baja...) → evento de todo el día
+                    const [y,mo,d] = dateISO.split('-');
+                    const dateVal = `${y}${mo}${d}`;
+                    // DTEND de todo el día = día siguiente
+                    const nextDay = new Date(dateISO + 'T00:00:00');
+                    nextDay.setDate(nextDay.getDate() + 1);
+                    const [ny,nmo,nd] = nextDay.toISOString().slice(0,10).split('-');
+                    const nextVal = `${ny}${nmo}${nd}`;
+                    const label = shift.desc || shift.code || 'Libre';
+                    lines.push(
+                        'BEGIN:VEVENT',
+                        `UID:${uid(dateISO,'f')}`,
+                        `DTSTART;VALUE=DATE:${dateVal}`,
+                        `DTEND;VALUE=DATE:${nextVal}`,
+                        `SUMMARY:${label}`,
+                        `DESCRIPTION:${label} – ${emp.nombre}`,
+                        'END:VEVENT'
+                    );
+                    count++;
+                }
+                cur.setDate(cur.getDate() + 1);
+            }
+
+            if(count === 0) { alert('⚠️ No hay turnos de trabajo asignados a este empleado en el rango seleccionado'); return; }
+
+            lines.push('END:VCALENDAR');
+
+            const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            const [y,mo,d] = start.split('-');
+            const [y2,mo2,d2] = end.split('-');
+            const prefix = mode === 'fixed' ? 'Libranzas' : 'Turnos';
+            a.download = `${prefix}_${emp.nombre.replace(/\s+/g,'_')}_${d}-${mo}-${y}_${d2}-${mo2}-${y2}.ics`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+
+            alert(`✅ Fichero .ics generado con ${count} evento(s).\n\nImportalo en Google Calendar: Ajustes → Importar y exportar → Importar`);
+        },
         importAnalyze: function() {
             const text = document.getElementById('import-text').value;
             let week = document.getElementById('import-week').value;
