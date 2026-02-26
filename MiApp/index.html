@@ -1867,8 +1867,9 @@ const App = {
         
         renderPlannerInspector: function(c) {
             const tabs = [
-                {id: 'balance', icon: '📋', title: 'Balance Semanal'},
                 {id: 'charts', icon: '📊', title: 'Gráficos'},
+                {id: 'findes', icon: '📅', title: 'Rotación Fines de Semana'}, // <-- ¡NUEVA PESTAÑA AQUÍ!
+                {id: 'balance', icon: '📋', title: 'Balance Semanal'},
                 {id: 'equilibrio', icon: '⚖️', title: 'Equilibrio de Turnos'}
                 // Add more modules here as needed
             ];
@@ -1880,7 +1881,10 @@ const App = {
             });
             html += `</div><div style="padding:0">`;
 
-            if(App.uiState.monitorTab === 'balance') {
+            // NUEVO CONDICIONAL PARA LOS FINDES
+            if(App.uiState.monitorTab === 'findes') {
+                html += App.ui.renderMonitorFindes();
+            } else if(App.uiState.monitorTab === 'balance') {
                 html += App.ui.renderMonitorBalance();
             } else if(App.uiState.monitorTab === 'charts') {
                 // Charts tab: Daily + Hourly together
@@ -1905,6 +1909,163 @@ const App = {
             } catch(e) {
                 console.warn('Error scaling inspector:', e);
             }
+        },
+
+        renderMonitorFindes: function() {
+            // 1. OBTENER FECHAS Y EMPLEADOS
+            const currentDate = App.uiState.currentDate;
+            const currentMondayStr = Utils.getMonday(currentDate);
+            
+            // Helper para sumar/restar días matemáticamente
+            const addDays = (dateStr, days) => {
+                const d = new Date(dateStr);
+                d.setDate(d.getDate() + days);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
+
+            // Filtrar y ordenar empleados
+            let empList = App.data.empleados.filter(e => e.active !== false).sort((a,b) => {
+                const sk = App.uiState.sortKey || 'custom';
+                if(sk === 'custom') return a.customOrder - b.customOrder;
+                if(sk === 'contrato') return b.contrato - a.contrato;
+                if(sk === 'rol') { 
+                    const w = {"MNG":5,"AM":4,"SPV":3,"STF":2}; 
+                    return (w[b.rol]||0) - (w[a.rol]||0); 
+                }
+                return (a[sk]||'').localeCompare(b[sk]||'');
+            });
+
+            // 2. GENERAR CABECERAS DINÁMICAS (Ahora con padding 0 y doble dígito)
+            let html = `
+            <div style="padding: 15px; overflow-x: auto;">
+                <h3 style="margin-top: 0; font-size: 0.95rem; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Rotación de Fines de Semana (13W)</h3>
+                
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; text-align: center; table-layout: auto;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #cbd5e1; color: #64748b;">
+                            <th style="text-align: left; padding: 4px 2px; font-weight: 600;">Nombre</th>`;
+            
+            // Bucle modificado para -01, -02... y asegurar ancho fijo
+            for (let w = 1; w <= 13; w++) {
+                const numStr = String(w).padStart(2, '0');
+                html += `<th style="padding: 4px 0; min-width: 24px; width: 24px;" title="Hace ${w} semana(s)">-${numStr}</th>`;
+            }
+            
+            html += `   </tr>
+                    </thead>
+                    <tbody>`;
+
+            // Helper para pintar el dadito (Huecos, Sólidos y grises para Custom)
+            const getSquare = (dateStr, empId, dayName) => {
+                const shiftId = App.data.schedule[dateStr] ? App.data.schedule[dateStr][empId] : null;
+                
+                let bg = '#f1f5f9'; 
+                let border = '#e2e8f0';
+                let borderThickness = '1px';
+                let title = `${dayName}: Sin datos`;
+
+                if (shiftId) {
+                    const shift = Utils.getShift(shiftId);
+                    if (shift) {
+                        const isCustom = typeof Utils.isCustomShift === 'function' ? Utils.isCustomShift(shift) : (!shift.fixed && !shift.color && shift.start);
+
+                        if (isCustom) {
+                            bg = '#cbd5e1'; 
+                            border = '#94a3b8'; 
+                            borderThickness = '1px';
+                            const hoursStr = (shift.start && shift.end) ? ` (${shift.start.substring(0,5)}-${shift.end.substring(0,5)})` : '';
+                            title = `${dayName}: Custom${hoursStr}`;
+                        } else {
+                            bg = shift.color || '#3b82f6';
+                            border = shift.color || '#2563eb';
+                            borderThickness = '1px';
+                            title = `${dayName}: ${shift.code || 'Turno'}`;
+                        }
+                        
+                        // Huecos para ausencias
+                        if (['L', 'F', 'R'].includes(shift.code)) {
+                            bg = 'transparent'; 
+                            border = '#22c55e'; // Verde
+                            borderThickness = '2px';
+                            title = `${dayName}: ${shift.code}`;
+                        } else if (shift.code === 'V') {
+                            bg = 'transparent'; 
+                            border = '#a855f7'; // Violeta
+                            borderThickness = '2px';
+                            title = `${dayName}: Vacaciones`;
+                        } else if (['B', 'P'].includes(shift.code)) {
+                            bg = 'transparent'; 
+                            border = '#ef4444'; // Rojo
+                            borderThickness = '2px';
+                            title = `${dayName}: ${shift.code === 'B' ? 'Baja' : 'Permiso'}`;
+                        }
+                    }
+                }
+                
+                return `<div style="width:12px;height:12px;background:${bg};border:${borderThickness} solid ${border};border-radius:2px;box-sizing:border-box;margin:0 auto;" title="${title}"></div>`;
+            };
+
+            // 3. RELLENAR FILAS DE EMPLEADOS VIAJANDO EN EL TIEMPO
+            empList.forEach(e => {
+                html += `<tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="text-align: left; padding: 7px 2px; color: #334155; font-weight: 600; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${e.nombre}">${e.nombre}</td>`;
+                
+                for (let w = 1; w <= 13; w++) {
+                    const targetMonday = addDays(currentMondayStr, -(w * 7));
+                    const sabadoStr = addDays(targetMonday, 5);
+                    const domingoStr = addDays(targetMonday, 6);
+                    
+                    const sqSab = getSquare(sabadoStr, e.id, 'Sáb');
+                    const sqDom = getSquare(domingoStr, e.id, 'Dom');
+                    
+                    html += `<td style="padding: 7px 0; text-align: center;">
+                                <div style="display:flex;flex-direction:column;gap:1px;align-items:center;justify-content:center;">
+                                    ${sqSab}
+                                    ${sqDom}
+                                </div>
+                             </td>`;
+                }
+                html += `</tr>`;
+            });
+
+            if (empList.length === 0) {
+                html += `<tr><td colspan="14" style="padding: 15px; color: #94a3b8;">No hay empleados activos.</td></tr>`;
+            }
+
+            html += `   </tbody>
+                </table>
+                <div style="margin-top: 15px; margin-bottom: 15px; font-size: 0.7rem; color: #64748b; text-align: center; font-weight: bold;">
+                    Cuadrado superior = Sábado | Cuadrado inferior = Domingo
+                </div>
+            </div>`;
+
+            // 4. LEYENDA
+            html += `<div style="padding:10px 12px; background:#f8fafc; border-top:1px solid var(--border); font-size:0.65rem; color:var(--text-muted); line-height:1.6; margin: 0 15px 15px 15px; border-radius: 4px;">
+                <div onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.leyenda-arrow').textContent = this.nextElementSibling.style.display === 'none' ? '▸' : '▾';"
+                    style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; padding:2px 0 6px 0; color:#475569; font-weight:700; font-size:0.7rem;">
+                    <span>LEYENDA DE FINES DE SEMANA</span>
+                    <span class="leyenda-arrow" style="font-size:0.65rem; color:#94a3b8;">▸</span>
+                </div>
+                <div style="display:none;">
+                    <div style="margin-bottom:4px; margin-top: 6px;">
+                        <div style="display:grid; grid-template-columns: 20px 1fr; gap:6px 8px; align-items:center;">
+                            <div style="display:flex;flex-direction:column;gap:1px;align-items:center;"><div style="width:10px;height:10px;background:transparent;border:2px solid #22c55e;border-radius:2px;box-sizing:border-box;"></div><div style="width:10px;height:10px;background:transparent;border:2px solid #22c55e;border-radius:2px;box-sizing:border-box;"></div></div>
+                            <span>Finde libre (Huecos)</span>
+                            
+                            <div style="display:flex;flex-direction:column;gap:1px;align-items:center;"><div style="width:10px;height:10px;background:#3b82f6;border:1px solid #2563eb;border-radius:2px;box-sizing:border-box;"></div><div style="width:10px;height:10px;background:#3b82f6;border:1px solid #2563eb;border-radius:2px;box-sizing:border-box;"></div></div>
+                            <span>Trabajó los dos días (Sólidos)</span>
+                            
+                            <div style="display:flex;flex-direction:column;gap:1px;align-items:center;"><div style="width:10px;height:10px;background:#cbd5e1;border:1px solid #94a3b8;border-radius:2px;box-sizing:border-box;"></div><div style="width:10px;height:10px;background:transparent;border:2px solid #22c55e;border-radius:2px;box-sizing:border-box;"></div></div>
+                            <span>Trabajó sábado pero libró el domingo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+            return html;
         },
 
         renderMonitorBalance: function() {
@@ -3728,51 +3889,204 @@ const App = {
         // --- CONFIG ---
         renderConfig: function(c) {
             const configOnChange = "App.data.config.weekStart=this.dataset.isoValue; Safe.save('v40_db',App.data); App.router.go('config');";
-            c.innerHTML = `<div style="max-width:500px; margin:0 auto; background:white; padding:30px; border-radius:8px; border:1px solid #e2e8f0;">
-                <h2 style="margin-top:0">Configuración Global</h2>
-                <p style="color:#64748b">Ajustes del sistema y calendario.</p>
+            
+            // 1. FUNCIONES PARA LA FACTURACIÓN
+            window.mostrarEditorFacturacion = function() {
+                document.getElementById('vista-facturacion').style.display = 'none';
+                document.getElementById('editor-facturacion').style.display = 'block';
+            };
+
+            window.cancelarEditorFacturacion = function() {
+                document.getElementById('editor-facturacion').style.display = 'none';
+                document.getElementById('vista-facturacion').style.display = 'block';
+            };
+
+            window.guardarFacturacion = function() {
+                let texto = document.getElementById('input-facturacion').value;
+                let arrayNumeros = texto.split('\n')
+                    .map(linea => linea.trim())
+                    .filter(linea => linea !== '')
+                    .map(linea => {
+                        let sinPuntos = linea.replace(/\./g, '');
+                        let formatoJS = sinPuntos.replace(/,/g, '.');
+                        let numLimpio = formatoJS.replace(/[^\d.-]/g, '');
+                        return parseFloat(numLimpio);
+                    })
+                    .filter(num => !isNaN(num));
                 
-                <div class="form-group">
-                    <label>Fecha Inicio del Año Fiscal (WK01)</label>
-                    ${Utils.getDateInputHTML('config-week-start', App.data.config.weekStart, configOnChange)}
-                    <div class="hint" style="margin-top:5px; font-size:0.8rem; color:#64748b">
-                        Este lunes marca el inicio de la Semana 1 del año fiscal siguiente.<br>
-                        <strong>Ejemplo:</strong> Si seleccionas 29/12/2025, ese lunes será el inicio de <strong>2026WK01</strong>.
-                    </div>
-                </div>
+                App.data.config.facturacion = arrayNumeros;
+                Safe.save('v40_db', App.data);
+                App.router.go('config');
+            };
+
+            // 2. GENERAR GRÁFICA, EJE X Y LISTA SÓLIDA
+            let listaHtml = '<div style="color:#64748b; font-size:0.9rem; padding: 20px 0;">No hay datos de facturación cargados.</div>';
+            let chartHtml = '';
+            let textoParaEditor = "";
+
+            if (App.data.config.facturacion && App.data.config.facturacion.length > 0) {
+                textoParaEditor = App.data.config.facturacion.join('\n');
                 
-                <div class="form-group">
-                    <label>Horas Convenio (Anuales/Periodo)</label>
-                    <input type="number" value="${App.data.config.stdHours}" onchange="App.data.config.stdHours=this.value; Safe.save('v40_db',App.data)">
-                    <div class="hint" style="margin-top:5px; font-size:0.8rem; color:#64748b">Referencia para cálculos de productividad (Ej: 1800h).</div>
-                </div>
+                listaHtml = '<div style="max-height: 250px; overflow-y: auto; background: white; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">';
                 
-                <hr style="margin: 30px 0; border: none; border-top: 2px solid #fee2e2;">
+                let maxFacturacion = Math.max(...App.data.config.facturacion);
+                let barrasGrafica = '';
+                let etiquetasMeses = '';
                 
-                <div style="background:#fef2f2; border:2px solid #fee2e2; border-radius:8px; padding:20px;">
-                    <h3 style="margin:0 0 10px 0; color:#991b1b; display:flex; align-items:center; gap:8px;">
-                        <span style="font-size:1.5rem;">⚠️</span> ZONA DE PELIGRO
-                    </h3>
-                    <p style="color:#7f1d1d; font-size:0.9rem; margin-bottom:15px;">
-                        Acciones destructivas e irreversibles.
-                    </p>
+                // Lógica para fechas reales y cálculo de meses
+                let startDateStr = App.data.config.weekStart || "2025-12-29";
+                let parts = startDateStr.split('-');
+                let baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                let previousMonth = -1;
+                // Variable para alternar colores (empieza en falso = color vivo)
+                let usePaleColor = false;
+                const nombresMeses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+                App.data.config.facturacion.forEach((num, index) => {
+                    // CÁLCULO SEMANA
+                    let currentWeek = 9 + index;
+                    let currentYear = 2026;
+                    if (currentWeek > 52) { currentWeek -= 52; currentYear++; }
+                    let labelSemana = `${currentYear}WK${currentWeek.toString().padStart(2, '0')}`;
+                    let numBonito = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(num);
                     
-                    <div style="display:flex; flex-direction:column; gap:10px;">
-                        <button class="btn" style="width:100%; background:#7f1d1d; color:#fef2f2; border:2px solid #991b1b; font-weight:700; padding:12px;" 
-                                onclick="App.logic.massClearAll()" 
-                                title="Borrar solo las semanas planificadas">
-                            🧹 VACIAR SOLO EL PLANIFICADOR
-                        </button>
+                    // CÁLCULO MES REAL
+                    let diasOffset = ((8 + index) * 7) + 3;
+                    let thursday = new Date(baseDate.getTime());
+                    thursday.setDate(thursday.getDate() + diasOffset);
+                    let currentMonth = thursday.getMonth();
+                    
+                    let monthLabel = "";
+                    // Si cambiamos de mes...
+                    if (currentMonth !== previousMonth) {
+                        monthLabel = nombresMeses[currentMonth];
+                        previousMonth = currentMonth;
+                        // ...y no es la primera iteración, cambiamos el color
+                        if (index > 0) usePaleColor = !usePaleColor;
+                    }
+
+                    // DEFINIR COLORES SEGÚN LA ALTERNANCIA
+                    // Azul vivo (#3b82f6) vs Azul pálido (#93c5fd)
+                    const baseColor = usePaleColor ? '#93c5fd' : '#3b82f6';
+                    // Colores de hover correspondientes (un poco más oscuros)
+                    const hoverColor = usePaleColor ? '#60a5fa' : '#1e3a8a';
+
+                    listaHtml += `
+                        <div style="background: #f8fafc; padding: 8px 12px; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                            <strong style="color: #3b82f6; white-space: nowrap;">${labelSemana}</strong> 
+                            <span style="font-weight: 600; color: #334155; white-space: nowrap;">${numBonito}</span>
+                        </div>`;
+
+                    let alturaBarra = maxFacturacion > 0 ? (num / maxFacturacion) * 100 : 0;
+                    // Usamos las variables de color dinámicas aquí
+                    barrasGrafica += `
+                        <div title="${labelSemana} \n ${numBonito}" 
+                             style="flex: 1; background-color: ${baseColor}; height: ${alturaBarra}%; min-width: 4px; border-radius: 2px 2px 0 0; cursor: crosshair; transition: background 0.2s;" 
+                             onmouseover="this.style.backgroundColor='${hoverColor}'" 
+                             onmouseout="this.style.backgroundColor='${baseColor}'">
+                        </div>`;
+
+                    etiquetasMeses += `
+                        <div style="flex: 1; text-align: center; position: relative; min-width: 4px;">
+                            ${monthLabel ? `<span style="font-size: 0.6rem; color: #475569; font-weight: 700; position: absolute; left: 50%; transform: translateX(-50%); top: 4px;">${monthLabel}</span>` : ''}
+                        </div>`;
+                });
+                listaHtml += '</div>';
+
+                chartHtml = `
+                    <div style="margin-bottom: 25px;">
+                        <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 5px;">Evolución de ventas (Eje Y: Euros, Eje X: Meses)</div>
+                        <div style="height: 150px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 2px solid #94a3b8; border-left: 2px solid #94a3b8; padding-bottom: 1px; padding-left: 4px; background: repeating-linear-gradient(0deg, transparent, transparent 24px, #f1f5f9 25px);">
+                            ${barrasGrafica}
+                        </div>
+                        <div style="height: 20px; display: flex; align-items: flex-start; gap: 2px; padding-left: 6px; border-left: 2px solid transparent;">
+                            ${etiquetasMeses}
+                        </div>
+                    </div>`;
+            }
+
+            // 3. PINTAR EL HTML
+            c.innerHTML = `
+            <div style="max-width:1200px; margin:0 auto; padding: 20px;">
+                <div style="margin-bottom: 25px;">
+                    <h2 style="margin:0; font-size: 1.8rem; color: #0f172a;">Configuración Global</h2>
+                    <p style="color:#64748b; margin-top: 5px;">Ajustes del sistema, calendario y motor financiero.</p>
+                </div>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 30px; align-items: flex-start;">
+                    
+                    <div style="flex: 1 1 350px; display: flex; flex-direction: column; gap: 25px;">
+                        <div style="background:white; padding:25px; border-radius:8px; border:1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                            <div class="form-group">
+                                <label style="font-weight: 600; color: #1e293b;">Fecha Inicio del Año Fiscal (WK01)</label>
+                                <div style="margin-top: 8px;">
+                                    ${Utils.getDateInputHTML('config-week-start', App.data.config.weekStart, configOnChange)}
+                                </div>
+                                <div class="hint" style="margin-top:8px; font-size:0.8rem; color:#64748b; line-height: 1.4;">
+                                    Este lunes marca el inicio de la Semana 1 del año fiscal siguiente.<br>
+                                    <strong>Ejemplo:</strong> 29/12/2025 será el inicio de <strong>2026WK01</strong>.
+                                </div>
+                            </div>
+                            
+                            <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;">
+                            
+                            <div class="form-group">
+                                <label style="font-weight: 600; color: #1e293b;">Horas Convenio (Anuales/Periodo)</label>
+                                <input type="number" style="margin-top: 8px; width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;" value="${App.data.config.stdHours}" onchange="App.data.config.stdHours=this.value; Safe.save('v40_db',App.data)">
+                                <div class="hint" style="margin-top:8px; font-size:0.8rem; color:#64748b;">Referencia para cálculos de productividad (Ej: 1792h).</div>
+                            </div>
+                        </div>
+
+                        <div style="background:#fef2f2; border:2px solid #fca5a5; border-radius:8px; padding:25px;">
+                            <h3 style="margin:0 0 10px 0; color:#991b1b; display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:1.5rem;">⚠️</span> ZONA DE PELIGRO
+                            </h3>
+                            <p style="color:#7f1d1d; font-size:0.9rem; margin-bottom:20px;">Acciones destructivas e irreversibles.</p>
+                            
+                            <div style="display:flex; flex-direction:column; gap:12px;">
+                                <button class="btn" style="width:100%; background:#7f1d1d; color:#fef2f2; border:2px solid #991b1b; font-weight:700; padding:12px; cursor: pointer; border-radius: 4px;" 
+                                        onclick="App.logic.massClearAll()" title="Borrar solo las semanas planificadas">
+                                    🧹 VACIAR SOLO EL PLANIFICADOR
+                                </button>
+                                <button class="btn" style="width:100%; background:black; color:white; border:2px solid #ef4444; font-weight:700; padding:12px; cursor: pointer; border-radius: 4px;" 
+                                        onclick="App.logic.factoryReset()" title="PELIGRO EXTREMO: Borrado total de fábrica">
+                                    💣 RESTABLECIMIENTO DE FÁBRICA
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="flex: 2 1 500px; background:white; padding:25px; border-radius:8px; border:1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                         
-                        <button class="btn" style="width:100%; background:black; color:white; border:2px solid #ef4444; font-weight:700; padding:12px;" 
-                                onclick="App.logic.factoryReset()" 
-                                title="PELIGRO EXTREMO: Borrado total de fábrica">
-                            💣 RESTABLECIMIENTO DE FÁBRICA (BORRAR TODO)
-                        </button>
-                    </div>
-                    
-                    <div style="margin-top:10px; font-size:0.75rem; color:#991b1b; text-align:center;">
-                        El restablecimiento de fábrica borrará empleados, turnos, configuración y planificador.
+                        <div id="vista-facturacion">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <div>
+                                    <h3 style="margin: 0; color: #0f172a; display: flex; align-items: center; gap: 8px;">📊 Previsión de Facturación Anual</h3>
+                                    <div style="font-size:0.85rem; color:#64748b; margin-top: 4px;">Base para calcular la plantilla ideal semanal.</div>
+                                </div>
+                                <button class="btn" style="padding: 8px 16px; font-size: 0.9rem; background: #f8fafc; color: #3b82f6; border: 1px solid #3b82f6; border-radius: 6px; cursor: pointer; font-weight: 600;" onclick="window.mostrarEditorFacturacion()">✎ Modificar Datos</button>
+                            </div>
+                            
+                            ${chartHtml}
+                            ${listaHtml}
+                        </div>
+
+                        <div id="editor-facturacion" style="display: none;">
+                            <h3 style="margin: 0 0 15px 0; color: #0f172a;">Editar Datos de Facturación</h3>
+                            <label style="display: block; margin-bottom: 10px; color: #475569;"><strong>Pega la columna del Excel (Z2:Z54)</strong></label>
+                            <textarea 
+                                id="input-facturacion"
+                                rows="12" 
+                                style="width: 100%; resize: vertical; padding: 12px; font-family: monospace; font-size: 0.95rem; border: 2px solid #3b82f6; border-radius: 6px; background: #f8fafc;" 
+                                placeholder="Ejemplo:\n1.500.000,50\n45.000\n..."
+                            >${textoParaEditor}</textarea>
+                            
+                            <div style="display: flex; gap: 15px; margin-top: 20px;">
+                                <button class="btn" style="flex: 2; background: #10b981; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem;" onclick="window.guardarFacturacion()">💾 Guardar y Generar Gráfica</button>
+                                <button class="btn" style="flex: 1; background: #e2e8f0; color: #475569; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;" onclick="window.cancelarEditorFacturacion()">Cancelar</button>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>`;
