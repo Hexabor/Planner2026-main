@@ -1271,7 +1271,22 @@ const Utils = {
         const event = new Event('change', { bubbles: true });
         input.dispatchEvent(event);
     },
-    getMonday: function(d) { d = new Date(d); var day = d.getDay(), diff = d.getDate() - day + (day == 0 ? -6 : 1); return new Date(d.setDate(diff)).toISOString().slice(0,10); },
+
+    getMonday: function(d) { 
+            const date = new Date(d);
+            // Fijar al mediodía para evitar problemas de DST
+            date.setHours(12, 0, 0, 0);
+            const day = date.getDay();
+            const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+            date.setDate(diff);
+            
+            // Formateo local manual
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const dayStr = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${dayStr}`;
+    },    
+        
     getWeekDays: function(mondayStr) { let d=new Date(mondayStr); let days=[]; for(let i=0;i<7;i++){ let next=new Date(d); next.setDate(d.getDate()+i); days.push(next.toISOString().slice(0,10)); } return days; },
     getDayName: function(iso) { return ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'][new Date(iso).getDay()]; },
     getDayKey: function(iso) { return ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"][new Date(iso).getDay()]; },
@@ -3887,6 +3902,7 @@ const App = {
         },
 
         // --- CONFIG ---
+        // --- CONFIG ---
         renderConfig: function(c) {
             const configOnChange = "App.data.config.weekStart=this.dataset.isoValue; Safe.save('v40_db',App.data); App.router.go('config');";
             
@@ -3938,37 +3954,29 @@ const App = {
                 let parts = startDateStr.split('-');
                 let baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
                 let previousMonth = -1;
-                // Variable para alternar colores (empieza en falso = color vivo)
                 let usePaleColor = false;
                 const nombresMeses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
                 App.data.config.facturacion.forEach((num, index) => {
-                    // CÁLCULO SEMANA
                     let currentWeek = 9 + index;
                     let currentYear = 2026;
                     if (currentWeek > 52) { currentWeek -= 52; currentYear++; }
                     let labelSemana = `${currentYear}WK${currentWeek.toString().padStart(2, '0')}`;
                     let numBonito = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(num);
                     
-                    // CÁLCULO MES REAL
                     let diasOffset = ((8 + index) * 7) + 3;
                     let thursday = new Date(baseDate.getTime());
                     thursday.setDate(thursday.getDate() + diasOffset);
                     let currentMonth = thursday.getMonth();
                     
                     let monthLabel = "";
-                    // Si cambiamos de mes...
                     if (currentMonth !== previousMonth) {
                         monthLabel = nombresMeses[currentMonth];
                         previousMonth = currentMonth;
-                        // ...y no es la primera iteración, cambiamos el color
                         if (index > 0) usePaleColor = !usePaleColor;
                     }
 
-                    // DEFINIR COLORES SEGÚN LA ALTERNANCIA
-                    // Azul vivo (#3b82f6) vs Azul pálido (#93c5fd)
                     const baseColor = usePaleColor ? '#93c5fd' : '#3b82f6';
-                    // Colores de hover correspondientes (un poco más oscuros)
                     const hoverColor = usePaleColor ? '#60a5fa' : '#1e3a8a';
 
                     listaHtml += `
@@ -3978,7 +3986,6 @@ const App = {
                         </div>`;
 
                     let alturaBarra = maxFacturacion > 0 ? (num / maxFacturacion) * 100 : 0;
-                    // Usamos las variables de color dinámicas aquí
                     barrasGrafica += `
                         <div title="${labelSemana} \n ${numBonito}" 
                              style="flex: 1; background-color: ${baseColor}; height: ${alturaBarra}%; min-width: 4px; border-radius: 2px 2px 0 0; cursor: crosshair; transition: background 0.2s;" 
@@ -4035,7 +4042,21 @@ const App = {
                                 <input type="number" style="margin-top: 8px; width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;" value="${App.data.config.stdHours}" onchange="App.data.config.stdHours=this.value; Safe.save('v40_db',App.data)">
                                 <div class="hint" style="margin-top:8px; font-size:0.8rem; color:#64748b;">Referencia para cálculos de productividad (Ej: 1792h).</div>
                             </div>
-                        </div>
+
+                            <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;">
+                            
+                            <div class="form-group">
+                                <label style="font-weight: 600; color: #1e293b;">Opciones de Contratos (Horas/Semana)</label>
+                                <input type="text" 
+                                       style="margin-top: 8px; width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;" 
+                                       value="${App.data.config.opcionesContrato ? App.data.config.opcionesContrato.join(', ') : '40, 35, 30, 25, 20, 15'}" 
+                                       onchange="App.data.config.opcionesContrato = this.value.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n)); Safe.save('v40_db',App.data)"
+                                       placeholder="Ej: 40, 30, 20">
+                                <div class="hint" style="margin-top:8px; font-size:0.8rem; color:#64748b;">
+                                    Valores separados por comas. Saldrán en el desplegable al crear/editar el contrato de un empleado.
+                                </div>
+                            </div>
+                            </div>
 
                         <div style="background:#fef2f2; border:2px solid #fca5a5; border-radius:8px; padding:25px;">
                             <h3 style="margin:0 0 10px 0; color:#991b1b; display:flex; align-items:center; gap:8px;">
@@ -5551,160 +5572,138 @@ const App = {
             });
             
             empList.forEach(e => {
-                let shiftId = dayAssignments[e.id];
+                // --- 1. CÁLCULO DE DEUDA REAL (HISTORIAL + CURSOS ANTERIORES) ---
+                let adeudadosTotal = 0;
+                let compensadosTotal = 0;
+
+                try {
+                    // A. Contamos festivos del calendario donde el empleado estaba vigente
+                    if (App.data.storeConfig.holidays) {
+                        App.data.storeConfig.holidays.forEach(h => {
+                            if (Utils.empleadoVigenteEnFecha(e, h.date)) {
+                                // Calculamos el estado de ese festivo (si trabajó o coincidió con L)
+                                const sid = App.data.schedule[h.date]?.[e.id];
+                                const shift = sid ? Utils.getShift(sid) : null;
+                                
+                                if (shift) {
+                                    let esDeuda = false;
+                                    // Si trabajó (horas) o si es F pero no tiene las 2L de rigor (coincide)
+                                    if (shift.start && shift.end) {
+                                        esDeuda = true;
+                                    } else if (shift.fixed && shift.code === 'F') {
+                                        const mon = Utils.getMonday(h.date);
+                                        const wdays = Utils.getWeekDays(mon);
+                                        let countL = 0;
+                                        wdays.forEach(d => {
+                                            const s2 = App.data.schedule[d]?.[e.id];
+                                            const sh2 = s2 ? Utils.getShift(s2) : null;
+                                            if (sh2 && sh2.fixed && sh2.code === 'L') countL++;
+                                        });
+                                        if (countL < 2) esDeuda = true;
+                                    }
+
+                                    if (esDeuda) {
+                                        adeudadosTotal++;
+                                        // B. Si tiene una R asignada en el tracking, se resta de la deuda
+                                        if (e.festivoTracking?.[h.date]?.rDate) {
+                                            compensadosTotal++;
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                } catch (err) { console.error("Error en balance global:", err); }
+
+                // Cálculo final en días (convertido a horas si prefieres, x8)
+                const ajusteFicha = parseFloat(e.recPendientes || 0) / 8; // recPendientes suele estar en horas
+                const pendientesTotal = (adeudadosTotal - compensadosTotal) + ajusteFicha;
+                const horasPendientes = pendientesTotal * 8;
+
+                const txtTooltip = `📊 BALANCE GLOBAL FESTIVOS:\n` +
+                                 `• Total Adeudados: ${adeudadosTotal} días\n` +
+                                 `• Total Compensados: ${compensadosTotal} días\n` +
+                                 (ajusteFicha !== 0 ? `• Ajuste manual: ${ajusteFicha.toFixed(1)} días\n` : '') +
+                                 `---------------------------\n` +
+                                 `💰 PENDIENTE: ${horasPendientes.toFixed(2)}h (${pendientesTotal.toFixed(1)} días)`;
+
+                // --- 2. LÓGICA DE ROTACIÓN (PUNTO DE COLOR) ---
+                let weekendIcon = '';
+                try {
+                    const monRot = Utils.getMonday(App.uiState.currentDate);
+                    const status = App.logic.getLibreWeekendStatus(e, monRot);
+                    if (status) {
+                        const color = status.isLibre ? '#10b981' : '#ef4444';
+                        weekendIcon = `<span style="color:${color}; margin-left:4px; font-size:10px;" title="${status.text}">●</span>`;
+                    }
+                } catch(err) {}
+
+                // --- 3. VARIABLES DE RENDERIZADO (NO TOCAR) ---
+                const date = App.uiState.currentDate;
+                const dayAssignments = App.data.schedule[date] || {};
+                const shiftId = dayAssignments[e.id];
+                const shift = shiftId ? Utils.getShift(shiftId) : null;
                 const request = Utils.getRequest(e.id, date);
                 const isDisabled = e.active === false;
-                
-                // Los turnos para solicitudes aprobadas ya se crean automáticamente en reqSave()
-                // No necesitamos forzarlos aquí - simplemente mostramos lo que hay en schedule
-                
-                const shift = shiftId ? Utils.getShift(shiftId) : null;
                 const computedTag = e.tag || (['MNG','AM','SPV'].includes(e.rol) ? 3 : 1);
+                const tag3Class = (computedTag >= 3) ? 'tag3-highlight' : '';
+                const disabledBg = isDisabled ? 'background:#f1f5f9 !important;' : '';
                 
-                // Marcar empleados deshabilitados con (des)
-                let nameContent = e.nombre;
-                if (isDisabled) {
-                    nameContent += ' <span style="color:#94a3b8; font-size:0.75em;">(des)</span>';
-                }
-                
-                // Determinar estado de petición y columna REQ
-                let reqClass = '';
-                let reqIcon = '';
-                if(request && request.status !== 'rejected') { 
-                    let icon='⚠️'; 
-                    if(request.type==='VAC') icon='🏖️'; 
-                    if(request.type==='BAJ') icon='🏥'; 
-                    if(request.type==='LIB') icon='🏠';
-                    if(request.type==='AP') icon='📋';
-                    if(request.type==='HRL') icon='⏰';
-                    
-                    reqIcon = icon;
-                    
-                    // Turnos permitidos por tipo (coherente con paint() y getAlerts())
-                    const allowedShifts = {
-                        'VAC': ['V'],
-                        'LIB': ['L', 'F', 'R', 'V'],
-                        'BAJ': ['B'],
-                        'AP': ['P']
-                    };
-                    
-                    // Determinar si la petición está atendida correctamente
-                    let isAttended = false;
-                    if(request.type === 'HRL') {
-                        // HRL: atendida si el turno es libre O no solapa el tramo pedido
-                        if(!shift || shift.fixed) {
-                            isAttended = true; // día libre, festivo, etc.
-                        } else if(shift.start && shift.end && request.hrlFrom && request.hrlTo) {
-                            const getMin = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
-                            const solapa = getMin(shift.start) < getMin(request.hrlTo) && getMin(shift.end) > getMin(request.hrlFrom);
-                            isAttended = !solapa;
-                        } else {
-                            isAttended = true; // sin datos suficientes, asumir OK
-                        }
-                    } else {
-                        const allowed = allowedShifts[request.type] || [];
-                        isAttended = shift && shift.code && allowed.includes(shift.code);
-                    }
-                    
-                    if(request.status === 'approved' && isAttended) {
-                        reqClass = 'req-approved-attended';  // Verde ✅
-                    } else if(request.status === 'approved' && !isAttended) {
-                        reqClass = 'req-approved-unattended';  // Rojo ⚠️
-                    } else if(request.status === 'pending') {
-                        reqClass = 'req-pending';  // Amarillo ⏳
-                    }
-                } else if(request && request.status === 'rejected') {
-                    reqClass = 'req-rejected';  // Gris
-                }
-                
+                let nameContent = e.nombre + weekendIcon;
+                if (isDisabled) nameContent += ' <span style="color:#94a3b8; font-size:0.75em;">(des)</span>';
+
                 const tagClass = computedTag === 3 ? 'badge-tag-3' : 'badge-tag-1';
                 const tagContent = `<span class="${tagClass}">T${computedTag}</span>`;
                 const rolContent = `<span class="badge-role">${e.rol}</span>`;
-                
-                // Calculate hours and schedule
+
                 let hoursContent = '<span style="color:#cbd5e1;">—</span>';
                 let scheduleContent = '<span style="color:#cbd5e1;">—</span>';
-                let scheduleColor = ''; // Color de fondo para la celda
-                
+                let scheduleColor = ''; 
+
                 if(shift) {
                     if(shift.fixed) {
-                        // Fixed shifts show code in hours column
                         hoursContent = `<span style="color:${shift.color}; font-weight:700; font-size:0.8rem;">${shift.code}</span>`;
                         scheduleContent = `<span style="color:${shift.color}; font-size:0.6rem;">${shift.desc}</span>`;
                     } else if(shift.start && shift.end) {
                         const hours = Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break);
-                        
-                        // Mostrar horas para todos los turnos (paleta y CUSTOM)
                         hoursContent = `${hours}h`;
-                        
-                        // Aplicar color de texto (sin fondo)
-                        const isCustom = Utils.isCustomShift(shift);
-                        
-                        if (isCustom) {
-                            // CUSTOM: gris oscuro
-                            scheduleColor = 'color:#6b7280;font-weight:600;';
-                        } else if (shift.color) {
-                            // Paleta: color del turno
-                            scheduleColor = `color:${shift.color};font-weight:600;`;
-                        } else {
-                            // Turno sin color (raro, pero por si acaso)
-                            scheduleColor = 'color:#6b7280;font-weight:600;';
-                        }
-                        
-                        if(shift.breakStart && shift.breakEnd) {
-                            // Partido: "10-14 / 18-22"
-                            const s1 = shift.start.substring(0,5);
-                            const b1 = shift.breakStart.substring(0,5);
-                            const b2 = shift.breakEnd.substring(0,5);
-                            const e1 = shift.end.substring(0,5);
-                            scheduleContent = `<div>${s1}-${b1}</div><div>${b2}-${e1}</div>`;
-                        } else {
-                            // Normal: "14:00-22:00"
-                            scheduleContent = `${shift.start.substring(0,5)}-${shift.end.substring(0,5)}`;
-                        }
+                        scheduleColor = `color:${shift.color || '#6b7280'};font-weight:600;`;
+                        scheduleContent = `${shift.start.substring(0,5)}-${shift.end.substring(0,5)}`;
                     }
                 }
 
-                // Determinar clases adicionales para el fondo
+                let reqClass = ''; let reqIcon = '';
+                if(request && request.status !== 'rejected') { 
+                    let icon='⚠️'; if(request.type==='VAC') icon='🏖️'; if(request.type==='BAJ') icon='🏥'; 
+                    if(request.type==='LIB') icon='🏠'; if(request.type==='AP') icon='📋'; if(request.type==='HRL') icon='⏰';
+                    reqIcon = icon;
+                    if(request.status === 'approved') reqClass = 'req-approved-attended';
+                    else if(request.status === 'pending') reqClass = 'req-pending';
+                }
+
                 let absenceClass = '';
                 if(shift && shift.fixed) {
                     const code = shift.code;
-                    if(code === 'B' || code === 'P') {
-                        absenceClass = 'absence-red';
-                    } else if(code === 'V') {
-                        absenceClass = 'absence-purple';
-                    } else if(code === 'L' || code === 'F' || code === 'R') {
-                        absenceClass = 'absence-green';
-                    }
+                    if(code === 'B' || code === 'P') absenceClass = 'absence-red';
+                    else if(code === 'V') absenceClass = 'absence-purple';
+                    else if(code === 'L' || code === 'F' || code === 'R') absenceClass = 'absence-green';
                 }
-                
-                const tag3Class = (computedTag >= 3) ? 'tag3-highlight' : '';
-                
-                // Determinar si el turno es editable
+
                 const isEditable = shift && !shift.fixed && shift.start && shift.end;
                 const scheduleClick = isEditable ? `onclick="event.stopPropagation(); App.logic.editSchedule('${e.id}', '${date}')"` : '';
-                const scheduleCursor = isEditable ? 'cursor:pointer;' : '';
-                const scheduleTitle = isEditable ? 'title="Click para editar horario"' : '';
-                
-                // Estilo para empleados deshabilitados - aplicar a TODAS las celdas
-                const disabledBg = isDisabled ? 'background:#f1f5f9 !important;' : '';
-                
-                // Para schedules: aplicar color SOLO si no está disabled
-                const finalScheduleStyle = isDisabled ? disabledBg : `${scheduleCursor}${scheduleColor}`;
+                const finalScheduleStyle = isDisabled ? disabledBg : `cursor:${isEditable?'pointer':'default'};${scheduleColor}`;
 
+                // --- 4. SALIDA HTML ---
                 html += `<div class="pg-row" onclick="App.logic.paint('${e.id}')">
-                    <div class="pg-name ${tag3Class}" style="${disabledBg}">${nameContent}</div>
+                    <div class="pg-name ${tag3Class}" style="${disabledBg}; cursor:help;" title="${txtTooltip}">${nameContent}</div>
                     <div class="pg-rol ${tag3Class}" style="${disabledBg}">${rolContent}</div>
                     <div class="pg-tag ${tag3Class}" style="${disabledBg}">${tagContent}</div>
                     <div class="pg-hours" style="${disabledBg}">${hoursContent}</div>
-                    <div class="pg-schedule" ${scheduleClick} ${scheduleTitle} style="${finalScheduleStyle}" id="schedule-${e.id}">${scheduleContent}</div>
+                    <div class="pg-schedule" ${scheduleClick} style="${finalScheduleStyle}" id="schedule-${e.id}">${scheduleContent}</div>
                     <div class="pg-req ${reqClass}" style="${disabledBg}">${reqIcon}</div>
-                    <div class="pg-right ${absenceClass}" style="${disabledBg}"
-                         ondragover="App.logic.shiftDragOver(event)" 
-                         ondrop="App.logic.shiftDrop(event, '${e.id}', '${date}')"
-                         ondragleave="this.classList.remove('drag-over-active')">${Utils.renderPlannerTimeline(shift, finalConfig, e.id, date)}</div>
+                    <div class="pg-right ${absenceClass}" style="${disabledBg}">${Utils.renderPlannerTimeline(shift, finalConfig, e.id, date)}</div>
                 </div>`;
-            });
+            });;;;;
             
             // Cerrar planner-grid
             html += `</div>`;
@@ -6135,199 +6134,144 @@ const App = {
             return `<select class="table-select" style="background-color:${bg}" onclick="event.stopPropagation()" onchange="event.stopPropagation(); App.logic.empPref('${empId}','shift',this.value)">${optsHtml}</select>`;
         },
         renderEmpInspector: function(id) {
-            const e = id ? App.data.empleados.find(x => x.id === id) : { nombre:'', rol:'STF', contrato:40, active:true, saldoInicial:0, recPendientes:0, vacPendientes:0 };
-            const isActive = e.active !== false;
-            const tab = id ? App.uiState.empInspTab : 'overview';
-            const setTab = (t) => `App.uiState.empInspTab='${t}'; App.ui.renderEmpInspector('${id||''}');`;
+    // 1. DATOS E IDENTIFICACIÓN
+    const e = id ? App.data.empleados.find(x => x.id === id) : { 
+        nombre: '', rol: 'STF', active: true, contratos: [], recPendientes: 0 
+    };
+    if (!e.contratos) e.contratos = [];
+    
+    const isActive = e.active !== false;
+    const tab = id ? (App.uiState.empInspTab || 'overview') : 'overview';
+    const toDec = (n) => parseFloat(n || 0).toFixed(2);
 
-            const tabBar = id ? `
-                <div class="insp-tabs">
-                    <button class="insp-tab ${tab==='overview'?'active':''}" onclick="${setTab('overview')}">📋 Overview</button>
-                    <button class="insp-tab ${tab==='prefs'?'active':''}" onclick="${setTab('prefs')}">❤️ Prefs</button>
-                    <button class="insp-tab ${tab==='desvio'?'active':''}" onclick="${setTab('desvio')}">📈 Desvío</button>
-                    <button class="insp-tab ${tab==='festivos'?'active':''}" onclick="${setTab('festivos')}">🗓️ Festivos</button>
-                </div>` : '';
+    // 2. BARRA DE NAVEGACIÓN
+    const tabBar = id ? `
+        <div style="display:flex; gap:2px; margin-bottom:15px; background:#f1f5f9; padding:3px; border-radius:8px; overflow-x:auto;">
+            <button type="button" onclick="App.uiState.empInspTab='overview'; App.ui.renderEmpInspector('${id}')" 
+                style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='overview'?'white':'transparent'}; box-shadow:${tab==='overview'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">DATOS</button>
+            <button type="button" onclick="App.uiState.empInspTab='prefs'; App.ui.renderEmpInspector('${id}')" 
+                style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='prefs'?'white':'transparent'}; box-shadow:${tab==='prefs'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">PREFS</button>
+            <button type="button" onclick="App.uiState.empInspTab='desvio'; App.ui.renderEmpInspector('${id}')" 
+                style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='desvio'?'white':'transparent'}; box-shadow:${tab==='desvio'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">DESVÍO</button>
+            <button type="button" onclick="App.uiState.empInspTab='festivos'; App.ui.renderEmpInspector('${id}')" 
+                style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='festivos'?'white':'transparent'}; box-shadow:${tab==='festivos'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">FESTIVOS</button>
+        </div>` : '';
 
-            let content = '';
+    let content = '';
 
-            if(tab === 'overview' || !id) {
-                content = `
-                <div class="form-group">
-                    <label>Nombre</label>
-                    <input id="ie-nom" type="text" value="${e.nombre}" placeholder="Nombre del empleado">
+    if (tab === 'overview' || !id) {
+        const hoy = new Date().toISOString().slice(0, 10);
+        const horasHoy = (typeof App.logic.getHorasContratoEnFecha === 'function') ? toDec(App.logic.getHorasContratoEnFecha(e, hoy)) : toDec(0);
+
+        content = `
+            <div style="margin-bottom:15px;">
+                <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:5px;">Nombre del Empleado</label>
+                <input id="ie-nom" type="text" value="${e.nombre || ''}" oninput="App.ui.markDirty()" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:6px; font-size:14px; font-weight:600;">
+            </div>
+            
+            <div style="display:grid; grid-template-columns: 1fr 100px; gap:12px; margin-bottom:20px;">
+                <div>
+                    <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:5px;">Puesto / Rol</label>
+                    <select id="ie-rol" onchange="App.ui.markDirty()" style="width:100%; padding:9px; border:1px solid #e2e8f0; border-radius:6px; height:42px; font-weight:600;">
+                        <option value="MNG" ${e.rol==='MNG'?'selected':''}>Manager</option>
+                        <option value="AM" ${e.rol==='AM'?'selected':''}>Asst. Manager</option>
+                        <option value="SPV" ${e.rol==='SPV'?'selected':''}>Supervisor</option>
+                        <option value="STF" ${e.rol==='STF'?'selected':''}>Staff</option>
+                    </select>
                 </div>
-                <div style="display:flex; gap:10px;">
-                    <div class="form-group" style="flex:2; margin:0;">
-                        <label>Puesto / Rol</label>
-                        <select id="ie-rol">
-                            <option value="MNG" ${e.rol==='MNG'?'selected':''}>Manager (MNG)</option>
-                            <option value="AM" ${e.rol==='AM'?'selected':''}>Asst. Manager (AM)</option>
-                            <option value="SPV" ${e.rol==='SPV'?'selected':''}>Supervisor (SPV)</option>
-                            <option value="STF" ${e.rol==='STF'?'selected':''}>Staff (STF)</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex:1; margin:0;">
-                        <label>Contrato (h)</label>
-                        <input id="ie-hrs" type="number" value="${Utils.getContrato(e, new Date().toISOString().slice(0,10))}" min="0" max="40" step="0.01" placeholder="40" style="font-weight:700;">
-                        <div style="font-size:0.65rem; color:var(--text-muted); margin-top:3px;">Horas actuales</div>
-                    </div>
+                <div>
+                    <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:5px;">Jornada Hoy</label>
+                    <div style="background:#eff6ff; color:#2563eb; font-family:monospace; font-weight:800; font-size:16px; height:42px; display:flex; align-items:center; justify-content:center; border-radius:6px; border:1px solid #dbeafe;">${horasHoy}h</div>
                 </div>
+            </div>
 
-                <!-- HISTORIAL DE CONTRATO -->
-                <div style="margin:10px 0 0 0; padding:12px; background:#f8fafc; border:1px solid var(--border); border-radius:6px;">
-                    <div style="font-weight:700; font-size:0.8rem; margin-bottom:8px; color:var(--text-main);">📋 Historial de contrato</div>
-                    ${(() => {
-                        const tramos = (e.contratos && e.contratos.length > 0)
-                            ? [...e.contratos].sort((a,b) => a.desde.localeCompare(b.desde))
-                            : [];
-                        let html = '';
-                        if(tramos.length === 0) {
-                            html += `<div style="font-size:0.72rem; color:var(--text-muted); font-style:italic; margin-bottom:8px;">Sin historial — se usa el valor actual arriba.</div>`;
-                        } else {
-                            tramos.forEach((t, i) => {
-                                const isLast = i === tramos.length - 1;
-                                html += `<div style="display:flex; align-items:center; gap:6px; margin-bottom:5px; padding:5px 8px; background:white; border:1px solid var(--border); border-radius:5px;">
-                                    <span style="font-size:0.72rem; color:var(--text-muted); flex-shrink:0;">Desde</span>
-                                    <span style="font-weight:700; font-size:0.78rem; flex:1;">${Utils.formatDateES(t.desde)}</span>
-                                    <span style="font-weight:800; font-size:0.9rem; color:var(--primary); flex-shrink:0;">${t.horas}h</span>
-                                    ${id ? `<button onclick="App.logic.contratoDelTramo('${id}', ${i})" style="padding:2px 6px; background:#fee2e2; border:1px solid #fecaca; border-radius:3px; cursor:pointer; font-size:0.7rem; color:#dc2626; flex-shrink:0;">✕</button>` : ''}
-                                </div>`;
-                            });
-                        }
-                        // Formulario para añadir nuevo tramo
-                        html += `<div style="display:flex; gap:6px; align-items:flex-end; margin-top:8px; padding-top:8px; border-top:1px solid var(--border);">
-                            <div style="flex:1;">
-                                <div style="font-size:0.65rem; color:var(--text-muted); margin-bottom:3px;">Desde</div>
-                                ${Utils.getDateInputHTML('ie-contrato-desde', '', 'Utils.handleDateInput(this)')}
-                            </div>
-                            <div style="width:70px;">
-                                <div style="font-size:0.65rem; color:var(--text-muted); margin-bottom:3px;">Horas</div>
-                                <input id="ie-contrato-horas" type="number" min="0" max="40" step="0.01" placeholder="38.53" style="padding:8px 6px; text-align:center; font-weight:700; font-size:0.85rem;">
-                            </div>
-                            <button onclick="App.logic.contratoAddTramo('${id||''}')" style="padding:8px 10px; background:var(--primary); color:white; border:none; border-radius:5px; cursor:pointer; font-size:0.75rem; font-weight:700; white-space:nowrap; flex-shrink:0;">+ Añadir</button>
-                        </div>`;
-                        return html;
-                    })()}
+            <div style="background:#fff; border:1px solid #2563eb; border-radius:10px; padding:12px; margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <span style="font-weight:800; font-size:11px; color:#2563eb; text-transform:uppercase;">📜 Historial Contratos</span>
+                    <button type="button" onclick="App.logic.addContrato('${id||''}'); App.ui.renderEmpInspector('${id||''}'); App.ui.markDirty();" style="background:#2563eb; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:10px; font-weight:800; cursor:pointer;">+ AÑADIR</button>
                 </div>
-                <div style="display:flex; gap:10px; margin-top:0;">
-                    <div class="form-group" style="flex:1; margin:0;">
-                        <label>Tag ${Utils.infoTip(Utils.Tips.tag)}</label>
-                        <select id="ie-tag">
-                            ${[1,2,3,4,5].map(t=>`<option value="${t}" ${(e.tag||1)==t?'selected':''}>T${t}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex:2; margin:0;">
-                        <label>Estado</label>
-                        <label class="checkbox-wrapper" style="margin-top:6px;">
-                            <input type="checkbox" id="ie-active" ${isActive?'checked':''}>
-                            <span style="font-weight:600; font-size:0.85rem" id="ie-active-label">${isActive?'✅ Habilitado':'⛔ Deshabilitado'}</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div style="margin:14px 0 0 0; padding:12px; background:#f8fafc; border:1px solid var(--border); border-radius:6px;">
-                    <div style="font-weight:700; font-size:0.8rem; margin-bottom:10px; color:var(--text-main);">📅 Vigencia ${Utils.infoTip(Utils.Tips.vigencia)}</div>
-                    <div style="display:flex; gap:8px; align-items:flex-end;">
-                        <div style="flex:1;">
-                            <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">Inicio</div>
-                            <div style="display:flex; gap:4px; align-items:center;">
-                                ${Utils.getDateInputHTML('ie-fecha-inicio', e.fechaInicio || '', 'Utils.handleDateInput(this)')}
-                                <button onclick="event.stopPropagation(); document.getElementById('ie-fecha-inicio').value=''; document.getElementById('ie-fecha-inicio').dataset.isoValue='';" style="padding:5px 7px; background:#f1f5f9; border:1px solid var(--border); border-radius:4px; cursor:pointer; font-size:0.7rem; color:var(--text-muted);">✕</button>
-                            </div>
+                <div id="contratos-container">
+                    ${e.contratos.map((t, i) => `
+                        <div style="display:grid; grid-template-columns: 1fr 1fr 85px 25px; gap:8px; background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:8px; align-items:end;">
+                            <div><input type="date" value="${t.desde}" onchange="App.logic.updateContrato('${id}', ${i}, 'desde', this.value); App.ui.markDirty();" style="width:100%; font-size:11px; padding:4px; border:1px solid #cbd5e1; border-radius:4px;"></div>
+                            <div><input type="date" value="${t.hasta || ''}" onchange="App.logic.updateContrato('${id}', ${i}, 'hasta', this.value); App.ui.markDirty();" style="width:100%; font-size:11px; padding:4px; border:1px solid #cbd5e1; border-radius:4px;"></div>
+                            <div><input type="number" step="0.01" value="${toDec(t.horas)}" onchange="App.logic.updateContrato('${id}', ${i}, 'horas', this.value); App.ui.markDirty();" style="width:100%; text-align:right; font-weight:800; font-size:12px; color:#2563eb; border:1px solid #2563eb; border-radius:4px; padding:4px;"></div>
+                            <button type="button" onclick="App.logic.removeContrato('${id}', ${i}); App.ui.renderEmpInspector('${id}'); App.ui.markDirty();" style="border:none; background:none; color:#ef4444; font-size:18px; cursor:pointer;">&times;</button>
                         </div>
-                        <div style="flex:1;">
-                            <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">Fin</div>
-                            <div style="display:flex; gap:4px; align-items:center;">
-                                ${Utils.getDateInputHTML('ie-fecha-fin', e.fechaFin || '', 'Utils.handleDateInput(this)')}
-                                <button onclick="event.stopPropagation(); document.getElementById('ie-fecha-fin').value=''; document.getElementById('ie-fecha-fin').dataset.isoValue='';" style="padding:5px 7px; background:#f1f5f9; border:1px solid var(--border); border-radius:4px; cursor:pointer; font-size:0.7rem; color:var(--text-muted);">✕</button>
-                            </div>
-                        </div>
-                    </div>
-                    ${id && (e.fechaInicio || e.fechaFin) ? `
-                    <button onclick="App.logic.empClearOutsideVigencia('${id}')"
-                        style="margin-top:10px; width:100%; padding:7px; background:#fef2f2; border:1px solid #fecaca; border-radius:5px; cursor:pointer; font-size:0.75rem; font-weight:700; color:#dc2626;">
-                        🧹 Borrar turnos fuera de vigencia
-                    </button>
-                    <div style="font-size:0.65rem; color:var(--text-muted); margin-top:4px; line-height:1.4;">Elimina del planificador todos los turnos asignados a este empleado en fechas anteriores al inicio o posteriores al fin de vigencia.</div>` : ''}
+                    `).join('')}
                 </div>
+            </div>
 
-                <div style="margin:14px 0 0 0; padding:12px; background:#f8fafc; border:1px solid var(--border); border-radius:6px;">
-                    <div style="font-weight:700; font-size:0.8rem; margin-bottom:12px; color:var(--text-main);">⚖️ Saldos</div>
-                    <div class="form-group" style="margin-bottom:12px;">
-                        <label style="font-size:0.75rem;">Saldo inicial de horas ${Utils.infoTip(Utils.Tips.saldoInicial)}</label>
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <input id="ie-saldo" type="number" value="${e.saldoInicial||0}" step="0.5" style="width:90px; text-align:center; font-weight:700;">
-                            <span style="font-size:0.75rem; color:var(--text-muted); line-height:1.3;">h · positivo = a favor,<br>negativo = debe</span>
-                        </div>
-                    </div>
-                    <div style="display:flex; gap:12px;">
-                        <div class="form-group" style="flex:1; margin:0;">
-                            <label style="font-size:0.75rem;">Recup. festivos 🔴 ${Utils.infoTip(Utils.Tips.recArrastre)}</label>
-                            <input id="ie-rec" type="number" value="${e.recPendientes||0}" min="0" step="1" style="text-align:center; font-weight:700;">
-                        </div>
-                        <div class="form-group" style="flex:1; margin:0;">
-                            <label style="font-size:0.75rem;">Vacaciones 🟣 ${Utils.infoTip(Utils.Tips.vacPendientes)}</label>
-                            <input id="ie-vac" type="number" value="${e.vacPendientes||0}" min="0" step="1" style="text-align:center; font-weight:700;">
-                        </div>
-                    </div>
-                    <div style="font-size:0.65rem; color:var(--text-muted); margin-top:6px;">Días pendientes de dar. Visibles en tooltip del balance semanal.</div>
-                </div>
+            <input type="hidden" id="ie-rec" value="0">
+            <input type="hidden" id="ie-hrs" value="${e.contrato || 0}">
+            <input type="hidden" id="ie-saldo" value="${e.saldoInicial || 0}">
+            <input type="hidden" id="ie-vac" value="${e.vacPendientes || 0}">
+            
+            <div style="background:#fefce8; border:1px solid #fef08a; padding:12px; border-radius:10px; margin-bottom:15px; display:flex; gap:10px; align-items:center;">
+                <label style="flex:1; cursor:pointer; display:flex; align-items:center; gap:10px; background:white; padding:10px; border-radius:8px; border:2px solid ${isActive?'#10b981':'#cbd5e1'};">
+                    <input type="checkbox" id="ie-active" ${isActive?'checked':''} onchange="App.ui.markDirty();" style="width:18px; height:18px; cursor:pointer;">
+                    <span style="font-size:11px; font-weight:800; color:${isActive?'#059669':'#64748b'}; text-transform:uppercase;">${isActive?'HABILITADO':'DESHABILITADO'}</span>
+                </label>
+                <button type="button" onclick="App.logic.empClearOutsideVigencia('${id}')" style="padding:10px; background:#fff; border:2px solid #ef4444; border-radius:8px; cursor:pointer; color:#ef4444; font-weight:800; font-size:10px; flex:1;">🧹 LIMPIAR TURNOS</button>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px; margin-top:10px;">
+                <button type="button" id="btn-save-emp" onclick="App.logic.empSave('${id||''}')" style="background:#2563eb; color:white; border:none; padding:14px; border-radius:8px; font-weight:800; cursor:pointer;">
+                    <span>💾 GUARDAR CAMBIOS</span>
+                </button>
+                ${id ? `<button type="button" onclick="App.logic.empDel('${id}')" style="background:none; color:#ef4444; border:1px solid #ef4444; border-radius:8px; font-weight:800; cursor:pointer;">BORRAR</button>` : ''}
+            </div>
+        `;
+    } 
+    else if (tab === 'prefs') {
+        content = `<div style="padding:20px; text-align:center; color:#64748b;">Preferencias de libranza.</div>`;
+    } 
+    else if (tab === 'desvio') {
+        content = (typeof App.ui.renderEmpDesvioInspector === 'function') ? App.ui.renderEmpDesvioInspector(e) : `<div>Error Desvío</div>`;
+    } 
+    else if (tab === 'festivos') {
+        content = (typeof App.ui.renderEmpFestivosInspector === 'function') ? App.ui.renderEmpFestivosInspector(e) : `<div>Error Festivos</div>`;
+    }
 
-                <div class="inspector-actions" style="margin-top:16px;">
-                    <button class="btn btn-primary" onclick="App.logic.empSave('${id||''}')">💾 Guardar</button>
-                    ${id?`<button class="btn btn-danger" onclick="App.logic.empDel('${id}')">🗑️ Eliminar</button>`:''}
-                </div>`;
-            }
+    const container = document.getElementById('inspector-content');
+    if (container) {
+        container.innerHTML = `<div style="padding:20px;"><h2 style="margin:0 0 20px 0; font-size:18px; font-weight:800;">${id ? (e.nombre || 'Sin nombre') : 'Nuevo Empleado'}</h2>${tabBar}${content}</div>`;
+    }
+},
 
-            else if(tab === 'prefs') {
-                const p = e.prefs || {};
-                const prefRow = (label, field, opts) => {
-                    let optsHtml = '';
-                    for(const [k,v] of Object.entries(opts)) optsHtml += `<option value="${k}" ${(p[field]||Object.keys(opts)[0])===k?'selected':''}>${v}</option>`;
-                    return `<div class="form-group">
-                        <label style="font-size:0.75rem;">${label}</label>
-                        <select style="background:${Utils.getPrefColor(p[field]||'indif')}" onchange="App.logic.empPref('${id}','${field}',this.value); this.style.background=Utils.getPrefColor(this.value);">${optsHtml}</select>
-                    </div>`;
-                };
-                const dayOpts = {any:'Indif.',L:'Lun',M:'Mar',X:'Mié',J:'Jue',V:'Vie',S:'Sáb'};
-                let shiftOpts = '<option value="any">Indif.</option>';
-                App.data.shiftDefs.filter(s=>s.start&&s.end).sort((a,b)=>a.customOrder-b.customOrder).forEach(s=>{
-                    shiftOpts+=`<option value="${s.id}" ${p.shift===s.id?'selected':''}>${s.code}</option>`;
-                });
-                let shiftBg = '#f1f5f9';
-                if(p.shift && p.shift !== 'any') { const sh = App.data.shiftDefs.find(s=>s.id===p.shift); if(sh) shiftBg=sh.color; }
-                content = `
-                <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:14px;">Preferencias orientativas para el algoritmo de planificación.</div>
-                ${prefRow('Domingos','sunday',{indif:'Indiferente',like:'Prefiero trabajar',hate:'Prefiero librar'})}
-                ${prefRow('Libranza preferida 1','off1',dayOpts)}
-                ${prefRow('Libranza preferida 2','off2',dayOpts)}
-                <div class="form-group">
-                    <label style="font-size:0.75rem;">Turno preferido</label>
-                    <select style="background:${shiftBg}" onchange="App.logic.empPref('${id}','shift',this.value); const sh=App.data.shiftDefs.find(s=>s.id===this.value); this.style.background=sh?sh.color:'#f1f5f9';">${shiftOpts}</select>
-                </div>
-                ${prefRow('Partidos','split',{ok:'Sin preferencia',no:'No partidos',help:'Solo si hace falta'})}`;
-            }
+// FUNCIÓN PARA DETECTAR CAMBIOS
+markDirty: function() {
+    const btn = document.getElementById('btn-save-emp');
+    const txt = document.getElementById('save-text');
+    if (btn && !btn.classList.contains('is-dirty')) {
+        btn.classList.add('is-dirty');
+        btn.style.background = '#f59e0b'; // Naranja
+        if (txt) txt.innerText = '⚠️ GUARDAR CAMBIOS *';
+    }
+},
 
-            else if(tab === 'desvio') {
-                content = App.ui.renderEmpDesvioInspector(e);
-            }
+// Esta función debe estar al mismo nivel que renderEmpInspector
+markDirty: function() {
+    const btn = document.getElementById('btn-save-emp');
+    const txt = document.getElementById('save-text');
+    if (btn && !btn.classList.contains('is-dirty')) {
+        btn.classList.add('is-dirty');
+        btn.style.background = '#f59e0b'; // Naranja
+        if (txt) txt.innerText = '⚠️ GUARDAR CAMBIOS *';
+    }
+},
 
-            else if(tab === 'festivos') {
-                content = App.ui.renderEmpFestivosInspector(e);
-            }
-
-            document.getElementById('inspector-content').innerHTML = `
-                <div class="inspector-header">
-                    <h3 class="inspector-title" style="margin-bottom:${id?'12px':'16px'};">${id ? e.nombre : '➕ Nuevo Empleado'}</h3>
-                </div>
-                ${tabBar}
-                ${content}`;
-
-            const activeEl = document.getElementById('ie-active');
-            if(activeEl) activeEl.addEventListener('change', ev => {
-                document.getElementById('ie-active-label').innerText = ev.target.checked ? '✅ Habilitado' : '⛔ Deshabilitado';
-            });
-        },
+// --- FUNCIONALIDAD EXTRA PARA EL BOTÓN DE GUARDADO ---
+markDirty: function() {
+    const btn = document.getElementById('btn-save-emp');
+    const txt = document.getElementById('save-text');
+    if(btn && !btn.classList.contains('is-dirty')) {
+        btn.classList.add('is-dirty');
+        btn.style.background = '#f59e0b'; // Naranja aviso
+        btn.style.borderColor = '#d97706';
+        txt.innerText = '⚠️ GUARDAR CAMBIOS *';
+    }
+},
 
         renderEmpDesvioInspector: function(emp) {
             if(!emp || !emp.id) return `<p style="color:var(--text-muted); font-size:0.85rem;">Guarda el empleado primero.</p>`;
@@ -6478,204 +6422,221 @@ const App = {
         },
 
         renderEmpFestivosInspector: function(emp) {
-            if(!emp || !emp.id) return `<p style="color:var(--text-muted);font-size:0.85rem;">Guarda el empleado primero.</p>`;
+    if(!emp || !emp.id) return `<p style="color:var(--text-muted);font-size:0.85rem;">Guarda el empleado primero.</p>`;
 
-            // --- Año en estudio: 1 Mar → 28/29 Feb siguiente ---
-            // Selector de año fiscal (curso)
-            const cursoKey = App.uiState.festivosCurso || (() => {
-                const today = new Date();
-                const year = today.getMonth() >= 2 ? today.getFullYear() : today.getFullYear() - 1;
-                App.uiState.festivosCurso = String(year);
-                return String(year);
-            })();
-            const cursoYear = parseInt(cursoKey);
-            const rangeStart = `${cursoYear}-03-01`;
-            const rangeEnd   = `${cursoYear+1}-02-${new Date(cursoYear+1, 2, 0).getDate()}`; // último día de Feb
+    const tracking = emp.festivoTracking || {};
+    
+    // 1. Obtener todos los festivos vigentes para este empleado
+    const holidays = (App.data.storeConfig.holidays || [])
+        .filter(h => Utils.empleadoVigenteEnFecha(emp, h.date));
 
-            // Construir opciones de curso (± 2 años alrededor de hoy)
-            const todayYear = new Date().getFullYear();
-            let cursoOpts = '';
-            for(let y = todayYear - 2; y <= todayYear + 1; y++) {
-                cursoOpts += `<option value="${y}" ${y===cursoYear?'selected':''}>${y}/${y+1}</option>`;
-            }
-
-            // --- Festivos del calendario en el rango y vigencia del empleado ---
-            const holidays = (App.data.storeConfig.holidays || [])
-                .filter(h => h.date >= rangeStart && h.date <= rangeEnd)
-                .filter(h => Utils.empleadoVigenteEnFecha(emp, h.date))
-                .sort((a,b) => a.date.localeCompare(b.date));
-
-            const tracking = emp.festivoTracking || {};
-
-            // --- Helper: calcular estado de un festivo ---
-            const getEstado = (hDate) => {
-                const sid = App.data.schedule[hDate]?.[emp.id];
-                const shift = sid ? Utils.getShift(sid) : null;
-                if(!shift) return 'sin_definir';
-                if(shift.fixed && shift.code === 'F') {
-                    // Tiene F ese día — ¿cuántas L tiene esa semana?
-                    const monday = Utils.getMonday(hDate);
-                    const wdays  = Utils.getWeekDays(monday);
-                    let countL = 0;
-                    wdays.forEach(d => {
-                        const s2 = App.data.schedule[d]?.[emp.id];
-                        const sh2 = s2 ? Utils.getShift(s2) : null;
-                        if(sh2 && sh2.fixed && sh2.code === 'L') countL++;
-                    });
-                    return countL >= 2 ? 'disfrutado' : 'coincide';
-                }
-                if(shift.start && shift.end) return 'trabaja';
-                return 'sin_definir';
-            };
-
-            // --- Rs disponibles del empleado en el año fiscal (para el desplegable) ---
-            // Recorre TODO el schedule del empleado en el rango
-            const allRs = [];
-            let cur = new Date(rangeStart);
-            const endD = new Date(rangeEnd);
-            while(cur <= endD) {
-                const iso = cur.toISOString().slice(0,10);
-                const sid = App.data.schedule[iso]?.[emp.id];
-                const sh  = sid ? Utils.getShift(sid) : null;
-                if(sh && sh.fixed && sh.code === 'R') {
-                    allRs.push(iso);
-                }
-                cur.setDate(cur.getDate()+1);
-            }
-
-            // Rs ya asignadas a un festivo (para no duplicar)
-            const assignedRDates = new Set(
-                Object.values(tracking)
-                    .map(t => t.rDate)
-                    .filter(Boolean)
-            );
-
-            // --- Cálculo del balance ---
-            let adeudadas = 0, dadas = 0;
-            holidays.forEach(h => {
-                const estado = getEstado(h.date);
-                if(estado === 'coincide' || estado === 'trabaja') adeudadas++;
-                if(tracking[h.date]?.rDate) dadas++;
+    // --- Helper: calcular estado ---
+    const getEstado = (hDate) => {
+        const sid = App.data.schedule[hDate]?.[emp.id];
+        const shift = sid ? Utils.getShift(sid) : null;
+        if(!shift) return 'sin_definir';
+        if(shift.fixed && shift.code === 'F') {
+            const monday = Utils.getMonday(hDate);
+            const wdays  = Utils.getWeekDays(monday);
+            let countL = 0;
+            wdays.forEach(d => {
+                const s2 = App.data.schedule[d]?.[emp.id];
+                const sh2 = s2 ? Utils.getShift(s2) : null;
+                if(sh2 && sh2.fixed && sh2.code === 'L') countL++;
             });
-            const pendientes = adeudadas - dadas;
+            return countL >= 2 ? 'disfrutado' : 'coincide';
+        }
+        if(shift.start && shift.end) return 'trabaja';
+        return 'sin_definir';
+    };
 
-            const shortDate = iso => {
-                const [y,m,d] = iso.split('-');
-                return `${d}/${m}/${y.slice(2)}`;
-            };
-            const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-            const festLabel = iso => {
-                const d = new Date(iso); 
-                return `${d.getDate()} ${monthNames[d.getMonth()]}`;
-            };
-            const estadoBadge = (estado) => {
-                if(estado==='disfrutado') return `<span style="background:#dcfce7;color:#15803d;padding:2px 7px;border-radius:10px;font-size:0.65rem;font-weight:700;">✅ Disfrutado</span>`;
-                if(estado==='coincide')   return `<span style="background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:10px;font-size:0.65rem;font-weight:700;">⚠️ Coincide</span>`;
-                if(estado==='trabaja')    return `<span style="background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:10px;font-size:0.65rem;font-weight:700;">🔴 Trabaja</span>`;
-                return `<span style="background:#f1f5f9;color:#94a3b8;padding:2px 7px;border-radius:10px;font-size:0.65rem;font-weight:700;">⬜ Sin definir</span>`;
-            };
+    // --- Obtener Rs disponibles (Historial completo de la App) ---
+    const allRs = [];
+    Object.keys(App.data.schedule).forEach(iso => {
+        const sid = App.data.schedule[iso]?.[emp.id];
+        const sh = sid ? Utils.getShift(sid) : null;
+        if(sh && sh.fixed && sh.code === 'R') allRs.push(iso);
+    });
+    allRs.sort((a,b) => b.localeCompare(a)); // Rs más recientes primero en el desplegable
 
-            // --- HTML ---
-            let html = `
-            <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;">
-                <div style="font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Curso</div>
-                <select style="padding:4px 8px;border:1px solid var(--border);border-radius:5px;font-size:0.8rem;font-weight:700;background:white;"
-                    onchange="App.uiState.festivosCurso=this.value; App.ui.renderEmpInspector('${emp.id}');">
-                    ${cursoOpts}
-                </select>
-                <div style="font-size:0.68rem;color:var(--text-muted);margin-left:4px;">1 Mar – 28 Feb ${Utils.infoTip(Utils.Tips.cursoFestivos)}</div>
-            </div>`;
+    const assignedRDates = new Set(Object.values(tracking).map(t => t.rDate).filter(Boolean));
 
-            // Resumen balance
-            const pColor = pendientes > 0 ? '#ef4444' : '#10b981';
-            html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">
-                <div style="background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:8px;text-align:center;">
-                    <div style="font-size:1.1rem;font-weight:800;color:#f59e0b;">${adeudadas}</div>
-                    <div style="font-size:0.6rem;color:var(--text-muted);text-transform:uppercase;">Adeudadas</div>
+    // --- Clasificación y Procesamiento ---
+    let adeudadas = 0, dadas = 0;
+    let pendientesData = [];
+    let cerradosData = [];
+
+    holidays.forEach(h => {
+        const estado = getEstado(h.date);
+        const tr = tracking[h.date] || {};
+        const isCerrado = !!tr.rDate;
+
+        if(estado === 'coincide' || estado === 'trabaja') adeudadas++;
+        if(isCerrado) dadas++;
+
+        const itemHtml = this.renderFestivoItemRow(emp, h, estado, tr, allRs, assignedRDates);
+        
+        if (isCerrado) {
+            cerradosData.push({ date: h.date, html: itemHtml });
+        } else {
+            pendientesData.push({ date: h.date, html: itemHtml });
+        }
+    });
+
+    // --- ORDENACIÓN CRÍTICA ---
+    // Pendientes: De más antiguo (2024) a más futuro (2026) -> ASCENDENTE
+    pendientesData.sort((a, b) => a.date.localeCompare(b.date));
+    
+    // Cerrados: De más reciente a más antiguo -> DESCENDENTE
+    cerradosData.sort((a, b) => b.date.localeCompare(a.date));
+
+    const balancePendiente = adeudadas - dadas;
+
+    // --- CONSTRUCCIÓN DEL HTML ---
+    let html = `
+    <div style="background:white; border-bottom:1px solid var(--border); margin:-12px -12px 12px -12px; padding:12px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div style="background:#fffbeb; border:1px solid #fef3c7; border-radius:8px; padding:8px; text-align:center;">
+                <div style="font-size:1.2rem; font-weight:800; color:#b45309;">${adeudadas}</div>
+                <div style="font-size:0.6rem; color:#92400e; text-transform:uppercase; font-weight:600;">Adeudadas</div>
+            </div>
+            <div style="background:#f0fdf4; border:1px solid #dcfce7; border-radius:8px; padding:8px; text-align:center;">
+                <div style="font-size:1.2rem; font-weight:800; color:#15803d;">${balancePendiente}</div>
+                <div style="font-size:0.6rem; color:#166534; text-transform:uppercase; font-weight:600;">Pendientes</div>
+            </div>
+        </div>
+    </div>`;
+
+    // Sección Pendientes (Orden Cronológico)
+    html += `<div style="font-size:0.7rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:5px;">
+        <span style="color:#f59e0b;">●</span> Deuda acumulada (${pendientesData.length})
+    </div>`;
+    
+    if (pendientesData.length > 0) {
+        html += pendientesData.map(d => d.html).join('');
+    } else {
+        html += `<div style="padding:15px; text-align:center; color:var(--text-muted); font-size:0.75rem; border:1px dashed var(--border); border-radius:8px; margin-bottom:15px;">No hay festivos pendientes de asignar.</div>`;
+    }
+
+    // Sección Cerrados (Historial)
+    if (cerradosData.length > 0) {
+        html += `
+        <details style="margin-top:15px;">
+            <summary style="font-size:0.7rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; cursor:pointer; padding:5px 0;">
+                Ver historial compensados (${cerradosData.length})
+            </summary>
+            <div style="margin-top:8px; opacity:0.8;">
+                ${cerradosData.map(d => d.html).join('')}
+            </div>
+        </details>`;
+    }
+
+    return html;
+},
+
+renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
+    const needsTracking = estado === 'coincide' || estado === 'trabaja';
+    const isTrabajado = estado === 'trabaja';
+    const d = new Date(h.date);
+    const label = `${d.getDate()} ${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][d.getMonth()]}`;
+    const yearShort = h.date.split('-')[0].slice(2);
+
+    const badge = {
+        disfrutado: ['#dcfce7','#15803d','✅ OK'],
+        coincide: ['#fef9c3','#854d0e','⚠️ Coincide'],
+        trabaja: ['#fee2e2','#991b1b','🔴 Trabaja'],
+        sin_definir: ['#f1f5f9','#94a3b8','⬜ ?']
+    }[estado];
+
+    let rOpts = `<option value="">— Sin asignar —</option>`;
+    allRs.forEach(rIso => {
+        if(!assignedRDates.has(rIso) || rIso === tr.rDate) {
+            const sel = tr.rDate === rIso ? 'selected' : '';
+            rOpts += `<option value="${rIso}" ${sel}>${Utils.getWeekCode(rIso)} · ${rIso.split('-').reverse().join('/')}</option>`;
+        }
+    });
+
+    return `
+    <div style="border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:8px; background:white;">
+        <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">
+            <div>
+                <div style="font-weight:700; font-size:0.85rem;">${label} <span style="font-weight:400; color:#94a3b8;">'${yearShort}</span></div>
+                <div style="font-size:0.65rem; color:var(--text-muted);">${h.note || 'Festivo'}</div>
+            </div>
+            <span style="background:${badge[0]}; color:${badge[1]}; padding:2px 6px; border-radius:6px; font-size:0.6rem; font-weight:800; white-space:nowrap;">${badge[2]}</span>
+        </div>
+        
+        ${needsTracking ? `
+            <div style="display:flex; flex-direction:column; gap:6px; padding-top:6px; border-top:1px dashed var(--border);">
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:0.65rem; color:var(--text-muted); width:50px;">R dada:</span>
+                    <select style="flex:1; padding:3px; border:1px solid var(--border); border-radius:4px; font-size:0.7rem;"
+                        onchange="App.logic.festivoTrackUpd('${emp.id}','${h.date}','rDate',this.value);">
+                        ${rOpts}
+                    </select>
                 </div>
-                <div style="background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:8px;text-align:center;">
-                    <div style="font-size:1.1rem;font-weight:800;color:#10b981;">${dadas}</div>
-                    <div style="font-size:0.6rem;color:var(--text-muted);text-transform:uppercase;">Dadas</div>
+                ${isTrabajado ? `
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:0.65rem; color:var(--text-muted); width:50px;">Fact.:</span>
+                    <div style="flex:1;">${Utils.getDateInputHTML(`fact-${h.date}`, tr.factorialDate || '', `App.logic.festivoTrackUpd('${emp.id}','${h.date}','factorialDate',this.dataset.isoValue)`)}</div>
+                </div>` : ''}
+            </div>
+        ` : ''}
+    </div>`;
+},
+
+// Función auxiliar para renderizar cada tarjeta (para evitar duplicar código)
+renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
+    const needsTracking = estado === 'coincide' || estado === 'trabaja';
+    const isTrabajado = estado === 'trabaja';
+    const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const d = new Date(h.date);
+    const label = `${d.getDate()} ${monthNames[d.getMonth()]}`;
+    const yearShort = h.date.split('-')[0].slice(2);
+
+    const badge = {
+        disfrutado: ['#dcfce7','#15803d','✅ OK'],
+        coincide: ['#fef9c3','#854d0e','⚠️ Coincide'],
+        trabaja: ['#fee2e2','#991b1b','🔴 Trabaja'],
+        sin_definir: ['#f1f5f9','#94a3b8','⬜ ?']
+    }[estado];
+
+    let rOpts = `<option value="">— Sin asignar —</option>`;
+    allRs.forEach(rIso => {
+        if(!assignedRDates.has(rIso) || rIso === tr.rDate) {
+            const sel = tr.rDate === rIso ? 'selected' : '';
+            rOpts += `<option value="${rIso}" ${sel}>${Utils.getWeekCode(rIso)} · ${rIso.split('-').reverse().join('/')}</option>`;
+        }
+    });
+
+    return `
+    <div style="border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:8px; background:white;">
+        <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">
+            <div>
+                <div style="font-weight:700; font-size:0.85rem;">${label} <span style="font-weight:400; color:#94a3b8;">'${yearShort}</span></div>
+                <div style="font-size:0.65rem; color:var(--text-muted);">${h.note || 'Festivo'}</div>
+            </div>
+            <span style="background:${badge[0]}; color:${badge[1]}; padding:2px 6px; border-radius:6px; font-size:0.6rem; font-weight:800; white-space:nowrap;">${badge[2]}</span>
+        </div>
+        
+        ${needsTracking ? `
+            <div style="display:flex; flex-direction:column; gap:6px; padding-top:6px; border-top:1px dashed var(--border);">
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:0.65rem; color:var(--text-muted); width:50px;">R dada:</span>
+                    <select style="flex:1; padding:3px; border:1px solid var(--border); border-radius:4px; font-size:0.7rem;"
+                        onchange="App.logic.festivoTrackUpd('${emp.id}','${h.date}','rDate',this.value);">
+                        ${rOpts}
+                    </select>
                 </div>
-                <div style="background:${pendientes>0?'#fef2f2':'#f0fdf4'};border:1px solid ${pendientes>0?'#fecaca':'#bbf7d0'};border-radius:7px;padding:8px;text-align:center;">
-                    <div style="font-size:1.1rem;font-weight:800;color:${pColor};">${pendientes}</div>
-                    <div style="font-size:0.6rem;color:var(--text-muted);text-transform:uppercase;">Pendientes</div>
-                </div>
-            </div>`;
-
-            if(holidays.length === 0) {
-                html += `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;border:1px dashed var(--border);border-radius:8px;">
-                    Sin festivos configurados para este curso.<br>
-                    <span style="font-size:0.72rem;">Añádelos en 🏪 Tienda.</span>
-                </div>`;
-                return html;
-            }
-
-            // Tabla de festivos
-            holidays.forEach(h => {
-                const estado = getEstado(h.date);
-                const tr = tracking[h.date] || {};
-                const needsTracking = estado === 'coincide' || estado === 'trabaja';
-                const needsFactorial = estado === 'trabaja';
-
-                // Selector de R: opciones = Rs sin asignar + la propia R de este festivo si ya tiene
-                let rOpts = `<option value="">— Sin asignar —</option>`;
-                allRs.forEach(rIso => {
-                    if(!assignedRDates.has(rIso) || rIso === tr.rDate) {
-                        const wkCode = Utils.getWeekCode(rIso);
-                        const sel = tr.rDate === rIso ? 'selected' : '';
-                        rOpts += `<option value="${rIso}" ${sel}>${wkCode} · ${shortDate(rIso)}</option>`;
-                    }
-                });
-
-                html += `<div style="border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;background:${needsTracking?'#fffbeb':'white'};">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${needsTracking?'8px':'0'};">
-                        <div>
-                            <span style="font-weight:700;font-size:0.82rem;">${festLabel(h.date)}</span>
-                            <span style="color:#94a3b8;font-size:0.72rem;margin-left:5px;">${shortDate(h.date)}</span>
-                            ${h.note ? `<div style="font-size:0.68rem;color:var(--text-muted);margin-top:1px;">${h.note}</div>` : ''}
-                        </div>
-                        ${estadoBadge(estado)}
-                    </div>`;
-
-                if(needsTracking) {
-                    html += `<div style="display:flex;flex-direction:column;gap:6px;">`;
-
-                    // R asignada
-                    html += `<div style="display:flex;align-items:center;gap:6px;">
-                        <span style="font-size:0.68rem;color:var(--text-muted);width:56px;flex-shrink:0;">R asignada</span>
-                        <select style="flex:1;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:0.72rem;background:white;"
-                            onchange="App.logic.festivoTrackUpd('${emp.id}','${h.date}','rDate',this.value);">
-                            ${rOpts}
-                        </select>
-                    </div>`;
-
-                    // Factorial (solo si trabaja)
-                    if(needsFactorial) {
-                        const factVal = tr.factorialDate || '';
-                        html += `<div style="display:flex;align-items:center;gap:6px;">
-                            <span style="font-size:0.68rem;color:var(--text-muted);width:56px;flex-shrink:0;">📋 Factorial ${Utils.infoTip(Utils.Tips.factorial)}</span>
-                            <div style="flex:1;">
-                                ${Utils.getDateInputHTML(`fact-${h.date}`, factVal, `App.logic.festivoTrackUpd('${emp.id}','${h.date}','factorialDate',this.dataset.isoValue)`)}
-                            </div>
-                            ${factVal
-                                ? `<button onclick="App.logic.festivoTrackUpd('${emp.id}','${h.date}','factorialDate',null)" style="padding:4px 7px;background:#fee2e2;border:1px solid #fecaca;border-radius:4px;cursor:pointer;font-size:0.7rem;color:#dc2626;" title="Borrar fecha Factorial">✕</button>`
-                                : `<span style="font-size:0.68rem;color:#f59e0b;flex-shrink:0;">Pendiente</span>`}
-                        </div>`;
-                    }
-
-                    html += `</div>`; // cierre flex col
-                }
-
-                html += `</div>`; // cierre tarjeta
-            });
-
-            html += `<div style="margin-top:8px;font-size:0.65rem;color:var(--text-muted);line-height:1.5;">
-                ✅ Disfrutado = F + 2L · ⚠️ Coincide = F tapa libranza · 🔴 Trabaja = sin F ese día ${Utils.infoTip(Utils.Tips.estadoFestivo)}
-            </div>`;
-
-            return html;
-        },
+                ${isTrabajado ? `
+                <div style="display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:0.65rem; color:var(--text-muted); width:50px;">Fact.:</span>
+                    <div style="flex:1;">${Utils.getDateInputHTML(`fact-${h.date}`, tr.factorialDate || '', `App.logic.festivoTrackUpd('${emp.id}','${h.date}','factorialDate',this.dataset.isoValue)`)}</div>
+                </div>` : ''}
+            </div>
+        ` : ''}
+    </div>`;
+},
 
         // --- REQUESTS ---
         renderRequests: function(c) {
@@ -7587,7 +7548,20 @@ const App = {
         // ─────────────────────────────────────────────────────────────────────
 
         changeWeek: function(offset) {
-            const weekStart = new Date(App.data.config?.weekStart || "2025-12-29");
+            // Helper para formato local
+            const formatDate = (date) => {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            };
+
+            const weekStartStr = App.data.config?.weekStart || "2025-12-29";
+            
+            // Usar siempre las 12:00 para cálculos matemáticos
+            const weekStart = new Date(weekStartStr);
+            weekStart.setHours(12, 0, 0, 0);
+            
             const week44_2025 = new Date(weekStart);
             week44_2025.setDate(week44_2025.getDate() - ((52 - 44) * 7));
             
@@ -7597,17 +7571,13 @@ const App = {
             const MIN_DATE = week44_2025;
             const MAX_DATE = week10_2027;
             
-            // Como currentDate SIEMPRE es lunes, simplemente sumar offset * 7 días
-            const currentMonday = new Date(App.uiState.currentDate);
+            // Obtener el lunes actual (forzado a las 12:00) y sumarle semanas
+            const currentMondayStr = App.uiState.currentDate;
+            const currentMonday = new Date(currentMondayStr);
+            currentMonday.setHours(12, 0, 0, 0);
             currentMonday.setDate(currentMonday.getDate() + (offset * 7));
-            const newMondayStr = currentMonday.toISOString().slice(0, 10);
             
-            console.log('=== DEBUG changeWeek ===');
-            console.log('Current:', App.uiState.currentDate, Utils.getWeekCode(App.uiState.currentDate));
-            console.log('Offset:', offset);
-            console.log('NewMonday:', newMondayStr, Utils.getWeekCode(newMondayStr));
-            console.log('MAX_DATE:', MAX_DATE.toISOString().slice(0,10), Utils.getWeekCode(MAX_DATE.toISOString().slice(0,10)));
-            console.log('Valid?', currentMonday >= MIN_DATE && currentMonday <= MAX_DATE);
+            const newMondayStr = formatDate(currentMonday);
             
             // Validar límites
             if(currentMonday < MIN_DATE) {
@@ -7624,47 +7594,45 @@ const App = {
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
         },
         getWeekOptions: function(currentMonday) {
-            // Generar opciones de semanas con indicadores de estado
-            // Rango: desde 2025WK44 hasta 2027WK10
+            // Helper local para evitar ISOString
+            const formatDate = (date) => {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            };
+
+            const weekStartStr = App.data.config?.weekStart || "2025-12-29";
             
-            const weekStart = new Date(App.data.config?.weekStart || "2025-12-29");
+            // Fijar inicio a las 12:00
+            const weekStart = new Date(weekStartStr);
+            weekStart.setHours(12, 0, 0, 0);
             
-            // Calcular lunes de 2025WK44 (8 semanas antes del weekStart)
             const startWeek = new Date(weekStart);
             startWeek.setDate(startWeek.getDate() - ((52 - 44) * 7));
             
-            // Calcular lunes de 2027WK10 (61 semanas después del weekStart)
             const endWeek = new Date(weekStart);
             endWeek.setDate(endWeek.getDate() + ((52 + 9) * 7));
             
             let weekOptions = '';
             let current = new Date(startWeek);
             
-            // Generar todas las semanas desde start hasta end
             while (current <= endWeek) {
-                const monday = current.toISOString().slice(0, 10);
+                const monday = formatDate(current);
                 const weekDays = Utils.getWeekDays(monday);
                 
-                // Obtener empleados VIGENTES en esta semana específica
                 const activeEmployees = App.data.empleados.filter(e => {
                     return e.active !== false && Utils.empleadoVigenteEnFecha(e, monday);
                 });
                 const totalActiveEmps = activeEmployees.length;
                 
-                // Calcular estado de la semana
-                // 🟢 Completa: TODOS los empleados activos y vigentes tienen turno en TODOS los días
-                // 🟡 Parcial: Hay datos pero no completo
-                // ⚪ Vacía: Sin datos
-                
                 let isComplete = true;
                 let hasAnyData = false;
                 
-                // Verificar cada día de la semana
                 for(let i = 0; i < weekDays.length; i++) {
                     const day = weekDays[i];
                     
                     if(!App.data.schedule[day]) {
-                        // Si no existe el día, no está completo
                         isComplete = false;
                         continue;
                     }
@@ -7672,11 +7640,8 @@ const App = {
                     const daySchedule = App.data.schedule[day];
                     const assignedCount = Object.keys(daySchedule).length;
                     
-                    if(assignedCount > 0) {
-                        hasAnyData = true;
-                    }
+                    if(assignedCount > 0) hasAnyData = true;
                     
-                    // Verificar si TODOS los empleados activos tienen turno este día
                     let allEmployeesAssigned = true;
                     for(let j = 0; j < activeEmployees.length; j++) {
                         const empId = activeEmployees[j].id;
@@ -7686,21 +7651,18 @@ const App = {
                         }
                     }
                     
-                    if(!allEmployeesAssigned) {
-                        isComplete = false;
-                    }
+                    if(!allEmployeesAssigned) isComplete = false;
                 }
                 
-                let indicator = '⚪'; // Vacía
+                let indicator = '⚪';
                 if(hasAnyData) {
                     if(isComplete && totalActiveEmps > 0) {
-                        indicator = '🟢'; // Completa: TODOS tienen turno TODOS los días
+                        indicator = '🟢';
                     } else {
-                        indicator = '🟡'; // Parcial: Hay datos pero no completo
+                        indicator = '🟡';
                     }
                 }
                 
-                // Formato: "2026WK07 - De DD.MM.AA a DD.MM.AA"
                 const weekCode = Utils.getWeekCode(monday);
                 const sunday = weekDays[6];
                 
@@ -7711,12 +7673,12 @@ const App = {
                 
                 const weekLabel = `${weekCode} - De ${formatShortDate(monday)} a ${formatShortDate(sunday)}`;
                 const selected = monday === currentMonday ? 'selected' : '';
-                // Dot based on weekState (locked > partial > empty)
                 const wsDot = App.logic.getWeekState(monday);
                 const dotChar = wsDot === 'closed' ? '🟢' : wsDot === 'partial' ? '🟡' : '⚪';
+                
                 weekOptions += `<option value="${monday}" ${selected}>${dotChar} ${weekLabel}</option>`;
                 
-                // Avanzar a siguiente semana
+                // Avanzar a la siguiente semana
                 current.setDate(current.getDate() + 7);
             }
             
@@ -9486,32 +9448,31 @@ const App = {
         
         sortShifts: function(key) { if(App.uiState.shiftSortKey === key) { App.uiState.shiftSortDir = (App.uiState.shiftSortDir === 'asc') ? 'desc' : 'asc'; } else { App.uiState.shiftSortKey = key; App.uiState.shiftSortDir = 'asc'; } App.ui.renderShifts(document.querySelector('.main-scroll')); },
         // EMP LOGIC
+        // Helpers para manejar los empalmes de fechas en formato YYYY-MM-DD
+        _sumarUnDia: function(isoDate) {
+            if (!isoDate) return null;
+            const d = new Date(isoDate);
+            d.setDate(d.getDate() + 1);
+            return d.toISOString().split('T')[0];
+        },
+        _restarUnDia: function(isoDate) {
+            if (!isoDate) return null;
+            const d = new Date(isoDate);
+            d.setDate(d.getDate() - 1);
+            return d.toISOString().split('T')[0];
+        },
+
         toggleEmpView: function() { App.uiState.empViewMode = (App.uiState.empViewMode==='data')?'prefs':'data'; App.ui.renderEmp(document.querySelector('.main-scroll')); },
         empSelect: function(id) { App.uiState.selectedId=id; App.uiState.empInspTab='overview'; App.ui.renderEmp(document.querySelector('.main-scroll')); App.ui.renderEmpInspector(id); },
         empSave: function(id) { 
             const nom = document.getElementById('ie-nom')?.value;
             if(!nom) { alert('Abre la pestaña Overview para guardar los datos del empleado.'); return; }
             const rol = document.getElementById('ie-rol').value;
-            // Leer tag del selector (no calcular hardcoded)
-            const tagEl = document.getElementById('ie-tag');
+            
+            // MAGIA AUTOMÁTICA: El Tag se calcula estrictamente por el Rol. Adiós al cajetín.
+            const tag = ['MNG','AM','SPV'].includes(rol) ? 3 : 1;
+            
             const existing = id ? App.data.empleados.find(x=>x.id===id) : null;
-            const tag = tagEl ? Number(tagEl.value) : (existing?.tag || (rol==='STF'?1:3));
-            
-            // Leer fechas — si el input no existe (otra pestaña activa), preservar valor guardado
-            const fechaInicioInput = document.getElementById('ie-fecha-inicio');
-            const fechaFinInput    = document.getElementById('ie-fecha-fin');
-            const fechaInicio = fechaInicioInput
-                ? (fechaInicioInput.dataset.isoValue || null)
-                : (existing?.fechaInicio || null);
-            const fechaFin = fechaFinInput
-                ? (fechaFinInput.dataset.isoValue || null)
-                : (existing?.fechaFin || null);
-            
-            // Validación
-            if(fechaInicio && fechaFin && fechaInicio > fechaFin) {
-                alert('⚠️ ERROR\n\nLa fecha de inicio debe ser anterior a la fecha de fin.');
-                return;
-            }
             
             const hrsVal = parseFloat(document.getElementById('ie-hrs').value) || 0;
             // contratos: preservar historial intacto
@@ -9528,9 +9489,8 @@ const App = {
                 contrato: contratoBase,
                 contratos: existingContratos || undefined,
                 active: document.getElementById('ie-active').checked, 
-                tag: tag, 
-                fechaInicio: fechaInicio,
-                fechaFin: fechaFin,
+                tag: tag, // Se guarda el que hemos calculado automáticamente
+                // ADIÓS VIGENCIAS RAÍZ: Todo se gestiona ahora en el array de contratos
                 saldoInicial: Number(document.getElementById('ie-saldo')?.value || existing?.saldoInicial || 0),
                 recPendientes: Number(document.getElementById('ie-rec')?.value ?? existing?.recPendientes ?? 0),
                 vacPendientes: Number(document.getElementById('ie-vac')?.value ?? existing?.vacPendientes ?? 0),
@@ -9555,100 +9515,152 @@ const App = {
             const horas = parseFloat(horasInput.value);
             if(!desde) { alert('Indica la fecha desde la que aplica el nuevo contrato.'); return; }
             if(!horas || horas <= 0) { alert('Indica las horas del nuevo contrato.'); return; }
+            
             const i = App.data.empleados.findIndex(e => e.id === id);
             if(i < 0) return;
-            if(!App.data.empleados[i].contratos) App.data.empleados[i].contratos = [];
-            if(App.data.empleados[i].contratos.find(t => t.desde === desde)) {
-                alert('Ya existe un tramo para esa fecha. Bórralo primero.'); return;
+            
+            let contratosActuales = App.data.empleados[i].contratos || [];
+            
+            if(contratosActuales.find(t => t.desde === desde)) {
+                alert('Ya existe un tramo que empieza exactamente en esa fecha. Edítalo o bórralo primero.'); return;
             }
-            App.data.empleados[i].contratos.push({ desde, horas });
-            App.data.empleados[i].contratos.sort((a,b) => a.desde.localeCompare(b.desde));
-            // IMPORTANTE: emp.contrato NO se toca — sirve como base histórica para fechas
-            // anteriores al primer tramo del historial. Ver Utils.getContrato().
+
+            const nuevoContrato = { desde: desde, hasta: null, horas: horas };
+            let contratosFinales = [];
+
+            for (let c of contratosActuales) {
+                let terminaAntes = c.hasta && c.hasta < nuevoContrato.desde;
+                let empiezaDespues = nuevoContrato.hasta && c.desde > nuevoContrato.hasta;
+                
+                if (terminaAntes || empiezaDespues) {
+                    contratosFinales.push(c); 
+                    continue; 
+                }
+
+                let engullidoInicio = c.desde >= nuevoContrato.desde;
+                let engullidoFin = nuevoContrato.hasta === null || (c.hasta && c.hasta <= nuevoContrato.hasta);
+                if (engullidoInicio && engullidoFin) {
+                    continue; 
+                }
+
+                if (c.desde < nuevoContrato.desde && (c.hasta === null || (nuevoContrato.hasta && c.hasta > nuevoContrato.hasta))) {
+                    let clon = { ...c };
+                    clon.desde = App.logic._sumarUnDia(nuevoContrato.hasta);
+                    c.hasta = App.logic._restarUnDia(nuevoContrato.desde);
+                    contratosFinales.push(c);
+                    contratosFinales.push(clon);
+                    continue;
+                }
+
+                if (c.desde < nuevoContrato.desde) {
+                    c.hasta = App.logic._restarUnDia(nuevoContrato.desde);
+                    contratosFinales.push(c);
+                    continue;
+                }
+
+                if (c.desde >= nuevoContrato.desde) {
+                    c.desde = App.logic._sumarUnDia(nuevoContrato.hasta);
+                    contratosFinales.push(c);
+                    continue;
+                }
+            }
+
+            contratosFinales.push(nuevoContrato);
+            contratosFinales.sort((a,b) => a.desde.localeCompare(b.desde));
+            
+            App.data.empleados[i].contratos = contratosFinales;
             Safe.save('v40_db', App.data);
             App.ui.renderEmpInspector(id);
         },
         contratoDelTramo: function(id, idx) {
             const i = App.data.empleados.findIndex(e => e.id === id);
             if(i < 0 || !App.data.empleados[i].contratos) return;
-            App.data.empleados[i].contratos.splice(idx, 1);
-            if(App.data.empleados[i].contratos.length === 0) {
+            
+            let contratos = App.data.empleados[i].contratos;
+            const contratoActual = contratos[idx];
+            const contratoPrevio = idx > 0 ? contratos[idx - 1] : null;
+            const contratoSiguiente = idx < contratos.length - 1 ? contratos[idx + 1] : null;
+
+            let opcion = '1';
+            if (contratos.length > 1) {
+                opcion = prompt(
+                    "Vas a borrar este contrato. ¿Qué hacemos con el hueco que deja?\n\n" +
+                    "1: Dejar el hueco (el empleado no estará activo esos días)\n" +
+                    (contratoPrevio ? "2: Expandir el contrato anterior para rellenarlo\n" : "") +
+                    (contratoSiguiente ? "3: Adelantar el contrato siguiente para rellenarlo" : ""),
+                    "1"
+                );
+                if (opcion === null) return; 
+            }
+
+            if (opcion === '2' && contratoPrevio) {
+                contratoPrevio.hasta = contratoSiguiente ? App.logic._restarUnDia(contratoSiguiente.desde) : null;
+            } else if (opcion === '3' && contratoSiguiente) {
+                contratoSiguiente.desde = contratoPrevio ? App.logic._sumarUnDia(contratoPrevio.hasta) : contratoActual.desde;
+            }
+
+            contratos.splice(idx, 1);
+            if(contratos.length === 0) {
                 delete App.data.empleados[i].contratos;
             }
-            // emp.contrato tampoco se toca al borrar
+            
             Safe.save('v40_db', App.data);
             App.ui.renderEmpInspector(id);
         },
         empPref: function(id, field, value) { const i = App.data.empleados.findIndex(x=>x.id===id); if(i>=0) { if(!App.data.empleados[i].prefs) App.data.empleados[i].prefs = {}; App.data.empleados[i].prefs[field] = value; Safe.save('v40_db', App.data); App.ui.renderEmp(document.querySelector('.main-scroll')); } },
+        
         empClearOutsideVigencia: function(empId) {
-            const emp = App.data.empleados.find(e => e.id === empId);
-            if(!emp) return;
-            if(!emp.fechaInicio && !emp.fechaFin) {
-                alert('Este empleado no tiene fechas de vigencia definidas.');
-                return;
-            }
+    const emp = App.data.empleados.find(e => e.id === empId);
+    if (!emp) return;
 
-            // Comparación SOLO por fechas, ignorando active (active afecta a empleadoVigenteEnFecha)
-            const fueraDeVigencia = (date) => {
-                if(emp.fechaInicio && date < emp.fechaInicio) return true;
-                if(emp.fechaFin    && date > emp.fechaFin)   return true;
-                return false;
-            };
+    // 1. EL WARNING DE SEGURIDAD
+    const confirmacion = confirm(
+        `⚠️ ADVERTENCIA DE SEGURIDAD\n\n` +
+        `Vas a borrar todos los turnos de ${emp.nombre} que no coincidan con las fechas de sus contratos.\n\n` +
+        `• ¿Has revisado que el Historial de Contratos es correcto?\n` +
+        `• Si falta algún tramo de contrato, borrarás turnos válidos por error.\n\n` +
+        `¿Deseas PROCEDER con el borrado masivo?`
+    );
 
-            const antesDeInicio = [];
-            const despuesDeFin  = [];
-            Object.keys(App.data.schedule).sort().forEach(date => {
-                if(App.data.schedule[date][empId] === undefined) return;
-                if(fueraDeVigencia(date)) {
-                    if(emp.fechaInicio && date < emp.fechaInicio) antesDeInicio.push(date);
-                    else despuesDeFin.push(date);
-                }
-            });
+    // OPCIÓN 1: El usuario cancela para revisar (No se hace nada)
+    if (!confirmacion) {
+        console.log("Acción cancelada: El usuario prefiere revisar los contratos.");
+        return; 
+    }
 
-            const total = antesDeInicio.length + despuesDeFin.length;
-            if(total === 0) {
-                alert('✅ No hay turnos fuera de vigencia para este empleado.');
-                return;
-            }
+    // OPCIÓN 2: El usuario procede
+    let turnosBorrados = 0;
+    const totalAntes = App.data.assignments.length;
 
-            const fmt = d => Utils.formatDateES(d);
-            let lines = [`⚠️ Se van a borrar ${total} turno${total!==1?'s':''} de ${emp.nombre}.\n`];
+    // Filtramos las asignaciones
+    App.data.assignments = App.data.assignments.filter(asig => {
+        // Si el turno no es de este empleado, lo mantenemos (true)
+        if (asig.empId !== empId) return true;
 
-            if(antesDeInicio.length > 0) {
-                const min = antesDeInicio[0];
-                const max = antesDeInicio[antesDeInicio.length - 1];
-                const rango = min === max ? fmt(min) : `del ${fmt(min)} al ${fmt(max)}`;
-                lines.push(`🗑️ ANTES del inicio de vigencia (${fmt(emp.fechaInicio)}):`);
-                lines.push(`   ${antesDeInicio.length} día${antesDeInicio.length!==1?'s':''} — ${rango}\n`);
-            }
+        // Comprobamos si el empleado tiene contrato en la fecha del turno
+        const tieneContrato = App.logic.isEmpleadoActivo(emp, asig.date);
+        
+        if (!tieneContrato) {
+            turnosBorrados++;
+            return false; // Se elimina de la lista
+        }
+        return true; // Se mantiene
+    });
 
-            if(despuesDeFin.length > 0) {
-                const min = despuesDeFin[0];
-                const max = despuesDeFin[despuesDeFin.length - 1];
-                const rango = min === max ? fmt(min) : `del ${fmt(min)} al ${fmt(max)}`;
-                lines.push(`🗑️ DESPUÉS del fin de vigencia (${fmt(emp.fechaFin)}):`);
-                lines.push(`   ${despuesDeFin.length} día${despuesDeFin.length!==1?'s':''} — ${rango}\n`);
-            }
-
-            lines.push(`Esta acción se puede deshacer con Ctrl+Z.\n\n¿Confirmas que quieres borrar estos turnos?`);
-
-            if(!confirm(lines.join('\n'))) return;
-            if(!confirm(`🛑 ÚLTIMA CONFIRMACIÓN\n\nVas a eliminar ${total} turno${total!==1?'s':''} de ${emp.nombre} fuera de su vigencia.\n\n¿Proceder?`)) return;
-
-            Object.keys(App.data.schedule).forEach(date => {
-                if(App.data.schedule[date][empId] !== undefined && fueraDeVigencia(date)) {
-                    delete App.data.schedule[date][empId];
-                    if(Object.keys(App.data.schedule[date]).length === 0) delete App.data.schedule[date];
-                }
-            });
-            this.saveSnapshot(`Limpiar vigencia: ${emp.nombre}`);
-            Safe.save('v40_db', App.data);
-            App.logic.checkAlerts();
-            App.ui.renderEmpInspector(empId);
-            const mainView = document.getElementById('main-view');
-            if(mainView && App.router.current() === 'planificador') App.ui.renderPlanner(mainView);
-            alert(`✅ Eliminados ${total} turno${total!==1?'s':''} fuera de vigencia de ${emp.nombre}.`);
-        },
+    // 3. RESULTADO Y GUARDADO
+    if (turnosBorrados > 0) {
+        Safe.save('v40_db', App.data);
+        
+        // Refrescamos el planner si estamos en esa vista para ver los huecos
+        if (App.uiState.currentView === 'planner') {
+            App.ui.renderPlanner();
+        }
+        
+        alert(`✅ Limpieza completada con éxito.\n\nSe han eliminado ${turnosBorrados} turnos que estaban fuera de contrato.`);
+    } else {
+        alert(`Información: No se ha borrado nada. Todos los turnos de ${emp.nombre} están dentro de sus periodos de contrato.`);
+    }
+},
 
         festivoTrackUpd: function(empId, hDate, field, value) {
             const i = App.data.empleados.findIndex(x => x.id === empId);
@@ -9662,36 +9674,37 @@ const App = {
             Safe.save('v40_db', App.data);
             App.ui.renderEmpInspector(empId);
         },
-       empDel: function(id) { 
-    if(confirm("Estás a punto de borrar definitivamente este empleado. Esta acción eliminará también sus asignaciones del planificador y no se puede deshacer.\n\nSi la persona ha dejado tu equipo pero quieres conservar los datos de sus turnos en el historial, deshabilítalo, no la borres.\n\n¿Deseas continuar?")) { 
-        
-        // Limpieza de schedule (hard delete real)
-        let assignRemoved = 0;
-        let datesTouched = 0;
-        if (App.data && App.data.schedule) {
-            for (const fecha in App.data.schedule) {
-                const day = App.data.schedule[fecha];
-                if (day && Object.prototype.hasOwnProperty.call(day, id)) {
-                    delete day[id];
-                    assignRemoved++;
-                    datesTouched++;
+        empDel: function(id) { 
+            if(confirm("Estás a punto de borrar definitivamente este empleado. Esta acción eliminará también sus asignaciones del planificador y no se puede deshacer.\n\nSi la persona ha dejado tu equipo pero quieres conservar los datos de sus turnos en el historial, deshabilítalo, no la borres.\n\n¿Deseas continuar?")) { 
+                
+                // Limpieza de schedule (hard delete real)
+                let assignRemoved = 0;
+                let datesTouched = 0;
+                if (App.data && App.data.schedule) {
+                    for (const fecha in App.data.schedule) {
+                        const day = App.data.schedule[fecha];
+                        if (day && Object.prototype.hasOwnProperty.call(day, id)) {
+                            delete day[id];
+                            assignRemoved++;
+                            datesTouched++;
+                        }
+                    }
                 }
-            }
-        }
 
-        App.data.empleados = App.data.empleados.filter(x => x.id !== id);
-        this.saveSnapshot('Eliminar empleado');
-        Safe.save('v40_db', App.data);
-        App.uiState.selectedId = null;
-        App.router.go('empleados');
+                App.data.empleados = App.data.empleados.filter(x => x.id !== id);
+                this.saveSnapshot('Eliminar empleado');
+                Safe.save('v40_db', App.data);
+                App.uiState.selectedId = null;
+                App.router.go('empleados');
 
-        console.log(`Empleado eliminado definitivamente. ${assignRemoved} asignaciones retiradas en ${datesTouched} días.`);
-    } 
-},
+                console.log(`Empleado eliminado definitivamente. ${assignRemoved} asignaciones retiradas en ${datesTouched} días.`);
+            } 
+        },
         sortEmp: function(key) { if(App.uiState.sortKey === key) { App.uiState.sortDir = (App.uiState.sortDir === 'asc') ? 'desc' : 'asc'; } else { App.uiState.sortKey = key; App.uiState.sortDir = 'asc'; } App.ui.renderEmp(document.querySelector('.main-scroll')); },
         dragStart: function(e, idx, type) { e.dataTransfer.setData('text/plain', JSON.stringify({idx, type})); e.currentTarget.classList.add('dragging'); },
         dragOver: function(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); },
         drop: function(e, targetIdx, type) { e.preventDefault(); const data = JSON.parse(e.dataTransfer.getData('text/plain')); const fromIdx = data.idx; const dragType = data.type; document.querySelectorAll('.data-table tr').forEach(tr => { tr.classList.remove('dragging'); tr.classList.remove('drag-over'); }); if (type !== dragType) return; if (type === 'emp' && fromIdx !== targetIdx && App.uiState.sortKey === 'custom') { let all = [...App.data.empleados]; let activeList = all.filter(e => e.active !== false).sort((a,b) => a.customOrder - b.customOrder); let inactiveList = all.filter(e => e.active === false); const movedItem = activeList.splice(fromIdx, 1)[0]; activeList.splice(targetIdx, 0, movedItem); activeList.forEach((e, i) => e.customOrder = i); App.data.empleados = [...activeList, ...inactiveList]; Safe.save('v40_db', App.data); App.ui.renderEmp(document.querySelector('.main-scroll')); } else if (type === 'shift' && fromIdx !== targetIdx && App.uiState.shiftSortKey === 'custom') { let list = [...App.data.shiftDefs].sort((a,b) => a.customOrder - b.customOrder); const movedItem = list.splice(fromIdx, 1)[0]; list.splice(targetIdx, 0, movedItem); list.forEach((s, i) => s.customOrder = i); App.data.shiftDefs = list; Safe.save('v40_db', App.data); App.ui.renderShifts(document.querySelector('.main-scroll')); } },
+        
         // REQ LOGIC
         reqNewForDate: function(date, type) {
             // Abrir inspector de nueva solicitud pre-rellenada con fecha y tipo
@@ -11666,6 +11679,86 @@ window.addEventListener('resize', () => {
     }
     scaleInspector();
 });
+// ==========================================
+// NUEVA LÓGICA DE CONTRATOS (v41.93)
+// ==========================================
+
+App.logic.isEmpleadoActivo = function(emp, fechaISO) {
+    if (!emp) return false;
+    // Si no tiene contratos, usamos vigencia antigua como backup
+    if (!emp.contratos || emp.contratos.length === 0) {
+        const inicio = emp.fechaInicio || '2000-01-01';
+        const fin = emp.fechaFin || '9999-12-31';
+        return fechaISO >= inicio && (fin === null || fin === '' || fechaISO <= fin);
+    }
+    // Si tiene contratos, miramos si la fecha entra en algún tramo
+    return emp.contratos.some(c => {
+        const cFin = c.hasta || '9999-12-31';
+        return fechaISO >= c.desde && fechaISO <= cFin;
+    });
+};
+
+App.logic.getHorasContratoEnFecha = function(emp, fechaISO) {
+    if (!emp) return 0;
+    if (emp.contratos && emp.contratos.length > 0) {
+        const cMatch = emp.contratos.find(c => {
+            const cFin = c.hasta || '9999-12-31';
+            return fechaISO >= c.desde && fechaISO <= cFin;
+        });
+        if (cMatch) return parseFloat(cMatch.horas);
+    }
+    return parseFloat(emp.contrato) || 0;
+};
+
+App.logic.addContrato = function(empId) {
+    const emp = App.data.empleados.find(e => e.id === empId);
+    if (!emp) return;
+    if (!emp.contratos) emp.contratos = [];
+    
+    // El nuevo tramo empieza hoy o un día después del último contrato
+    let nuevaFecha = new Date().toISOString().slice(0,10);
+    if (emp.contratos.length > 0) {
+        const ultimo = [...emp.contratos].sort((a,b) => b.desde.localeCompare(a.desde))[0];
+        if (ultimo.hasta) {
+            let d = new Date(ultimo.hasta);
+            d.setDate(d.getDate() + 1);
+            nuevaFecha = d.toISOString().slice(0,10);
+        }
+    }
+
+    emp.contratos.push({ desde: nuevaFecha, hasta: null, horas: emp.contrato || 40 });
+    Safe.save('v40_db', App.data);
+    App.ui.renderInspector(); 
+};
+
+App.logic.updateContrato = function(empId, idx, campo, valor) {
+    const emp = App.data.empleados.find(e => e.id === empId);
+    if (!emp || !emp.contratos[idx]) return;
+    
+    emp.contratos[idx][campo] = (campo === 'horas') ? parseFloat(valor) : valor;
+    emp.contratos.sort((a,b) => a.desde.localeCompare(b.desde));
+    
+    // Sincronizar campos antiguos para no romper el resto de la App
+    emp.fechaInicio = emp.contratos[0].desde;
+    const ultimo = emp.contratos[emp.contratos.length - 1];
+    emp.fechaFin = ultimo.hasta || null;
+
+    Safe.save('v40_db', App.data);
+    App.ui.renderEmp(document.getElementById('emp-list-container'));
+    App.ui.renderInspector(); 
+};
+
+App.logic.removeContrato = function(empId, idx) {
+    const emp = App.data.empleados.find(e => e.id === empId);
+    if (!emp || !emp.contratos) return;
+    
+    if (confirm('¿Eliminar este tramo de contrato?')) {
+        emp.contratos.splice(idx, 1);
+        Safe.save('v40_db', App.data);
+        App.ui.renderEmp(document.getElementById('emp-list-container'));
+        App.ui.renderInspector();
+    }
+};
 
 window.onload = App.init;
 window.addEventListener('beforeunload', function(){ try { Safe.flush('v40_db'); } catch(e) {} });
