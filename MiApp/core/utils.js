@@ -150,6 +150,28 @@ const Utils = {
         // Mostrar/ocultar
         calendar.classList.toggle('open');
         
+        // Reposicionar si se sale de la ventana
+        if(calendar.classList.contains('open')) {
+            calendar.style.left = '0'; calendar.style.right = 'auto';
+            requestAnimationFrame(() => {
+                const rect = calendar.getBoundingClientRect();
+                if(rect.right > window.innerWidth - 4) {
+                    calendar.style.left = 'auto';
+                    calendar.style.right = '0';
+                }
+                if(rect.bottom > window.innerHeight - 4) {
+                    calendar.style.top = 'auto';
+                    calendar.style.bottom = '100%';
+                    calendar.style.marginTop = '0';
+                    calendar.style.marginBottom = '4px';
+                }
+            });
+        } else {
+            calendar.style.left = ''; calendar.style.right = '';
+            calendar.style.top = ''; calendar.style.bottom = '';
+            calendar.style.marginTop = ''; calendar.style.marginBottom = '';
+        }
+        
         // Cerrar al hacer clic fuera
         if(calendar.classList.contains('open')) {
             setTimeout(() => {
