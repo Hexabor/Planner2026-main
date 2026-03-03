@@ -149,23 +149,23 @@ Object.assign(App.ui, {
                 <div class="planner-module planner-palette-inline">
                     <div class="planner-module-title">🎨 PALETA DE TURNOS</div>
                     <div class="planner-module-content">
-                        <div style="display:flex; height:100%; gap:0;">
-                            <!-- Fijos: columna izquierda -->`;
-            html += `<div style="display:flex; flex-direction:column; gap:2px; flex-shrink:0;">`;
+                        <div class="palette-grid">
+                            <!-- Turnos Fijos -->`;
             App.data.fixedShifts.forEach(s => {
                 const isSel = App.uiState.paintShiftId === s.id ? 'selected' : '';
-                html += `<div class="palette-item palette-item-fixed ${isSel}" style="border: 2px solid ${s.color}; background:transparent; border-color:${isSel?s.color:s.color}40; min-width:22px;" onclick="App.logic.setPaint('${s.id}')"><span style="color:${s.color}; font-weight:700;">${s.code}</span></div>`;
+                html += `<div class="palette-item palette-item-fixed ${isSel}" style="border: 2px solid ${s.color}; background:transparent; border-color:${isSel?s.color:s.color}40" onclick="App.logic.setPaint('${s.id}')"><span style="color:${s.color}; font-weight:700; text-shadow: 0 0 2px rgba(255,255,255,0.8);">${s.code}</span></div>`;
             });
-            html += `</div><div style="width:1px; background:var(--border); margin:0 6px; align-self:stretch; flex-shrink:0;"></div><div style="display:grid; grid-template-columns:repeat(4,1fr); gap:3px; flex:1; align-content:start;">`;
+            html += `<!-- Separador -->
+                            <div style="grid-column: 1 / -1; height: 1px; background: var(--border); margin: 8px 0;"></div>
+                            <!-- Turnos Configurables -->`;
             App.data.shiftDefs.sort((a,b)=>a.customOrder-b.customOrder).forEach(s => {
                 const isSel = App.uiState.paintShiftId === s.id ? 'selected' : '';
                 const isLight = Utils.isLightColor(s.color);
                 const textColor = isLight ? '#000000' : '#ffffff';
                 const shadowColor = isLight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)';
-                html += `<div class="palette-item ${isSel}" style="background:${s.color}; border-color:${isSel?'var(--text-main)':'transparent'}" onclick="App.logic.setPaint('${s.id}')"><span style="color:${textColor}; font-weight:700;">${s.code}</span></div>`;
+                html += `<div class="palette-item ${isSel}" style="background:${s.color}; border-color:${isSel?'var(--text-main)':'transparent'}" onclick="App.logic.setPaint('${s.id}')"><span style="color:${textColor}; font-weight:700; text-shadow: 0 0 3px ${shadowColor}, 0 1px 2px ${shadowColor};">${s.code}</span></div>`;
             });
             html += `</div>
-                        </div>
                     </div>
                 </div>
                 
@@ -177,10 +177,10 @@ Object.assign(App.ui, {
                         <div class="planner-module-content" style="padding:6px;">
                             <div class="tools-grid">
                                 <div class="tools-column">
-                                    <div class="tools-column-title">Rellenar</div>
-                                    <button class="tool-btn-unified tool-magic ${App.uiState.paintShiftId === 'magic' ? 'selected' : ''}" onclick="App.logic.setPaint('magic')" title="Asignar turno preferido">🪄 Turno</button>
-                                    <button class="tool-btn-unified tool-fill-day" title="Rellenar huecos vacíos del día" onclick="App.logic.massFillDay()">✨ Día</button>
-                                    <button class="tool-btn-unified tool-fill-week" title="Rellenar huecos vacíos de toda la semana" onclick="App.logic.massFillWeek()">📅 Semana</button>
+                                    <div class="tools-column-title" style="color:#94a3b8;">Algoritmo</div>
+                                    <button class="tool-btn-unified tool-magic" title="Próximamente" disabled style="opacity:0.35; cursor:not-allowed; filter:grayscale(1);">🪄 Turno</button>
+                                    <button class="tool-btn-unified tool-fill-day" title="Próximamente" disabled style="opacity:0.35; cursor:not-allowed; filter:grayscale(1);">✨ Día</button>
+                                    <button class="tool-btn-unified tool-fill-week" title="Próximamente" disabled style="opacity:0.35; cursor:not-allowed; filter:grayscale(1);">📅 Semana</button>
                                 </div>
                                 <div class="tools-column">
                                     <div class="tools-column-title">Borrar</div>
