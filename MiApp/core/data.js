@@ -16,9 +16,9 @@ const App = {
             { id: "fixed_P", code: "P", desc: "Permiso", start: "", end: "", color: "#ec4899", fixed: true }
         ],
         shiftDefs: [
-            { id: "s1", code: "M8", desc: "Mañana", start: "10:00", end: "18:00", breakStart: "", breakEnd: "", color: "#3b82f6", customOrder: 0 },
-            { id: "s2", code: "T8", desc: "Tarde", start: "14:00", end: "22:00", breakStart: "", breakEnd: "", color: "#8b5cf6", customOrder: 1 },
-            { id: "s3", code: "P8", desc: "Partido 8h", start: "10:00", end: "20:00", breakStart: "14:00", breakEnd: "16:00", color: "#f59e0b", customOrder: 2 }
+            { id: "s1", code: "M8", desc: "Mañana", start: "10:00", end: "18:00", breakStart: "", breakEnd: "", color: "#7dd3fc", customOrder: 0 },
+            { id: "s2", code: "T8", desc: "Tarde", start: "14:00", end: "22:00", breakStart: "", breakEnd: "", color: "#fb923c", customOrder: 1 },
+            { id: "s3", code: "P8", desc: "Partido 8h", start: "10:00", end: "20:00", breakStart: "14:00", breakEnd: "16:00", color: "#ec4899", customOrder: 2 }
         ],
         schedule: {},
         lockedDays: {}  // { "YYYY-MM-DD": true } — días bloqueados individualmente
