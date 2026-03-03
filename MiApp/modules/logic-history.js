@@ -58,177 +58,156 @@ App.logic = {
             }
         },
         // ═══════════════════════════════════════════════════════════
-        // SISTEMA UNDO/REDO
+        // SISTEMA UNDO/REDO — patrón dos pilas
+        //
+        // undoStack (App.uiState.history): estados a los que se puede volver
+        // redoStack (App.uiState.redoStack): estados a los que se puede avanzar
+        //
+        // saveSnapshot() guarda el estado ACTUAL en undoStack y vacía redoStack.
+        // undo() mueve estado actual → redoStack, restaura tope de undoStack.
+        // redo() mueve estado actual → undoStack, restaura tope de redoStack.
         // ═══════════════════════════════════════════════════════════
-        
-        saveSnapshot: function(description) {
-        if (App.uiState.isRestoringHistory) {
-                console.log('📸 Skipping snapshot during history restoration:', description);
-                return;
-            }
-            console.log('📸 Guardando snapshot:', description);
-            
-            // Crear snapshot profundo de los datos importantes
-            const snapshot = {
+
+        _captureData: function() {
+            return {
                 timestamp: Date.now(),
-                description: description || 'Cambio',
-                data: {
-                    empleados: JSON.parse(JSON.stringify(App.data.empleados)),
-                    schedule: JSON.parse(JSON.stringify(App.data.schedule)),
-                    shiftDefs: JSON.parse(JSON.stringify(App.data.shiftDefs)),
-                    requests: JSON.parse(JSON.stringify(App.data.requests)),
-                    storeConfig: JSON.parse(JSON.stringify(App.data.storeConfig)),
-                    lockedDays: JSON.parse(JSON.stringify(App.data.lockedDays || {}))
-                }
+                empleados:  JSON.parse(JSON.stringify(App.data.empleados)),
+                schedule:   JSON.parse(JSON.stringify(App.data.schedule)),
+                shiftDefs:  JSON.parse(JSON.stringify(App.data.shiftDefs)),
+                requests:   JSON.parse(JSON.stringify(App.data.requests)),
+                storeConfig:JSON.parse(JSON.stringify(App.data.storeConfig)),
+                lockedDays: JSON.parse(JSON.stringify(App.data.lockedDays || {}))
             };
-            
-            // Si estamos en medio del historial (después de hacer undo), eliminar el futuro
-            if (App.uiState.historyIndex < App.uiState.history.length - 1) {
-                const eliminados = App.uiState.history.length - 1 - App.uiState.historyIndex;
-                console.log(`  Eliminando ${eliminados} snapshot(s) del futuro`);
-                App.uiState.history = App.uiState.history.slice(0, App.uiState.historyIndex + 1);
+        },
+
+        _restoreData: function(snap) {
+            App.data.empleados   = JSON.parse(JSON.stringify(snap.empleados));
+            App.data.schedule    = JSON.parse(JSON.stringify(snap.schedule));
+            App.data.shiftDefs   = JSON.parse(JSON.stringify(snap.shiftDefs));
+            App.data.requests    = JSON.parse(JSON.stringify(snap.requests));
+            App.data.storeConfig = JSON.parse(JSON.stringify(snap.storeConfig));
+            App.data.lockedDays  = JSON.parse(JSON.stringify(snap.lockedDays || {}));
+        },
+
+        _refreshView: function() {
+            const route = App.router.current();
+            if (route === 'import' || route === 'export') {
+                App.router.go('planificador');
+            } else if (typeof App.router.refreshCurrent === 'function') {
+                App.router.refreshCurrent();
+            } else {
+                App.router.go(route);
             }
-            
-            // Añadir snapshot
-            App.uiState.history.push(snapshot);
-            App.uiState.historyIndex = App.uiState.history.length - 1;
-            
-            // Limitar tamaño del historial
+        },
+
+        saveSnapshot: function(description) {
+            if (App.uiState.isRestoringHistory) return;
+
+            // Inicializar redoStack si no existe (compatibilidad con uiState antiguo)
+            if (!Array.isArray(App.uiState.redoStack)) App.uiState.redoStack = [];
+
+            const snap = this._captureData();
+            snap.description = description || 'Cambio';
+
+            // Nueva acción → limpiar redo
+            App.uiState.redoStack = [];
+
+            App.uiState.history.push(snap);
+
+            // Limitar tamaño
             if (App.uiState.history.length > App.uiState.maxHistory) {
-                console.log(`  Eliminando snapshot más antiguo (límite: ${App.uiState.maxHistory})`);
                 App.uiState.history.shift();
-                App.uiState.historyIndex--;
             }
-            
+
+            // historyIndex se mantiene por compatibilidad con código externo que lo lea
+            App.uiState.historyIndex = App.uiState.history.length - 1;
+
             this.updateUndoRedoButtons();
-            console.log(`  ✅ Snapshot #${App.uiState.historyIndex + 1}/${App.uiState.history.length}: "${description}"`);
+            console.log(`📸 Snapshot "${description}" — undo:${App.uiState.history.length} redo:0`);
         },
-        
-                undo: function() {
-            console.log('=== UNDO INICIADO ===');
-            console.log('historyIndex:', App.uiState.historyIndex);
-            console.log('history.length:', App.uiState.history.length);
 
-            if (App.uiState.historyIndex <= 0) {
-                console.log('⚠️ No hay nada que deshacer');
-                return;
-            }
+        undo: function() {
+            if (!Array.isArray(App.uiState.redoStack)) App.uiState.redoStack = [];
+            if (App.uiState.history.length === 0) return;
 
             try {
                 App.uiState.isRestoringHistory = true;
 
-                App.uiState.historyIndex--;
-                const snapshot = App.uiState.history[App.uiState.historyIndex];
+                const current = this._captureData();
+                const currentSchedule = JSON.stringify(current.schedule);
 
-                console.log('Restaurando snapshot:', snapshot.description);
-                console.log('Timestamp:', new Date(snapshot.timestamp).toLocaleString());
-
-                // Restaurar datos
-                App.data.empleados = JSON.parse(JSON.stringify(snapshot.data.empleados));
-                App.data.schedule = JSON.parse(JSON.stringify(snapshot.data.schedule));
-                App.data.shiftDefs = JSON.parse(JSON.stringify(snapshot.data.shiftDefs));
-                App.data.requests = JSON.parse(JSON.stringify(snapshot.data.requests));
-                App.data.storeConfig = JSON.parse(JSON.stringify(snapshot.data.storeConfig));
-
-                console.log('Datos restaurados');
-
-                // Guardar en localStorage
-                Safe.save('v40_db', App.data);
-                console.log('Guardado en localStorage');
-
-                // Re-renderizar
-                const currentRoute = App.router.current();
-                console.log('currentRoute:', currentRoute);
-
-                if (currentRoute === 'import' || currentRoute === 'export') {
-                    console.log('Redirigiendo a planificador...');
-                    App.router.go('planificador');
-                } else if (typeof App.router.refreshCurrent === 'function') {
-                    console.log('Refrescando vista actual (sin navegar)...');
-                    App.router.refreshCurrent();
-                } else {
-                    console.log('Re-renderizando vista actual...');
-                    App.router.go(currentRoute);
+                // Si el tope del historial es idéntico al estado actual,
+                // significa que saveSnapshot fue llamado DESPUÉS del cambio:
+                // ese snapshot no es el estado "anterior" real, sino el mismo.
+                // Lo descartamos y usamos el que hay debajo.
+                let snap = App.uiState.history.pop();
+                if (JSON.stringify(snap.schedule) === currentSchedule) {
+                    if (App.uiState.history.length === 0) {
+                        // No hay estado anterior real, revertir y salir
+                        App.uiState.history.push(snap);
+                        return;
+                    }
+                    snap = App.uiState.history.pop();
                 }
 
-                console.log(`⟲ Deshacer: ${snapshot.description}`);
-                console.log('=== UNDO COMPLETADO ===');
+                App.uiState.redoStack.push(current);
+                App.uiState.historyIndex = App.uiState.history.length - 1;
+
+                this._restoreData(snap);
+                Safe.save('v40_db', App.data);
+                this._refreshView();
+
+                console.log(`⟲ Deshacer: "${snap.description}" — undo:${App.uiState.history.length} redo:${App.uiState.redoStack.length}`);
             } finally {
                 App.uiState.isRestoringHistory = false;
                 this.updateUndoRedoButtons();
             }
         },
-        
-                redo: function() {
-            console.log('=== REDO INICIADO ===');
-            console.log('historyIndex:', App.uiState.historyIndex);
-            console.log('history.length:', App.uiState.history.length);
 
-            if (App.uiState.historyIndex >= App.uiState.history.length - 1) {
-                console.log('⚠️ No hay nada que rehacer');
-                return;
-            }
+        redo: function() {
+            if (!Array.isArray(App.uiState.redoStack)) App.uiState.redoStack = [];
+            if (App.uiState.redoStack.length === 0) return;
 
             try {
                 App.uiState.isRestoringHistory = true;
 
-                App.uiState.historyIndex++;
-                const snapshot = App.uiState.history[App.uiState.historyIndex];
+                // Guardar estado actual en undoStack
+                const current = this._captureData();
+                current.description = 'undo';
+                App.uiState.history.push(current);
+                App.uiState.historyIndex = App.uiState.history.length - 1;
 
-                console.log('Restaurando snapshot:', snapshot.description);
-                console.log('Timestamp:', new Date(snapshot.timestamp).toLocaleString());
+                // Restaurar tope de redoStack
+                const snap = App.uiState.redoStack.pop();
 
-                // Restaurar datos
-                App.data.empleados = JSON.parse(JSON.stringify(snapshot.data.empleados));
-                App.data.schedule = JSON.parse(JSON.stringify(snapshot.data.schedule));
-                App.data.shiftDefs = JSON.parse(JSON.stringify(snapshot.data.shiftDefs));
-                App.data.requests = JSON.parse(JSON.stringify(snapshot.data.requests));
-                App.data.storeConfig = JSON.parse(JSON.stringify(snapshot.data.storeConfig));
-
-                console.log('Datos restaurados');
-
-                // Guardar en localStorage
+                this._restoreData(snap);
                 Safe.save('v40_db', App.data);
-                console.log('Guardado en localStorage');
+                this._refreshView();
 
-                // Re-renderizar
-                const currentRoute = App.router.current();
-                console.log('currentRoute:', currentRoute);
-
-                if (currentRoute === 'import' || currentRoute === 'export') {
-                    console.log('Redirigiendo a planificador...');
-                    App.router.go('planificador');
-                } else if (typeof App.router.refreshCurrent === 'function') {
-                    console.log('Refrescando vista actual (sin navegar)...');
-                    App.router.refreshCurrent();
-                } else {
-                    console.log('Re-renderizando vista actual...');
-                    App.router.go(currentRoute);
-                }
-
-                console.log(`⟳ Rehacer: ${snapshot.description}`);
-                console.log('=== REDO COMPLETADO ===');
+                console.log(`⟳ Rehacer — undo:${App.uiState.history.length} redo:${App.uiState.redoStack.length}`);
             } finally {
                 App.uiState.isRestoringHistory = false;
                 this.updateUndoRedoButtons();
             }
         },
-        
+
         updateUndoRedoButtons: function() {
+            if (!Array.isArray(App.uiState.redoStack)) App.uiState.redoStack = [];
+
             const undoBtn = document.getElementById('undo-btn');
             const redoBtn = document.getElementById('redo-btn');
-            
+
             const inPlanner = App.router.current() === 'planificador';
-            const canUndo = inPlanner && App.uiState.historyIndex > 0;
-            const canRedo = inPlanner && App.uiState.historyIndex < App.uiState.history.length - 1;
-            
+            const canUndo = inPlanner && App.uiState.history.length > 0;
+            const canRedo = inPlanner && App.uiState.redoStack.length > 0;
+
             if (undoBtn) {
                 undoBtn.disabled = !canUndo;
                 undoBtn.style.opacity = canUndo ? '1' : '0.3';
                 undoBtn.style.cursor = canUndo ? 'pointer' : 'not-allowed';
                 undoBtn.title = inPlanner ? (canUndo ? 'Deshacer (Ctrl+Z)' : 'Nada que deshacer') : 'Solo disponible en el planificador';
             }
-            
+
             if (redoBtn) {
                 redoBtn.disabled = !canRedo;
                 redoBtn.style.opacity = canRedo ? '1' : '0.3';

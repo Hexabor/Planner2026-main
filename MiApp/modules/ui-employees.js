@@ -134,11 +134,16 @@ Object.assign(App.ui, {
                 </div>
                 <div id="contratos-container">
                     ${e.contratos.map((t, i) => `
-                        <div style="display:grid; grid-template-columns: 1fr 1fr 85px 25px; gap:8px; background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:8px; align-items:end;">
-                            <div><input type="date" value="${t.desde}" onchange="App.logic.updateContrato('${id}', ${i}, 'desde', this.value); App.ui.markDirty();" style="width:100%; font-size:11px; padding:4px; border:1px solid #cbd5e1; border-radius:4px;"></div>
-                            <div><input type="date" value="${t.hasta || ''}" onchange="App.logic.updateContrato('${id}', ${i}, 'hasta', this.value); App.ui.markDirty();" style="width:100%; font-size:11px; padding:4px; border:1px solid #cbd5e1; border-radius:4px;"></div>
-                            <div><input type="number" step="0.01" value="${toDec(t.horas)}" onchange="App.logic.updateContrato('${id}', ${i}, 'horas', this.value); App.ui.markDirty();" style="width:100%; text-align:right; font-weight:800; font-size:12px; color:#2563eb; border:1px solid #2563eb; border-radius:4px; padding:4px;"></div>
-                            <button type="button" onclick="App.logic.removeContrato('${id}', ${i}); App.ui.renderEmpInspector('${id}'); App.ui.markDirty();" style="border:none; background:none; color:#ef4444; font-size:18px; cursor:pointer;">&times;</button>
+                        <div style="background:#f8fafc; padding:6px 8px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:6px;">
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-bottom:5px;">
+                                <div>${Utils.getDateInputHTML('contrato-desde-' + i, t.desde, 'App.logic.updateContrato(\'' + id + '\', ' + i + ', \'desde\', this.dataset.isoValue); App.ui.markDirty();')}</div>
+                                <div>${Utils.getDateInputHTML('contrato-hasta-' + i, t.hasta || '', 'App.logic.updateContrato(\'' + id + '\', ' + i + ', \'hasta\', this.dataset.isoValue); App.ui.markDirty();')}</div>
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">
+                                <span style="font-size:11px; color:#64748b;">Horas semanales:</span>
+                                <input type="number" step="0.01" value="${toDec(t.horas)}" onchange="App.logic.updateContrato(\'${id}\', ${i}, \'horas\', this.value); App.ui.markDirty();" style="width:108px; text-align:right; font-weight:800; font-size:12px; color:#2563eb; border:1px solid #2563eb; border-radius:4px; padding:3px 4px;">
+                                <button type="button" onclick="App.logic.removeContrato(\'${id}\', ${i}); App.ui.markDirty();" style="border:none; background:none; color:#ef4444; font-size:16px; cursor:pointer; line-height:1; padding:0;">&times;</button>
+                            </div>
                         </div>
                     `).join('')}
                 </div>

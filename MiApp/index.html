@@ -596,7 +596,7 @@ App.logic.addContrato = function(empId) {
 
     emp.contratos.push({ desde: nuevaFecha, hasta: null, horas: emp.contrato || 40 });
     Safe.save('v40_db', App.data);
-    App.ui.renderInspector(); 
+    App.ui.renderEmpInspector(empId);
 };
 
 App.logic.updateContrato = function(empId, idx, campo, valor) {
@@ -613,7 +613,7 @@ App.logic.updateContrato = function(empId, idx, campo, valor) {
 
     Safe.save('v40_db', App.data);
     App.ui.renderEmp(document.getElementById('emp-list-container'));
-    App.ui.renderInspector(); 
+    App.ui.renderEmpInspector(empId);
 };
 
 App.logic.removeContrato = function(empId, idx) {
@@ -623,8 +623,9 @@ App.logic.removeContrato = function(empId, idx) {
     if (confirm('¿Eliminar este tramo de contrato?')) {
         emp.contratos.splice(idx, 1);
         Safe.save('v40_db', App.data);
-        App.ui.renderEmp(document.getElementById('emp-list-container'));
-        App.ui.renderInspector();
+        const empListEl = document.getElementById('emp-list-container');
+        if (empListEl) App.ui.renderEmp(empListEl);
+        App.ui.renderEmpInspector(empId);
     }
 };
 
