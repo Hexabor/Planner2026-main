@@ -149,13 +149,35 @@ const Utils = {
         
         // Mostrar/ocultar
         calendar.classList.toggle('open');
-        
-        // Cerrar al hacer clic fuera
+
         if(calendar.classList.contains('open')) {
+            // Ajustar si se sale del borde derecho o inferior
+            requestAnimationFrame(() => {
+                const rect = calendar.getBoundingClientRect();
+                if(rect.right > window.innerWidth - 8) {
+                    calendar.style.left = 'auto';
+                    calendar.style.right = '0';
+                } else {
+                    calendar.style.left = '';
+                    calendar.style.right = '';
+                }
+                if(rect.bottom > window.innerHeight - 8) {
+                    calendar.style.top = 'auto';
+                    calendar.style.bottom = '100%';
+                } else {
+                    calendar.style.top = '';
+                    calendar.style.bottom = '';
+                }
+            });
+            // Cerrar al hacer clic fuera
             setTimeout(() => {
                 document.addEventListener('click', function closeCalendar(e) {
                     if(!calendar.contains(e.target) && e.target !== input && !e.target.classList.contains('custom-date-btn')) {
                         calendar.classList.remove('open');
+                        calendar.style.left = '';
+                        calendar.style.right = '';
+                        calendar.style.top = '';
+                        calendar.style.bottom = '';
                         document.removeEventListener('click', closeCalendar);
                     }
                 });
@@ -349,23 +371,26 @@ const Utils = {
     // Otras ausencias (V, R, B, P) siempre reducen.
     calcEsperadas: function(empContrato, weekDays, empId) {
         const dailyH = empContrato / 5;
-        let countL = 0, countF = 0, otherJustified = 0;
+        let countL = 0, countF = 0, otherJustified = 0, countDH = 0;
         weekDays.forEach(d => {
             const sid = App.data.schedule[d] ? App.data.schedule[d][empId] : null;
             const shift = sid ? Utils.getShift(sid) : null;
             if(shift && shift.fixed) {
                 if(shift.code === 'L') countL++;
                 else if(shift.code === 'F') countF++;
+                else if(shift.code === 'DH') countDH++;
                 else if(['V','R','B','P'].includes(shift.code)) otherJustified += dailyH;
             }
         });
         const lFaltantes = Math.max(0, 2 - countL);
         const fReducen   = Math.max(0, countF - lFaltantes);
-        const justifiedRaw = (fReducen * dailyH) + otherJustified;
+        // DH reduce esperadas en contrato/5 por día (= dailyH)
+        const dhJustified = countDH * dailyH;
+        const justifiedRaw = (fReducen * dailyH) + otherJustified + dhJustified;
         // Clamp: las ausencias no pueden justificar más horas que el contrato semanal
         const justifiedH = Math.min(justifiedRaw, empContrato);
         const esperadas  = Math.max(0, Math.round((empContrato - justifiedH) * 10) / 10);
-        return { esperadas, justifiedH: Math.round(justifiedH * 10) / 10, countL, countF, fReducen, otherJustified };
+        return { esperadas, justifiedH: Math.round(justifiedH * 10) / 10, countL, countF, fReducen, otherJustified, countDH };
     },
 
     

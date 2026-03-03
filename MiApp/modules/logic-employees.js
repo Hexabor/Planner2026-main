@@ -6,16 +6,18 @@ Object.assign(App.logic, {
         toggleEmpView: function() { App.uiState.empViewMode = (App.uiState.empViewMode==='data')?'prefs':'data'; App.ui.renderEmp(document.querySelector('.main-scroll')); },
         empSelect: function(id) { App.uiState.selectedId=id; App.uiState.empInspTab='overview'; App.ui.renderEmp(document.querySelector('.main-scroll')); App.ui.renderEmpInspector(id); },
         empSave: function(id) { 
-            const nom = document.getElementById('ie-nom')?.value;
-            if(!nom) { alert('Abre la pestaña Overview para guardar los datos del empleado.'); return; }
-            const rol = document.getElementById('ie-rol').value;
+            const existing = id ? App.data.empleados.find(x=>x.id===id) : null;
+            const inOverview = !!document.getElementById('ie-nom');
+
+            // Si no estamos en overview, preservar todos los campos que no están en el DOM
+            const nom = document.getElementById('ie-nom')?.value || existing?.nombre;
+            if(!nom) { alert('No se puede guardar: falta el nombre del empleado.'); return; }
+            const rol = document.getElementById('ie-rol')?.value || existing?.rol || 'STF';
             
-            // MAGIA AUTOMÁTICA: El Tag se calcula estrictamente por el Rol. Adiós al cajetín.
+            // MAGIA AUTOMÁTICA: El Tag se calcula estrictamente por el Rol.
             const tag = ['MNG','AM','SPV'].includes(rol) ? 3 : 1;
             
-            const existing = id ? App.data.empleados.find(x=>x.id===id) : null;
-            
-            const hrsVal = parseFloat(document.getElementById('ie-hrs').value) || 0;
+            const hrsVal = parseFloat(document.getElementById('ie-hrs')?.value) || existing?.contrato || 0;
             // contratos: preservar historial intacto
             const existingContratos = existing?.contratos;
             // emp.contrato es la base histórica — solo se actualiza desde ie-hrs si no hay historial
@@ -29,10 +31,9 @@ Object.assign(App.logic, {
                 rol: rol, 
                 contrato: contratoBase,
                 contratos: existingContratos || undefined,
-                active: document.getElementById('ie-active').checked, 
-                tag: tag, // Se guarda el que hemos calculado automáticamente
-                // ADIÓS VIGENCIAS RAÍZ: Todo se gestiona ahora en el array de contratos
-                saldoInicial: Number(document.getElementById('ie-saldo')?.value || existing?.saldoInicial || 0),
+                active: inOverview ? document.getElementById('ie-active').checked : (existing?.active ?? true),
+                tag: tag,
+                saldoInicial: Number(document.getElementById('ie-saldo')?.value ?? existing?.saldoInicial ?? 0),
                 recPendientes: Number(document.getElementById('ie-rec')?.value ?? existing?.recPendientes ?? 0),
                 vacPendientes: Number(document.getElementById('ie-vac')?.value ?? existing?.vacPendientes ?? 0),
                 festivoTracking: existing?.festivoTracking || {},

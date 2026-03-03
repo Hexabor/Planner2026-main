@@ -3,22 +3,98 @@
 // ============================================================
 
 Object.assign(App.ui, {
+        // Helper: semanas donde los 7 días están bloqueados y el empleado tiene contrato
+        _getLockedWeeks: function(emp) {
+            const locked = App.data.lockedDays || {};
+            const mondaySet = new Set(Object.keys(locked).map(d => Utils.getMonday(d)));
+            return [...mondaySet].sort().filter(monday => {
+                const days = Utils.getWeekDays(monday);
+                return days.every(d => locked[d]) && (!emp || Utils.empleadoVigenteEnFecha(emp, monday));
+            });
+        },
+
+        // Helper: desvío acumulado sobre semanas cerradas
+        _calcDesvioAcum: function(emp) {
+            if(!emp) return 0;
+            const weeks = App.ui._getLockedWeeks(emp);
+            let acum = emp.saldoInicial || 0;
+            weeks.forEach(monday => {
+                const wdays = Utils.getWeekDays(monday);
+                let worked = 0;
+                wdays.forEach(d => {
+                    const sid = App.data.schedule[d]?.[emp.id];
+                    const sh = sid ? Utils.getShift(sid) : null;
+                    if(sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
+                });
+                const contrato = Utils.getContrato(emp, monday);
+                const { esperadas } = Utils.calcEsperadas(contrato, wdays, emp.id);
+                acum = Math.round((acum + worked - esperadas) * 10) / 10;
+            });
+            return acum;
+        },
+
+        // Helper: festivos pendientes en semanas cerradas
+        _calcFestivosPend: function(emp) {
+            if(!emp) return 0;
+            const locked = App.data.lockedDays || {};
+            const tracking = emp.festivoTracking || {};
+            const holidays = (App.data.storeConfig.holidays || [])
+                .filter(h => locked[h.date] && Utils.empleadoVigenteEnFecha(emp, h.date));
+            let pendientes = 0;
+            holidays.forEach(h => {
+                const tr = tracking[h.date] || {};
+                if(tr.rDate) return;
+                const sid = App.data.schedule[h.date]?.[emp.id];
+                const shift = sid ? Utils.getShift(sid) : null;
+                if(!shift) return;
+                if(shift.fixed && shift.code === 'F') {
+                    const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
+                    let countL = 0;
+                    wdays.forEach(d => { const s2 = App.data.schedule[d]?.[emp.id]; const sh2 = s2 ? Utils.getShift(s2) : null; if(sh2 && sh2.fixed && sh2.code === 'L') countL++; });
+                    if(countL < 2) pendientes++;
+                } else if(shift.start && shift.end) {
+                    pendientes++;
+                }
+            });
+            return pendientes;
+        },
+
         renderEmp: function(c) {
             const isPrefs = App.uiState.empViewMode === 'prefs';
-            let btnLabel = isPrefs ? "📋 Ver Datos" : "❤️ Ver Preferencias";
-            let html=`<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h2 style="margin:0; font-size:1.2rem;">Gestión de Equipo</h2><div style="display:flex; gap:10px"><button class="btn-header" onclick="App.logic.toggleEmpView()">${btnLabel}</button><button class="btn btn-primary" style="width:auto;margin:0" onclick="App.logic.empSelect(null)">+ Nuevo</button></div></div>`;
+            const _svgTable = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>`;
+            const _svgSliders = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>`;
+            const _svgEye = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+            const _nInact = App.data.empleados.filter(e=>e.active===false).length;
+            let html=`<div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; margin-bottom:15px; gap:10px;">
+                <h2 style="margin:0; font-size:1.1rem; font-weight:700;">Gestión de Equipo</h2>
+                <div style="display:flex; background:#e2e8f0; border-radius:20px; padding:3px; gap:0;">
+                    <button onclick="App.uiState.empViewMode='data'; App.ui.renderEmp(document.querySelector('.main-scroll'));"
+                        style="display:flex; align-items:center; gap:5px; padding:5px 14px; border:none; border-radius:16px; font-size:0.75rem; font-weight:700; cursor:pointer; transition:all 0.15s;
+                               background:${!isPrefs ? '#2563eb' : 'transparent'};
+                               color:${!isPrefs ? 'white' : '#64748b'};">${_svgTable} Datos</button>
+                    <button onclick="App.uiState.empViewMode='prefs'; App.ui.renderEmp(document.querySelector('.main-scroll'));"
+                        style="display:flex; align-items:center; gap:5px; padding:5px 14px; border:none; border-radius:16px; font-size:0.75rem; font-weight:700; cursor:pointer; transition:all 0.15s;
+                               background:${isPrefs ? '#2563eb' : 'transparent'};
+                               color:${isPrefs ? 'white' : '#64748b'};">${_svgSliders} Preferencias</button>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">
+                    ${_nInact > 0 ? `<button onclick="App.uiState.showInactive=!App.uiState.showInactive; App.ui.renderEmp(document.querySelector('.main-scroll'));" title="${App.uiState.showInactive ? 'Ocultar inactivos' : 'Mostrar inactivos'}" style="display:flex; align-items:center; gap:4px; padding:3px 9px; border:1px solid ${App.uiState.showInactive ? '#2563eb' : '#e2e8f0'}; border-radius:20px; font-size:0.7rem; font-weight:600; cursor:pointer; background:${App.uiState.showInactive ? '#eff6ff' : 'white'}; color:${App.uiState.showInactive ? '#2563eb' : '#94a3b8'};">${_svgEye} ${_nInact}</button>` : ''}
+                    <button class="btn btn-primary" style="width:auto;margin:0" onclick="App.logic.empSelect(null)">+ Nuevo</button>
+                </div>
+            </div>`;
             if(App.data.empleados.length===0) html+=`<div style="text-align:center;padding:40px;color:#94a3b8">Sin empleados.</div>`;
             else {
                 const getSortHeader = (key, label, width) => {
                     let arrow = ''; if(App.uiState.sortKey === key) arrow = App.uiState.sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc';
                     return `<th class="${arrow}" style="width:${width}" onclick="App.logic.sortEmp('${key}')">${label}</th>`;
                 };
-                html+=`<table class="data-table"><thead><tr><th style="width:30px" onclick="App.logic.sortEmp('custom')">☰</th>`;
-                html+= getSortHeader('nombre', 'Nombre', '150px');
-                if(!isPrefs) { html+= getSortHeader('rol', 'Puesto', '100px') + getSortHeader('tag', 'Tag', '60px') + getSortHeader('contrato', 'Horas', '80px'); } 
+                html+=`<table class="data-table" style="table-layout:fixed; width:100%;"><thead><tr><th style="width:30px" onclick="App.logic.sortEmp('custom')">☰</th>`;
+                html+= getSortHeader('nombre', 'Nombre', '80px');
+                if(!isPrefs) { html+= getSortHeader('rol', 'Puesto', '80px') + getSortHeader('tag', 'Tag', '80px') + getSortHeader('contrato', 'Horas', '80px') + `<th style="width:80px; text-align:center; white-space:nowrap;" title="Desvío acumulado en semanas cerradas">Desvío 🔒</th><th style="width:80px; text-align:center; white-space:nowrap;" title="Festivos pendientes en semanas cerradas">Festivos 🔒</th>`; } 
                 else { html+=`<th>Domingos</th><th>Libranza 1</th><th>Libranza 2</th><th>Turno</th><th>Partidos</th>`; }
                 html+=`</tr></thead><tbody>`;
-                let list = [...App.data.empleados].sort((a,b)=>{ 
+                const showInactive = App.uiState.showInactive || false;
+                let list = [...App.data.empleados].filter(e => e.active !== false || showInactive).sort((a,b)=>{ 
                     if(a.active!==b.active) return a.active?-1:1; 
                     const sk=App.uiState.sortKey; const sd=App.uiState.sortDir==='asc'?1:-1;
                     if(sk==='custom') return (a.customOrder-b.customOrder)*sd;
@@ -40,11 +116,22 @@ Object.assign(App.ui, {
                         const contratoActual = Utils.getContrato(e, new Date().toISOString().slice(0,10));
                         const pct = Math.min(100, (contratoActual / 40) * 100); const color = contratoActual>=40?'#22c55e':'#f97316'; const bg=`conic-gradient(${color} ${pct}%, #f1f5f9 0)`;
                         const tieneHistorial = e.contratos && e.contratos.length > 0;
-                        html+=`<td><span class="badge badge-role">${e.rol}</span></td><td><span class="badge badge-tag">T${tag}</span></td><td><div class="contract-chart" style="background:${bg}"></div>${contratoActual}h${tieneHistorial?'<sup style="font-size:0.55rem;color:#94a3b8;margin-left:2px;">📋</sup>':''}</td>`;
+                        const desvioAcum = App.ui._calcDesvioAcum(e);
+                        const dColor = desvioAcum > 0.5 ? '#f59e0b' : desvioAcum < -0.5 ? '#3b82f6' : '#10b981';
+                        const dSign = desvioAcum > 0 ? '+' : '';
+                        const festivosPend = App.ui._calcFestivosPend(e);
+                        const fColor = festivosPend > 0 ? '#ef4444' : '#10b981';
+                        html+=`<td style="text-align:center;"><span class="badge badge-role">${e.rol}</span></td><td style="text-align:center;"><span class="badge badge-tag">T${tag}</span></td><td style="text-align:center;"><div class="contract-chart" style="background:${bg}; display:inline-block;"></div>${contratoActual}h${tieneHistorial?'<sup style="font-size:0.55rem;color:#94a3b8;margin-left:2px;">📋</sup>':''}</td><td style="text-align:center; font-family:monospace; font-weight:700; color:${dColor};">${dSign}${desvioAcum}h</td><td style="text-align:center; font-weight:700; color:${fColor};">${festivosPend > 0 ? festivosPend + ' ⚠' : '✓'}</td>`;
                     } else { html+=`<td>${App.ui.getPrefSelect(e.id, 'sunday', e.prefs?.sunday, {'indif':'Indif.','like':'Sí','hate':'No'})}</td><td>${App.ui.getPrefSelect(e.id, 'off1', e.prefs?.off1, {'any':'Indif.','L':'Lun','M':'Mar','X':'Mié','J':'Jue','V':'Vie','S':'Sáb'})}</td><td>${App.ui.getPrefSelect(e.id, 'off2', e.prefs?.off2, {'any':'Indif.','L':'Lun','M':'Mar','X':'Mié','J':'Jue','V':'Vie','S':'Sáb'})}</td><td>${App.ui.getPrefShiftSelect(e.id, e.prefs?.shift)}</td><td>${App.ui.getPrefSelect(e.id, 'split', e.prefs?.split, {'ok':'OK','no':'No','help':'Ayuda'})}</td>`; }
                     html+=`</tr>`;
                 });
                 html+=`</tbody></table>`;
+                if(isPrefs) {
+                    html+=`<div style="display:flex; align-items:flex-start; gap:8px; margin-top:12px; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; color:#64748b; font-size:0.72rem; line-height:1.5;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <span>Estas preferencias son solo anotaciones informativas. Actualmente no influyen en ningún algoritmo ni automatización. Su aplicación automática al planificador está prevista para una fase posterior del desarrollo.</span>
+                    </div>`;
+                }
             }
             c.innerHTML=html;
         },
@@ -103,7 +190,7 @@ Object.assign(App.ui, {
 
     if (tab === 'overview' || !id) {
         const hoy = new Date().toISOString().slice(0, 10);
-        const horasHoy = (typeof App.logic.getHorasContratoEnFecha === 'function') ? toDec(App.logic.getHorasContratoEnFecha(e, hoy)) : toDec(0);
+        const horasHoy = e && e.id ? toDec(Utils.getContrato(e, hoy)) : toDec(0);
 
         content = `
             <div style="margin-bottom:15px;">
@@ -141,18 +228,40 @@ Object.assign(App.ui, {
                             </div>
                             <div style="display:flex; align-items:center; justify-content:flex-end; gap:6px;">
                                 <span style="font-size:11px; color:#64748b;">Horas semanales:</span>
-                                <input type="number" step="0.01" value="${toDec(t.horas)}" onchange="App.logic.updateContrato(\'${id}\', ${i}, \'horas\', this.value); App.ui.markDirty();" style="width:108px; text-align:right; font-weight:800; font-size:12px; color:#2563eb; border:1px solid #2563eb; border-radius:4px; padding:3px 4px;">
-                                <button type="button" onclick="App.logic.removeContrato(\'${id}\', ${i}); App.ui.markDirty();" style="border:none; background:none; color:#ef4444; font-size:16px; cursor:pointer; line-height:1; padding:0;">&times;</button>
+                                <input type="number" step="0.01" value="${toDec(t.horas)}" onchange="App.logic.updateContrato('${id}', ${i}, 'horas', this.value); App.ui.markDirty();" style="width:108px; text-align:right; font-weight:800; font-size:12px; color:#2563eb; border:1px solid #2563eb; border-radius:4px; padding:3px 4px;">
+                                <button type="button" onclick="App.logic.removeContrato('${id}', ${i}); App.ui.markDirty();" style="border:none; background:none; color:#ef4444; font-size:16px; cursor:pointer; line-height:1; padding:0;">&times;</button>
                             </div>
                         </div>
                     `).join('')}
                 </div>
             </div>
 
-            <input type="hidden" id="ie-rec" value="0">
             <input type="hidden" id="ie-hrs" value="${e.contrato || 0}">
-            <input type="hidden" id="ie-saldo" value="${e.saldoInicial || 0}">
-            <input type="hidden" id="ie-vac" value="${e.vacPendientes || 0}">
+
+            <details style="margin-bottom:12px; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                <summary style="padding:10px 12px; cursor:pointer; font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase; background:#f8fafc; list-style:none; display:flex; justify-content:space-between; align-items:center; user-select:none;">
+                    <span>⏮ Arrastres de etapas anteriores</span>
+                    <span style="font-size:10px; color:#94a3b8;">▼</span>
+                </summary>
+                <div style="padding:12px; display:flex; flex-direction:column; gap:10px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                        <label style="font-size:11px; font-weight:700; color:#64748b; white-space:nowrap;">Saldo horas arrastre</label>
+                        <input type="number" step="0.1" id="ie-saldo" value="${e.saldoInicial || 0}" onchange="App.ui.markDirty();"
+                               style="width:90px; text-align:right; font-weight:700; font-size:12px; color:#f59e0b; border:1px solid #fde68a; border-radius:4px; padding:4px 6px; background:#fefce8;">
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                        <label style="font-size:11px; font-weight:700; color:#64748b; white-space:nowrap;">Recuperaciones pendientes</label>
+                        <input type="number" step="1" min="0" id="ie-rec" value="${e.recPendientes || 0}" onchange="App.ui.markDirty();"
+                               style="width:90px; text-align:right; font-weight:700; font-size:12px; color:#6366f1; border:1px solid #c7d2fe; border-radius:4px; padding:4px 6px; background:#eef2ff;">
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                        <label style="font-size:11px; font-weight:700; color:#64748b; white-space:nowrap;">Vacaciones pendientes</label>
+                        <input type="number" step="1" min="0" id="ie-vac" value="${e.vacPendientes || 0}" onchange="App.ui.markDirty();"
+                               style="width:90px; text-align:right; font-weight:700; font-size:12px; color:#10b981; border:1px solid #a7f3d0; border-radius:4px; padding:4px 6px; background:#ecfdf5;">
+                    </div>
+                    <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Valores heredados de periodos anteriores al inicio del sistema.</div>
+                </div>
+            </details>
             
             <div style="background:#fefce8; border:1px solid #fef08a; padding:12px; border-radius:10px; margin-bottom:15px; display:flex; gap:10px; align-items:center;">
                 <label style="flex:1; cursor:pointer; display:flex; align-items:center; gap:10px; background:white; padding:10px; border-radius:8px; border:2px solid ${isActive?'#10b981':'#cbd5e1'};">
@@ -162,12 +271,20 @@ Object.assign(App.ui, {
                 <button type="button" onclick="App.logic.empClearOutsideVigencia('${id}')" style="padding:10px; background:#fff; border:2px solid #ef4444; border-radius:8px; cursor:pointer; color:#ef4444; font-weight:800; font-size:10px; flex:1;">🧹 LIMPIAR TURNOS</button>
             </div>
             
-            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px; margin-top:10px;">
-                <button type="button" id="btn-save-emp" onclick="App.logic.empSave('${id||''}')" style="background:#2563eb; color:white; border:none; padding:14px; border-radius:8px; font-weight:800; cursor:pointer;">
-                    <span>💾 GUARDAR CAMBIOS</span>
-                </button>
-                ${id ? `<button type="button" onclick="App.logic.empDel('${id}')" style="background:none; color:#ef4444; border:1px solid #ef4444; border-radius:8px; font-weight:800; cursor:pointer;">BORRAR</button>` : ''}
-            </div>
+            <button type="button" id="btn-save-emp" onclick="App.logic.empSave('${id||''}')" style="width:100%; background:#2563eb; color:white; border:none; padding:14px; border-radius:8px; font-weight:800; cursor:pointer; margin-top:10px;">
+                <span id="save-text">💾 GUARDAR CAMBIOS</span>
+            </button>
+            ${id ? `
+            <details style="margin-top:8px; border:1px solid #fecaca; border-radius:8px; overflow:hidden;">
+                <summary style="padding:8px 12px; cursor:pointer; font-size:11px; font-weight:800; color:#ef4444; text-transform:uppercase; background:#fff5f5; list-style:none; display:flex; justify-content:space-between; align-items:center; user-select:none;">
+                    <span>⚠️ Zona de peligro</span>
+                    <span style="font-size:10px; color:#fca5a5;">▼</span>
+                </summary>
+                <div style="padding:10px 12px; background:#fff;">
+                    <div style="font-size:10px; color:#94a3b8; margin-bottom:8px;">Elimina permanentemente al empleado y todos sus turnos del planificador.</div>
+                    <button type="button" onclick="App.logic.empDel('${id}')" style="width:100%; background:#ef4444; color:white; border:none; padding:10px; border-radius:6px; font-weight:800; cursor:pointer; font-size:11px;">🗑 BORRAR EMPLEADO</button>
+                </div>
+            </details>` : ''}
         `;
     } 
     
@@ -221,44 +338,10 @@ markDirty: function() {
         renderEmpDesvioInspector: function(emp) {
             if(!emp || !emp.id) return `<p style="color:var(--text-muted); font-size:0.85rem;">Guarda el empleado primero.</p>`;
 
-            // Inicializar rango global si no existe
-            if(!App.uiState.analisisDesvioStart) {
-                const monday = Utils.getMonday(new Date());
-                const start = new Date(monday); start.setDate(start.getDate() - 7*7);
-                App.uiState.analisisDesvioStart = start.toISOString().slice(0,10);
-                App.uiState.analisisDesvioEnd = monday;
-            }
-
-            const startISO = App.uiState.analisisDesvioStart;
-            const endISO   = App.uiState.analisisDesvioEnd;
             const shortDate = iso => { const [y,m,d] = iso.split('-'); return `${d}.${m}.${y.slice(2)}`; };
-            const wkLabel = iso => { const code = Utils.getWeekCode(iso); const days = Utils.getWeekDays(iso); return `${code} · ${shortDate(days[0])}–${shortDate(days[6])}`; };
 
-            // Construir options del select de semanas
-            const buildOpts = (selISO) => {
-                const anchor = new Date(App.data.config.weekStart || "2025-12-29");
-                const min = new Date(anchor); min.setDate(min.getDate() - 8*7);
-                const max = new Date(anchor); max.setDate(max.getDate() + 61*7);
-                let opts = ''; let cur = new Date(min);
-                while(cur <= max) {
-                    const iso = cur.toISOString().slice(0,10);
-                    opts += `<option value="${iso}" ${iso===selISO?'selected':''}>${wkLabel(iso)}</option>`;
-                    cur.setDate(cur.getDate()+7);
-                }
-                return opts;
-            };
-
-            const selStyle = `padding:5px 7px; border:1px solid var(--border); border-radius:5px; font-size:0.75rem; background:white; width:100%;`;
-
-            // Semanas vigentes en el rango
-            const weeks = [];
-            let cur = new Date(Utils.getMonday(startISO));
-            const endD = new Date(Utils.getMonday(endISO));
-            while(cur <= endD) {
-                const iso = cur.toISOString().slice(0,10);
-                if(Utils.empleadoVigenteEnFecha(emp, iso)) weeks.push(iso);
-                cur.setDate(cur.getDate()+7);
-            }
+            // Semanas cerradas donde el empleado tiene contrato vigente
+            const weeks = App.ui._getLockedWeeks(emp);
 
             // Calcular filas
             let acum = emp.saldoInicial || 0;
@@ -284,31 +367,20 @@ markDirty: function() {
             const totalColor = totalFinal > 0.5 ? '#f59e0b' : totalFinal < -0.5 ? '#3b82f6' : '#10b981';
             const barScale = maxAbs > 0 ? maxAbs : 1;
 
-            // HTML del rango selector (compacto para inspector)
-            let html = `
-            <div style="display:flex; gap:6px; margin-bottom:12px;">
-                <div style="flex:1;">
-                    <div style="font-size:0.65rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:3px;">Desde</div>
-                    <select style="${selStyle}" onchange="App.uiState.analisisDesvioStart=this.value; App.ui.renderEmpInspector('${emp.id}');">
-                        ${buildOpts(startISO)}
-                    </select>
-                </div>
-                <div style="flex:1;">
-                    <div style="font-size:0.65rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:3px;">Hasta</div>
-                    <select style="${selStyle}" onchange="App.uiState.analisisDesvioEnd=this.value; App.ui.renderEmpInspector('${emp.id}');">
-                        ${buildOpts(endISO)}
-                    </select>
-                </div>
-            </div>`;
+            const rangeLabel = weeks.length > 0
+                ? `${Utils.getWeekCode(weeks[0])} → ${Utils.getWeekCode(weeks[weeks.length-1])}`
+                : '—';
 
-            // Resumen
-            html += `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; margin-bottom:10px;">
-                <div style="font-size:0.75rem; color:var(--text-muted);">${weeks.length} semanas vigentes</div>
+            let html = `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; margin-bottom:10px;">
+                <div>
+                    <div style="font-size:0.65rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:2px;">🔒 Semanas cerradas</div>
+                    <div style="font-size:0.72rem; color:var(--text-main); font-family:monospace;">${rangeLabel} · ${weeks.length} sem.</div>
+                </div>
                 <div style="font-size:1.2rem; font-weight:800; color:${totalColor};">${totalFinal>0?'+':''}${totalFinal}h</div>
             </div>`;
 
             if(rows.length === 0) {
-                return html + `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.8rem;">Sin semanas vigentes en este rango.</div>`;
+                return html + `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.8rem;">Sin semanas cerradas con contrato vigente.</div>`;
             }
 
             // Tabla compacta
@@ -371,9 +443,10 @@ markDirty: function() {
 
     const tracking = emp.festivoTracking || {};
     
-    // 1. Obtener todos los festivos vigentes para este empleado
+    // 1. Festivos en semanas cerradas donde el empleado tiene contrato
+    const locked = App.data.lockedDays || {};
     const holidays = (App.data.storeConfig.holidays || [])
-        .filter(h => Utils.empleadoVigenteEnFecha(emp, h.date));
+        .filter(h => locked[h.date] && Utils.empleadoVigenteEnFecha(emp, h.date));
 
     // --- Helper: calcular estado ---
     const getEstado = (hDate) => {
@@ -475,6 +548,8 @@ markDirty: function() {
             </div>
         </details>`;
     }
+
+    html += `<button type="button" onclick="App.logic.empSave('${emp.id}')" style="width:100%; background:#2563eb; color:white; border:none; padding:14px; border-radius:8px; font-weight:800; cursor:pointer; margin-top:14px;">💾 GUARDAR CAMBIOS</button>`;
 
     return html;
 },
