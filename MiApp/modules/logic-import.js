@@ -5,7 +5,8 @@
 Object.assign(App.logic, {
         importAnalyze: function() {
             const text = document.getElementById('import-text').value;
-            let week = document.getElementById('import-week').value;
+            const weekEl = document.getElementById('import-week');
+            let week = weekEl ? weekEl.value : Utils.getMonday(new Date());
             const markFree = document.getElementById('import-mark-free').checked;
             
             if (!text.trim()) {
@@ -14,6 +15,33 @@ Object.assign(App.logic, {
             }
             
             try {
+                // AUTO-DETECT: ROTA si hay celdas con patrón "NN/mmm" (ej: 01/mar)
+                const format = this.importAutoDetect(text);
+                console.log('Formato detectado:', format);
+
+                if (format === 'rota') {
+                    const analyzed = this.importParseRota(text);
+                    if (analyzed.days.length === 0) {
+                        alert('⚠️ No se detectaron días en el formato ROTA.\n\nAsegúrate de que el texto incluye la fila de fechas (ej: "01/mar", "02/mar"...).\n\nAbre la consola del navegador (F12) para ver el log del parser.');
+                        return;
+                    }
+                    App.uiState.importState = {
+                        step: 'preview',
+                        rawText: text,
+                        parsed: null,
+                        weekInfo: null,
+                        detectedWeekInfo: { isRota: true, totalDays: analyzed.days.length },
+                        analyzed: analyzed,
+                        selectedWeek: week,
+                        previewDay: 0,
+                        markFree: markFree,
+                        isRota: true
+                    };
+                    App.router.go('import');
+                    return;
+                }
+
+                // FORMATO SEMANAL (comportamiento original)
                 const parsed = this.importParse(text);
                 
                 let detectedWeekInfo = null; // Info de la semana detectada para mostrar en UI
@@ -603,15 +631,16 @@ Object.assign(App.logic, {
             App.router.go('import');
         },
         
-        importSetMapping: function(empName, action, targetId) {
+        importSetMapping: function(empName, action, targetId, newName) {
             if (!App.uiState.importState.empMappings) {
                 App.uiState.importState.empMappings = {};
             }
             App.uiState.importState.empMappings[empName] = {
                 action: action,
-                targetId: targetId
+                targetId: targetId,
+                newName: newName || null
             };
-            App.router.go('import');
+            // NO re-render — the mapping screen manages its own DOM
         },
         
         importBackToPreview: function() {
@@ -619,6 +648,231 @@ Object.assign(App.logic, {
             App.router.go('import');
         },
         
+        // ============================================================
+        // PARSER ROTA (Google Sheets / formato mensual)
+        // Estrategia: en la fila de cabecera, nombres de día y fechas están
+        // en columnas distintas. Se hace un mapeo POSICIONAL:
+        //   1ª col con nombre de día  →  1ª col con fecha
+        //   2ª col con nombre de día  →  2ª col con fecha   … etc.
+        // Esto cubre tanto el caso "misma fila" como "filas separadas".
+        // ============================================================
+
+        importAutoDetect: function(text) {
+            // ROTA: hay celdas con patrón "NN/mmm" (01/mar, 15/feb...)
+            if (/(?:^|\t)(\d{1,2}\/[a-z\u00e0-\u00fc]{3,4})(?:\t|$|\r)/im.test(text)) return 'rota';
+            if (/SEMANA NUMERO/i.test(text)) return 'weekly';
+            if (/^(LUNES|MARTES|MIERCOLES|MIÉRCOLES|JUEVES|VIERNES|SABADO|SÁBADO|DOMINGO)(\t|$)/im.test(text)) return 'weekly';
+            return 'weekly';
+        },
+
+        importParseRota: function(text) {
+            const monthAbbrMap = {
+                'ene':0,'feb':1,'mar':2,'abr':3,'may':4,'jun':5,
+                'jul':6,'ago':7,'sep':8,'oct':9,'nov':10,'dic':11,
+                'enero':0,'febrero':1,'marzo':2,'abril':3,'mayo':4,'junio':5,
+                'julio':6,'agosto':7,'septiembre':8,'octubre':9,'noviembre':10,'diciembre':11
+            };
+            const monthNameMap = {
+                'enero':0,'febrero':1,'marzo':2,'abril':3,'mayo':4,'junio':5,
+                'julio':6,'agosto':7,'septiembre':8,'octubre':9,'noviembre':10,'diciembre':11
+            };
+            const normalize = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+            const dayNameSet = new Set(['domingo','lunes','martes','miercoles','jueves','viernes','sabado']);
+
+            const lines = text.split('\n');
+            const days = {};
+            const stats = { totalShifts:0, exactMatches:0, customNeeded:0, unknownEmps:0, unknownEmpNames:[] };
+
+            let currentYear = new Date().getFullYear();
+            let lastMonthSeen = -1;
+
+            // dateColumns: colIndex → { date:'YYYY-MM-DD', dayLabel:'01 Mar' }
+            // Populated by detectHeaderRow() each time we find a valid header.
+            let dateColumns = {};
+
+            // Pending day-name columns: when we see a row with only day names (no dates yet),
+            // we store them and try to combine with the next dates row.
+            let pendingDayNameCols = null;
+
+            const buildDateColumns = (dayNameCols, dateCells, year) => {
+                // Build ISO date string directly to avoid UTC timezone shift
+                // (new Date(y,m,d).toISOString() shifts date by -1 in UTC+N timezones)
+                const toISO = (y, m, d) =>
+                    `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const result = {};
+                dayNameCols.forEach((col, i) => {
+                    const d = dateCells[i];
+                    if (!d) return;
+                    const iso = toISO(year, d.month, d.day);
+                    const lbl = `${String(d.day).padStart(2,'0')}/${String(d.month+1).padStart(2,'0')}`;
+                    result[col] = { date: iso, dayLabel: lbl };
+                });
+                return result;
+            };
+
+            console.log('=== PARSER ROTA v3 ===');
+
+            for (let li = 0; li < lines.length; li++) {
+                const raw = lines[li];
+                if (!raw.trim()) continue;
+                // strip trailing \r
+                const line = raw.replace(/\r$/, '');
+                const parts = line.split('\t');
+                const firstNorm = normalize(parts[0] || '');
+
+                // --- Fila de mes (MARZO, ABRIL...) ---
+                if (monthNameMap.hasOwnProperty(firstNorm)) {
+                    const mIdx = monthNameMap[firstNorm];
+                    if (lastMonthSeen !== -1 && mIdx < lastMonthSeen) currentYear++;
+                    lastMonthSeen = mIdx;
+                    dateColumns = {};
+                    pendingDayNameCols = null;
+                    console.log(`Mes: ${(parts[0]||'').trim()} → ${mIdx+1}/${currentYear}`);
+                    continue;
+                }
+
+                // --- Escanear fila buscando nombres de día y fechas ---
+                const dayNameCols = [];
+                const dateCells = [];   // { j, day, month }
+
+                for (let j = 0; j < parts.length; j++) {
+                    const cell = (parts[j] || '').trim();
+                    if (dayNameSet.has(normalize(cell))) {
+                        dayNameCols.push(j);
+                    }
+                    const mDate = cell.match(/^(\d{1,2})\/([a-z\u00e0-\u00fc]{3,})$/i);
+                    if (mDate) {
+                        const month = monthAbbrMap[normalize(mDate[2])];
+                        const day = parseInt(mDate[1]);
+                        if (month !== undefined && day >= 1 && day <= 31) {
+                            dateCells.push({ j, day, month });
+                        }
+                    }
+                }
+
+                // --- Caso A: misma fila tiene nombres de día Y fechas ---
+                if (dayNameCols.length >= 2 && dateCells.length >= 2) {
+                    dayNameCols.sort((a,b) => a-b);
+                    dateCells.sort((a,b) => a.j - b.j);
+                    dateColumns = buildDateColumns(dayNameCols, dateCells, currentYear);
+                    pendingDayNameCols = null;
+                    const keys = Object.keys(dateColumns).map(Number).sort((a,b)=>a-b);
+                    console.log(`Cabecera (misma fila, línea ${li}): ${keys.length} días → cols [${keys.join(',')}]`);
+                    console.log(`  Fechas: ${keys.map(k=>dateColumns[k].date).join(', ')}`);
+                    continue;
+                }
+
+                // --- Caso B1: fila solo con nombres de día → guardar y esperar fechas ---
+                if (dayNameCols.length >= 2 && dateCells.length === 0) {
+                    dayNameCols.sort((a,b) => a-b);
+                    pendingDayNameCols = dayNameCols;
+                    console.log(`Nombres de día (línea ${li}): cols [${dayNameCols.join(',')}] → esperando fila de fechas`);
+                    continue;
+                }
+
+                // --- Caso B2: fila solo con fechas → combinar con nombres de día pendientes ---
+                if (dateCells.length >= 2 && dayNameCols.length === 0) {
+                    dateCells.sort((a,b) => a.j - b.j);
+                    if (pendingDayNameCols && pendingDayNameCols.length >= 2) {
+                        // Nombres de día en fila anterior, fechas en esta fila → same column positions
+                        dateColumns = buildDateColumns(pendingDayNameCols, dateCells, currentYear);
+                    } else {
+                        // Sin nombres de día previos → usar directamente las cols de fecha
+                        dateCells.forEach(d => {
+                            const iso = `${currentYear}-${String(d.month+1).padStart(2,'0')}-${String(d.day).padStart(2,'0')}`;
+                            const lbl = `${String(d.day).padStart(2,'0')}/${String(d.month+1).padStart(2,'0')}`;
+                            dateColumns[d.j] = { date: iso, dayLabel: lbl };
+                        });
+                    }
+                    pendingDayNameCols = null;
+                    const keys = Object.keys(dateColumns).map(Number).sort((a,b)=>a-b);
+                    console.log(`Fechas (línea ${li}): ${keys.length} días → cols [${keys.join(',')}]`);
+                    console.log(`  Fechas: ${keys.map(k=>dateColumns[k].date).join(', ')}`);
+                    continue;
+                }
+
+                // --- Sin columnas de fecha: saltar filas de sistema ---
+                if (Object.keys(dateColumns).length === 0) continue;
+
+                const firstTrim = (parts[0] || '').trim();
+                if (!firstTrim) continue;
+                if (normalize(firstTrim).startsWith('anadir')) continue; // AÑADIR STAFF
+                if (/^Emp\.?$/i.test(firstTrim)) continue;
+                if (/^Horas?$/i.test(firstTrim)) continue;
+                if (/^Total(es)?$/i.test(firstTrim)) continue;
+                if (/^\d+$/.test(firstTrim)) continue;
+
+                // --- Fila de empleado ---
+                const empName = firstTrim.replace(/\s*\([^)]*\)\s*$/, '').trim();
+                if (!empName) continue;
+
+                let empHasAnyShift = false;
+                const colKeys = Object.keys(dateColumns).map(Number).sort((a,b)=>a-b);
+
+                colKeys.forEach(colIdx => {
+                    const colInfo = dateColumns[colIdx];
+                    const cell = (parts[colIdx] || '').trim();
+                    if (!cell) return;
+                    const assignment = this.parseRotaCell(cell, empName);
+                    if (!assignment) return;
+                    if (!days[colInfo.date]) {
+                        days[colInfo.date] = { date: colInfo.date, dayName: colInfo.dayLabel, assignments: [], warnings: [] };
+                    }
+                    days[colInfo.date].assignments.push(assignment);
+                    stats.totalShifts++;
+                    if (assignment.matchType === 'exact') stats.exactMatches++;
+                    if (assignment.matchType === 'custom') stats.customNeeded++;
+                    empHasAnyShift = true;
+                });
+
+                if (empHasAnyShift) {
+                    const found = App.data.empleados.find(e =>
+                        e.nombre.toLowerCase() === empName.toLowerCase()
+                    );
+                    if (!found && !stats.unknownEmpNames.includes(empName)) {
+                        stats.unknownEmpNames.push(empName);
+                        stats.unknownEmps++;
+                        console.log(`Empleado no encontrado: "${empName}"`);
+                    }
+                }
+            }
+
+            const sortedDays = Object.values(days).sort((a,b) => a.date.localeCompare(b.date));
+            console.log(`=== ROTA COMPLETADO: ${sortedDays.length} días, ${stats.totalShifts} asignaciones ===`);
+            return { days: sortedDays, stats };
+        },
+
+        parseRotaCell: function(value, empName) {
+            const v = (value || '').trim();
+            if (!v) return null;
+            const vUp = v.toUpperCase();
+
+            if (vUp === 'LIBRE') return null;
+            if (vUp === 'VACACIONES') return { empName, shiftCode:'V', timeRange:'-', matchType:'vacaciones', shiftId:'fixed_V' };
+            if (/^REC[\.\s]?FESTIVO/i.test(vUp) || /^RECUPERACI/i.test(vUp)) {
+                return { empName, shiftCode:'R', timeRange:'-', matchType:'recuperacion', shiftId:'fixed_R' };
+            }
+            if (vUp === 'FESTIVO') return { empName, shiftCode:'F', timeRange:'-', matchType:'festivo', shiftId:'fixed_F' };
+            if (/^BAJA/i.test(vUp)) return { empName, shiftCode:'B', timeRange:'-', matchType:'baja', shiftId:'fixed_B' };
+
+            // Turno partido: "10:00 A 14:00 Y 18:00 A 22:00"
+            const splitMatch = v.match(/(\d{1,2}:\d{2})\s+[Aa]\s+(\d{1,2}:\d{2})\s+[Yy]\s+(\d{1,2}:\d{2})\s+[Aa]\s+(\d{1,2}:\d{2})/);
+            if (splitMatch) {
+                const [, start, breakStart, breakEnd, end] = splitMatch;
+                return this.findMatchingShift(start, end, breakStart, breakEnd, empName);
+            }
+
+            // Turno simple: "10:00 A 18:00"
+            const simpleMatch = v.match(/(\d{1,2}:\d{2})\s+[Aa]\s+(\d{1,2}:\d{2})/);
+            if (simpleMatch) {
+                const [, start, end] = simpleMatch;
+                return this.findMatchingShift(start, end, '', '', empName);
+            }
+
+            console.log(`  ROTA: valor no reconocido "${v}" (${empName})`);
+            return null;
+        },
+
         importApply: function() {
             // GUARDAR SNAPSHOT ANTES DE IMPORTAR
             this.saveSnapshot('Importar planificación Excel');
@@ -645,25 +899,36 @@ Object.assign(App.logic, {
                     const mapping = state.empMappings[empName];
                     
                     if (mapping.action === 'create') {
-                        // Crear nuevo empleado
+                        // Crear nuevo empleado con el nombre original
+                        const displayName = mapping.newName || empName;
                         const newEmp = {
                             id: 'e' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-                            nombre: empName,
+                            nombre: displayName,
                             rol: 'STF',
                             contrato: 40,
                             tag: 1,
                             active: true,
                             customOrder: App.data.empleados.length,
-                            prefs: {
-                                sunday: 'indif',
-                                off1: 'any',
-                                off2: 'any',
-                                shift: 'any',
-                                split: 'ok'
-                            }
+                            prefs: { sunday: 'indif', off1: 'any', off2: 'any', shift: 'any', split: 'ok' }
                         };
                         App.data.empleados.push(newEmp);
                         empMap[empName.toLowerCase()] = newEmp.id;
+                        empsCreated++;
+                    } else if (mapping.action === 'rename' && mapping.newName && mapping.newName.trim()) {
+                        // Crear nuevo empleado con nombre personalizado
+                        // La clave en empMap sigue siendo el nombre ORIGINAL del ROTA
+                        const newEmp = {
+                            id: 'e' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                            nombre: mapping.newName.trim(),
+                            rol: 'STF',
+                            contrato: 40,
+                            tag: 1,
+                            active: true,
+                            customOrder: App.data.empleados.length,
+                            prefs: { sunday: 'indif', off1: 'any', off2: 'any', shift: 'any', split: 'ok' }
+                        };
+                        App.data.empleados.push(newEmp);
+                        empMap[empName.toLowerCase()] = newEmp.id; // clave = nombre ROTA original
                         empsCreated++;
                     } else if (mapping.action === 'map' && mapping.targetId) {
                         // Mapear a existente

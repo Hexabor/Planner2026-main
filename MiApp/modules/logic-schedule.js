@@ -1427,6 +1427,14 @@ Object.assign(App.logic, {
             
             if(!confirm("🛑 ÚLTIMA CONFIRMACIÓN\n\nSi no has exportado un backup, perderás todos los datos para siempre.\n\n¿Proceder con el borrado total?")) return;
             
+            // Limpiar el caché en memoria de Safe ANTES de borrar localStorage,
+            // para que el listener de beforeunload no restaure los datos al hacer flush.
+            if(Safe._timers['v40_db']) {
+                clearTimeout(Safe._timers['v40_db']);
+                Safe._timers['v40_db'] = null;
+            }
+            delete Safe._latest['v40_db'];
+            
             localStorage.removeItem('v40_db');
             alert("✅ Datos borrados. La aplicación se reiniciará ahora.");
             location.reload();
