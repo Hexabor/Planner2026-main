@@ -100,10 +100,11 @@ Object.assign(App.ui, {
                         <tr style="border-bottom: 2px solid #cbd5e1; color: #64748b;">
                             <th style="text-align: left; padding: 4px 2px; font-weight: 600;">Nombre</th>`;
             
-            // Bucle modificado para -01, -02... y asegurar ancho fijo
-            for (let w = 1; w <= 13; w++) {
-                const numStr = String(w).padStart(2, '0');
-                html += `<th style="padding: 4px 0; min-width: 24px; width: 24px;" title="Hace ${w} semana(s)">-${numStr}</th>`;
+            // Bucle: 00 = semana actual, -01 a -12 = semanas anteriores
+            for (let w = 0; w <= 12; w++) {
+                const label = w === 0 ? `<span style="color:#2563eb;font-weight:700;">↓</span>` : `-${String(w).padStart(2, '0')}`;
+                const titleAttr = w === 0 ? 'Semana actual' : `Hace ${w} semana(s)`;
+                html += `<th style="padding: 4px 0; min-width: 24px; width: 24px;" title="${titleAttr}">${label}</th>`;
             }
             
             html += `   </tr>
@@ -165,7 +166,7 @@ Object.assign(App.ui, {
                 html += `<tr style="border-bottom: 1px solid #f1f5f9;">
                             <td style="text-align: left; padding: 7px 2px; color: #334155; font-weight: 600; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${e.nombre}">${e.nombre}</td>`;
                 
-                for (let w = 1; w <= 13; w++) {
+                for (let w = 0; w <= 12; w++) {
                     const targetMonday = addDays(currentMondayStr, -(w * 7));
                     const sabadoStr = addDays(targetMonday, 5);
                     const domingoStr = addDays(targetMonday, 6);
@@ -173,7 +174,8 @@ Object.assign(App.ui, {
                     const sqSab = getSquare(sabadoStr, e.id, 'Sáb');
                     const sqDom = getSquare(domingoStr, e.id, 'Dom');
                     
-                    html += `<td style="padding: 7px 0; text-align: center;">
+                    const isCurrentWeek = w === 0;
+                    html += `<td style="padding: 7px 0; text-align: center;${isCurrentWeek ? ' background:#eff6ff; border-radius:3px;' : ''}">
                                 <div style="display:flex;flex-direction:column;gap:1px;align-items:center;justify-content:center;">
                                     ${sqSab}
                                     ${sqDom}
