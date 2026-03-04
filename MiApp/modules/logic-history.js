@@ -11,10 +11,13 @@ App.logic = {
             if(!Array.isArray(App.data.empleados)) App.data.empleados = [];
             if(!Array.isArray(App.data.shiftDefs)) App.data.shiftDefs = [];
             if(!Array.isArray(App.data.fixedShifts)) App.data.fixedShifts = [];
-            // Garantizar que el turno fijo DH (Devolución de Horas) existe siempre
-            if(!App.data.fixedShifts.find(s => s.id === 'fixed_DH')) {
-                App.data.fixedShifts.push({ id: 'fixed_DH', code: 'DH', desc: 'Devolución de horas', start: '', end: '', color: '#22c55e', fixed: true });
-            }
+            // Garantizar que el turno fijo DH (Devolución de Horas) existe y está justo antes de V
+            const dhDef = { id: 'fixed_DH', code: 'DH', desc: 'Devolución de horas', start: '', end: '', color: '#22c55e', fixed: true };
+            const existingDH = App.data.fixedShifts.findIndex(s => s.id === 'fixed_DH');
+            if(existingDH >= 0) App.data.fixedShifts.splice(existingDH, 1); // quitar de donde esté
+            const vPos = App.data.fixedShifts.findIndex(s => s.id === 'fixed_V');
+            if(vPos >= 0) App.data.fixedShifts.splice(vPos, 0, dhDef); // insertar antes de V
+            else App.data.fixedShifts.push(dhDef); // fallback: al final
             if(!Array.isArray(App.data.requests)) App.data.requests = [];
             if(!App.data.schedule || typeof App.data.schedule !== 'object') App.data.schedule = {};
             if(!App.data.storeConfig) App.data.storeConfig = { base: {}, special: [], holidays: [] };

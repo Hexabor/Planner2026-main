@@ -352,8 +352,8 @@ Object.assign(App.logic, {
             
             alert(`✅ Turno agregado al catálogo\n\n"${code}" - ${desc}\n\nSe han convertido ${replaced} asignaciones personalizadas.\n\nAhora puedes usar este turno desde la paleta.`);
             
-            // Cerrar modal y refrescar
-            document.getElementById('custom-gallery-modal').classList.remove('open');
+            // Refrescar vista mostrando el catálogo con el nuevo turno
+            App.uiState.shiftsViewMode = 'catalog';
             App.router.go('shifts');
         },
         
