@@ -53,6 +53,9 @@ const App = {
         icsIncludeFixed: true,
         dragMode: 'edit', // 'edit' or 'swap'
         tempDragMode: null, // para Ctrl temporal
+        plannerViewMode: 'group', // 'group' | 'individual'
+        individualEmpId: null, // empleado seleccionado en vista individual
+        copiedWeekPattern: null, // patrón copiado: { sourceEmpName, sourceWeek, shifts }
         customGalleryPage: 0, // Página actual del popup CUSTOM (0-indexed)
         customGalleryPerPage: 15, // Turnos por página
         equilibrioSortKey: null, // Columna de ordenación en equilibrio (null, 'nombre', 'M', 'T', 'I', 'P', 'total', 'pref')

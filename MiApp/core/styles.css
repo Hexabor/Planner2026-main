@@ -469,7 +469,11 @@
         /* Fondos tenues para ausencias */
         .pg-right.absence-red { background: #fee2e2; } /* B, P */
         .pg-right.absence-purple { background: #f3e8ff; } /* V */
-        .pg-right.absence-green { background: #dcfce7; } /* L, F, R */
+        .pg-right.absence-green { background: #dcfce7; } /* L, F, R, DH */
+        tr.absence-red > td { background: #fee2e2; }
+        tr.absence-purple > td { background: #f3e8ff; }
+        tr.absence-green > td { background: #dcfce7; }
+        .individual-week-table tbody tr:hover > td { filter: brightness(0.96); }
         
         /* Drag over - mayor especificidad para sobrescribir ausencias temporalmente */
         .pg-right.drag-over-active { 

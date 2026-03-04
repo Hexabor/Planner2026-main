@@ -121,7 +121,18 @@ Object.assign(App.ui, {
             html += `</div>`; // Cierre de compact-indicators-row
             html += `</div>`; // Cierre de compact-days-wrapper
             
-            html += `                        <div style="margin-top:6px; display:flex; align-items:center; justify-content:flex-end; font-size:0.65rem; color:var(--text-muted); padding:0 4px;">
+            const isIndividual = App.uiState.plannerViewMode === 'individual';
+            html += `<div style="margin-top:6px; display:flex; align-items:center; justify-content:space-between; font-size:0.65rem; color:var(--text-muted); padding:0 4px;">
+                            <div style="display:flex; background:#e2e8f0; border-radius:16px; padding:2px; gap:0;">
+                                <button onclick="App.uiState.plannerViewMode='group'; App.ui.renderPlanner(document.getElementById('main-view'));"
+                                    style="display:flex; align-items:center; gap:4px; padding:3px 10px; border:none; border-radius:14px; font-size:0.68rem; font-weight:700; cursor:pointer; transition:all 0.15s;
+                                           background:${!isIndividual ? '#2563eb' : 'transparent'};
+                                           color:${!isIndividual ? 'white' : '#64748b'};">👥 Grupo</button>
+                                <button onclick="if(!App.uiState.individualEmpId){const first=App.data.empleados.find(e=>e.active!==false);if(first)App.uiState.individualEmpId=first.id;} App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));"
+                                    style="display:flex; align-items:center; gap:4px; padding:3px 10px; border:none; border-radius:14px; font-size:0.68rem; font-weight:700; cursor:pointer; transition:all 0.15s;
+                                           background:${isIndividual ? '#2563eb' : 'transparent'};
+                                           color:${isIndividual ? 'white' : '#64748b'};">👤 Individual</button>
+                            </div>
                             <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                                 ${App.logic._weekStateRowHTML(monday)}
                             </div>
@@ -197,6 +208,9 @@ Object.assign(App.ui, {
             </div>`;
 
             
+            if(App.uiState.plannerViewMode === 'individual') {
+                html += App.ui._renderIndividualGrid(weekDays, monday, finalConfig, gridScale);
+            } else {
             // REJILLA DE TURNOS (con sistema de escala)
             html += `<div class="planner-grid-wrapper-scale">
                 <div class="planner-grid-module-scalable" id="planner-grid-scalable" style="transform: scale(${gridScale}); transform-origin: top left;">
@@ -360,7 +374,7 @@ Object.assign(App.ui, {
                     const code = shift.code;
                     if(code === 'B' || code === 'P') absenceClass = 'absence-red';
                     else if(code === 'V') absenceClass = 'absence-purple';
-                    else if(code === 'L' || code === 'F' || code === 'R') absenceClass = 'absence-green';
+                    else if(code === 'L' || code === 'F' || code === 'R' || code === 'DH') absenceClass = 'absence-green';
                 }
 
                 const isEditable = shift && !shift.fixed && shift.start && shift.end;
@@ -438,6 +452,7 @@ Object.assign(App.ui, {
             
             // Cerrar planner-grid-module-scalable y wrapper
             html += `</div></div>`;
+            } // fin de modo grupo
             
             c.innerHTML = html;
             
@@ -445,5 +460,209 @@ Object.assign(App.ui, {
             adjustWrapperHeights();
         },
 
+        _renderIndividualGrid: function(weekDays, monday, todayConfig, gridScale) {
+            const empId = App.uiState.individualEmpId;
+            const emp = empId ? App.data.empleados.find(e => e.id === empId) : null;
+            
+            // Si no hay empleado seleccionado, seleccionar el primero activo
+            if(!emp) {
+                const first = App.data.empleados.find(e => e.active !== false);
+                if(first) {
+                    App.uiState.individualEmpId = first.id;
+                    return App.ui._renderIndividualGrid(weekDays, monday, todayConfig, gridScale);
+                }
+                return `<div style="text-align:center; padding:60px; color:var(--text-muted);">No hay empleados activos.</div>`;
+            }
+
+            // Dropdown de empleados activos
+            const activeEmps = App.data.empleados.filter(e => e.active !== false).sort((a,b) => a.customOrder - b.customOrder);
+            let selectHtml = `<select onchange="App.uiState.individualEmpId=this.value; App.ui.renderPlanner(document.getElementById('main-view'));" style="padding:5px 10px; border:1px solid var(--border); border-radius:6px; font-weight:700; font-size:0.85rem; cursor:pointer; background:white; max-width:220px;">`;
+            activeEmps.forEach(e => {
+                selectHtml += `<option value="${e.id}" ${e.id === empId ? 'selected' : ''}>${e.nombre} (${e.rol})</option>`;
+            });
+            selectHtml += `</select>`;
+
+            // Botones copiar/pegar
+            const hasCopied = !!App.uiState.copiedWeekPattern;
+            const copyBtn = `<button class="btn btn-header" onclick="App.logic.copyWeekPattern()" style="padding:4px 10px; font-size:0.75rem;">📋 Copiar</button>`;
+            const pasteBtn = `<button class="btn btn-header" onclick="App.logic.pasteWeekPattern()" style="padding:4px 10px; font-size:0.75rem; ${hasCopied ? '' : 'opacity:0.4; pointer-events:none;'}" ${hasCopied ? `title="Pegar patrón de ${App.uiState.copiedWeekPattern.sourceEmpName} (${App.uiState.copiedWeekPattern.sourceWeek})"` : ''}>📌 Pegar</button>`;
+
+            // Horas contrato del empleado en esta semana
+            const contratHoras = App.logic.getHorasContratoEnFecha(emp, weekDays[0]);
+            
+            let html = `<div style="margin-top:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:white; border:1px solid var(--border); border-radius:8px 8px 0 0; border-bottom:2px solid var(--primary);">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:1.1rem;">👤</span>
+                        ${selectHtml}
+                        <span class="badge-role" style="font-size:0.7rem;">${emp.rol}</span>
+                    </div>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        ${copyBtn} ${pasteBtn}
+                    </div>
+                </div>`;
+
+            // Tabla de 7 días
+            html += `<table class="data-table individual-week-table" style="font-size:0.82rem; border-radius:0 0 8px 8px; border-top:none;">
+                <thead><tr>
+                    <th style="width:75px; text-align:center;">Día</th>
+                    <th style="width:90px; text-align:center;">Turno</th>
+                    <th style="min-width:280px;">Gráfica (9:30–22:00)</th>
+                    <th style="width:55px; text-align:center;">Horas</th>
+                </tr></thead><tbody>`;
+
+            let totalHours = 0;
+            const dayNames = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
+
+            weekDays.forEach((d, i) => {
+                const dayNum = d.split('-')[2];
+                const shiftId = (App.data.schedule[d] || {})[empId];
+                const shift = shiftId ? Utils.getShift(shiftId) : null;
+                
+                // Config del día (festivo, excepción, etc.)
+                const dayKey = Utils.getDayKey(d);
+                const holiday = App.data.storeConfig.holidays.find(h => h.date === d);
+                const dayConfig = holiday ? App.data.storeConfig.base["Festivo"] : (App.data.storeConfig.base[dayKey] || {open:"10:00", close:"22:00", closed:false});
+                const exception = App.data.storeConfig.special.find(s => s.date === d);
+                const rowConfig = exception || dayConfig;
+                
+                // Bloqueado?
+                const isLocked = App.data.lockedDays && App.data.lockedDays[d];
+                
+                // Tinte de ausencia (mismo sistema que grupal)
+                let absenceClass = '';
+                if(shift && shift.fixed) {
+                    const code = shift.code;
+                    if(code === 'B' || code === 'P') absenceClass = 'absence-red';
+                    else if(code === 'V') absenceClass = 'absence-purple';
+                    else if(code === 'L' || code === 'F' || code === 'R' || code === 'DH') absenceClass = 'absence-green';
+                }
+
+                // Contenido turno
+                let turnoPill = '<span style="color:#cbd5e1;">—</span>';
+                let hours = 0;
+                if(shift) {
+                    if(shift.fixed) {
+                        turnoPill = `<span style="display:inline-block; padding:3px 10px; border-radius:4px; font-weight:700; font-size:0.78rem; color:${shift.color}; border:1.5px solid ${shift.color}40; background:${shift.color}10;">${shift.code}</span>`;
+                    } else if(shift.start && shift.end) {
+                        hours = Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break);
+                        const isLight = Utils.isLightColor(shift.color);
+                        const textCol = isLight ? '#000' : '#fff';
+                        turnoPill = `<span style="display:inline-block; padding:3px 10px; border-radius:4px; font-weight:700; font-size:0.78rem; color:${textCol}; background:${shift.color};">${shift.code || shift.start.substring(0,5)}</span>`;
+                    }
+                }
+                if(hours > 0 && !(shift && shift.external)) {
+                    totalHours += hours;
+                }
+
+                // Highlight del día activo (currentDate)
+                const isActiveDay = d === App.uiState.currentDate;
+                const activeDayStyle = isActiveDay ? 'font-weight:800; color:var(--primary);' : '';
+                
+                // Click handler: pintar turno en este día
+                const clickHandler = isLocked ? '' : `onclick="App.uiState.currentDate='${d}'; App.logic.paint('${empId}')"`;
+                const rowCursor = isLocked ? 'cursor:not-allowed;' : 'cursor:pointer;';
+                const lockIcon = isLocked ? ' 🔒' : '';
+
+                // Timeline
+                const timeline = Utils.renderPlannerTimeline(shift, rowConfig, null, null);
+
+                html += `<tr class="${absenceClass}" ${clickHandler} style="${rowCursor}">
+                    <td style="text-align:center; ${activeDayStyle}">
+                        <div style="font-weight:700; font-size:0.8rem;">${dayNames[i]}</div>
+                        <div style="font-size:0.7rem; color:var(--text-muted);">${dayNum}${lockIcon}</div>
+                    </td>
+                    <td style="text-align:center;">${turnoPill}</td>
+                    <td style="padding:4px 8px;">${timeline}</td>
+                    <td style="text-align:center; font-weight:700;">${hours > 0 ? hours + 'h' : ''}</td>
+                </tr>`;
+            });
+
+            // Fila total
+            const diff = totalHours - contratHoras;
+            const diffColor = diff > 0 ? '#22c55e' : (diff < 0 ? '#ef4444' : 'var(--text-muted)');
+            const diffSign = diff > 0 ? '+' : '';
+            html += `</tbody><tfoot><tr style="background:#f8fafc; font-weight:700;">
+                <td colspan="3" style="text-align:right; padding-right:15px; font-size:0.8rem;">
+                    TOTAL SEMANA
+                    <span style="margin-left:10px; font-weight:500; color:var(--text-muted); font-size:0.75rem;">(contrato: ${contratHoras}h)</span>
+                </td>
+                <td style="text-align:center; font-size:0.9rem;">
+                    ${totalHours}h
+                    <div style="font-size:0.7rem; color:${diffColor};">${diffSign}${diff}h</div>
+                </td>
+            </tr></tfoot></table></div>`;
+
+            return html;
+        },
+
         // --- SHIFTS ---
 });
+
+// --- LÓGICA COPIAR/PEGAR SEMANA (Vista Individual) ---
+App.logic.copyWeekPattern = function() {
+    const empId = App.uiState.individualEmpId;
+    const emp = App.data.empleados.find(e => e.id === empId);
+    if(!emp) return;
+
+    const monday = Utils.getMonday(App.uiState.currentDate);
+    const weekDays = Utils.getWeekDays(monday);
+    const weekNum = Utils.getWeekCode ? Utils.getWeekCode(monday) : monday;
+
+    const shifts = {};
+    weekDays.forEach(d => {
+        shifts[d] = (App.data.schedule[d] || {})[empId] || null;
+    });
+
+    App.uiState.copiedWeekPattern = {
+        sourceEmpId: empId,
+        sourceEmpName: emp.nombre,
+        sourceWeek: weekNum,
+        sourceMonday: monday,
+        shifts: shifts
+    };
+
+    App.ui.renderPlanner(document.getElementById('main-view'));
+};
+
+App.logic.pasteWeekPattern = function() {
+    const pattern = App.uiState.copiedWeekPattern;
+    if(!pattern) return;
+
+    const empId = App.uiState.individualEmpId;
+    const emp = App.data.empleados.find(e => e.id === empId);
+    if(!emp) return;
+
+    const monday = Utils.getMonday(App.uiState.currentDate);
+    const weekDays = Utils.getWeekDays(monday);
+    const sourceWeekDays = Utils.getWeekDays(pattern.sourceMonday);
+
+    if(!confirm(`¿Pegar patrón de ${pattern.sourceEmpName} (${pattern.sourceWeek}) sobre la semana actual de ${emp.nombre}?\n\nEsto sobreescribirá los turnos existentes.`)) return;
+
+    let skipped = 0;
+    weekDays.forEach((d, i) => {
+        // Respetar días bloqueados
+        if(App.data.lockedDays && App.data.lockedDays[d]) { skipped++; return; }
+
+        const sourceDay = sourceWeekDays[i];
+        const sourceShift = pattern.shifts[sourceDay];
+
+        if(!App.data.schedule[d]) App.data.schedule[d] = {};
+
+        if(sourceShift) {
+            App.data.schedule[d][empId] = sourceShift;
+        } else {
+            delete App.data.schedule[d][empId];
+        }
+    });
+
+    App.logic.saveSnapshot('Pegar patrón semanal');
+    Safe.save('v40_db', App.data);
+    App.logic.checkAlerts();
+
+    let msg = `✅ Patrón aplicado a ${emp.nombre}`;
+    if(skipped > 0) msg += `\n\n⚠️ ${skipped} día(s) bloqueado(s) se han saltado.`;
+    alert(msg);
+
+    App.ui.renderPlanner(document.getElementById('main-view'));
+};
