@@ -123,13 +123,13 @@ Object.assign(App.ui, {
             
             const isIndividual = App.uiState.plannerViewMode === 'individual';
             html += `<div style="margin-top:6px; display:flex; align-items:center; justify-content:space-between; font-size:0.65rem; color:var(--text-muted); padding:0 4px;">
-                            <div style="display:flex; background:#e2e8f0; border-radius:16px; padding:2px; gap:0;">
+                            <div style="display:flex; background:#e2e8f0; border-radius:16px; padding:2px; gap:0; margin-left:6px;">
                                 <button onclick="App.uiState.plannerViewMode='group'; App.ui.renderPlanner(document.getElementById('main-view'));"
-                                    style="display:flex; align-items:center; gap:4px; padding:3px 10px; border:none; border-radius:14px; font-size:0.68rem; font-weight:700; cursor:pointer; transition:all 0.15s;
+                                    style="display:flex; align-items:center; gap:4px; padding:3px 14px; border:none; border-radius:14px; font-size:0.68rem; font-weight:700; cursor:pointer; transition:all 0.15s; min-width:80px; justify-content:center;
                                            background:${!isIndividual ? '#2563eb' : 'transparent'};
                                            color:${!isIndividual ? 'white' : '#64748b'};">👥 Grupo</button>
                                 <button onclick="if(!App.uiState.individualEmpId){const first=App.data.empleados.find(e=>e.active!==false);if(first)App.uiState.individualEmpId=first.id;} App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));"
-                                    style="display:flex; align-items:center; gap:4px; padding:3px 10px; border:none; border-radius:14px; font-size:0.68rem; font-weight:700; cursor:pointer; transition:all 0.15s;
+                                    style="display:flex; align-items:center; gap:4px; padding:3px 14px; border:none; border-radius:14px; font-size:0.68rem; font-weight:700; cursor:pointer; transition:all 0.15s; min-width:80px; justify-content:center;
                                            background:${isIndividual ? '#2563eb' : 'transparent'};
                                            color:${isIndividual ? 'white' : '#64748b'};">👤 Individual</button>
                             </div>
@@ -487,8 +487,8 @@ Object.assign(App.ui, {
             const copyBtn = `<button class="btn btn-header" onclick="App.logic.copyWeekPattern()" style="padding:4px 10px; font-size:0.75rem;">📋 Copiar</button>`;
             const pasteBtn = `<button class="btn btn-header" onclick="App.logic.pasteWeekPattern()" style="padding:4px 10px; font-size:0.75rem; ${hasCopied ? '' : 'opacity:0.4; pointer-events:none;'}" ${hasCopied ? `title="Pegar patrón de ${App.uiState.copiedWeekPattern.sourceEmpName} (${App.uiState.copiedWeekPattern.sourceWeek})"` : ''}>📌 Pegar</button>`;
 
-            // Horas contrato del empleado en esta semana
-            const contratHoras = App.logic.getHorasContratoEnFecha(emp, weekDays[0]);
+            // Horas contrato del empleado en esta semana (misma función que el balance)
+            const contratHoras = Utils.getContrato(emp, monday);
             
             let html = `<div style="margin-top:12px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:white; border:1px solid var(--border); border-radius:8px 8px 0 0; border-bottom:2px solid var(--primary);">
@@ -508,7 +508,7 @@ Object.assign(App.ui, {
                     <th style="width:75px; text-align:center;">Día</th>
                     <th style="width:90px; text-align:center;">Turno</th>
                     <th style="min-width:280px;">Gráfica (9:30–22:00)</th>
-                    <th style="width:55px; text-align:center;">Horas</th>
+                    <th style="width:50px; text-align:center;">⏱</th>
                 </tr></thead><tbody>`;
 
             let totalHours = 0;
@@ -565,7 +565,7 @@ Object.assign(App.ui, {
                 const lockIcon = isLocked ? ' 🔒' : '';
 
                 // Timeline
-                const timeline = Utils.renderPlannerTimeline(shift, rowConfig, null, null);
+                const timeline = Utils.renderPlannerTimeline(shift, rowConfig, empId, d);
 
                 html += `<tr class="${absenceClass}" ${clickHandler} style="${rowCursor}">
                     <td style="text-align:center; ${activeDayStyle}">
@@ -573,7 +573,7 @@ Object.assign(App.ui, {
                         <div style="font-size:0.7rem; color:var(--text-muted);">${dayNum}${lockIcon}</div>
                     </td>
                     <td style="text-align:center;">${turnoPill}</td>
-                    <td style="padding:4px 8px;">${timeline}</td>
+                    <td style="padding:4px 8px;" ondragover="App.logic.shiftDragOver(event)" ondrop="App.logic.shiftDrop(event, '${empId}', '${d}')" ondragleave="event.currentTarget.classList.remove('drag-over-active')">${timeline}</td>
                     <td style="text-align:center; font-weight:700;">${hours > 0 ? hours + 'h' : ''}</td>
                 </tr>`;
             });
