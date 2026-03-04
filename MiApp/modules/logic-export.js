@@ -203,9 +203,133 @@ Object.assign(App.logic, {
                 console.error('Clipboard error:', err);
             }
         },
+        copyWeekGrid: async function(mondayDate) {
+            const empIds = App.uiState.exportEmps;
+            const ROWS_PER_DAY = 15;
+            const COLS = 26;
+            const allRows = [];
+
+            // Cabecera de franjas horarias (09:30 a 22:00) — siempre igual
+            const timeHeader = [];
+            for(let i=0; i<COLS; i++) {
+                const totalMin = 9*60 + 30 + (i*30);
+                const h = Math.floor(totalMin / 60);
+                const m = totalMin % 60;
+                timeHeader.push(`${h}:${m.toString().padStart(2,'0')}`);
+            }
+
+            // Helper: generar las 15 filas de un día
+            const buildDayRows = (date) => {
+                const dayRows = [];
+                empIds.forEach(item => {
+                    const isGap = typeof item === 'object' && item.type === 'gap';
+                    const row = [];
+
+                    if(isGap) {
+                        for(let i=0; i<COLS; i++) row.push('');
+                    } else {
+                        const shiftId = App.data.schedule[date] ? App.data.schedule[date][item] : null;
+                        const shift = shiftId ? Utils.getShift(shiftId) : null;
+
+                        if(shift && shift.fixed) {
+                            row.push(shift.code);
+                            for(let i=1; i<COLS; i++) row.push('');
+                        } else if(shift && shift.start && shift.end) {
+                            const getMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+                            const startMin = getMin(shift.start);
+                            const endMin = getMin(shift.end);
+                            let breakStartMin = 0, breakEndMin = 0;
+                            if(shift.breakStart && shift.breakEnd) {
+                                breakStartMin = getMin(shift.breakStart);
+                                breakEndMin = getMin(shift.breakEnd);
+                            }
+                            for(let i=0; i<COLS; i++) {
+                                const slotMin = 9*60 + 30 + (i*30);
+                                let isWorking = slotMin >= startMin && slotMin < endMin;
+                                if(isWorking && breakStartMin > 0 && slotMin >= breakStartMin && slotMin < breakEndMin) {
+                                    isWorking = false;
+                                }
+                                row.push(isWorking ? 'X' : '');
+                            }
+                        } else {
+                            for(let i=0; i<COLS; i++) row.push('');
+                        }
+                    }
+                    dayRows.push(row);
+                });
+                // Rellenar hasta ROWS_PER_DAY con filas vacías
+                while(dayRows.length < ROWS_PER_DAY) {
+                    const empty = [];
+                    for(let i=0; i<COLS; i++) empty.push('');
+                    dayRows.push(empty);
+                }
+                return dayRows;
+            };
+
+            // Helper: calcular fila TOTAL (COUNTIF de X por columna)
+            const buildTotalRow = (dayRows) => {
+                const totals = [];
+                for(let col=0; col<COLS; col++) {
+                    let count = 0;
+                    for(let r=0; r<dayRows.length; r++) {
+                        if(dayRows[r][col] === 'X') count++;
+                    }
+                    totals.push(count > 0 ? count : 0);
+                }
+                return totals;
+            };
+
+            // Generar 7 días (lunes a domingo)
+            const days = Utils.getWeekDays(mondayDate);
+            let prevDayRows = null;
+
+            days.forEach((date, dayIdx) => {
+                const dayRows = buildDayRows(date);
+
+                // Antes de cada día (excepto el primero), insertar gap de 3 filas
+                if(dayIdx > 0 && prevDayRows) {
+                    // Fila 1: TOTAL HORAS (cuenta de X del día anterior)
+                    allRows.push(buildTotalRow(prevDayRows));
+                    // Fila 2: vacía
+                    const emptyRow = [];
+                    for(let i=0; i<COLS; i++) emptyRow.push('');
+                    allRows.push(emptyRow);
+                    // Fila 3: cabecera de franjas horarias del día actual
+                    allRows.push([...timeHeader]);
+                }
+
+                // Filas de datos del día
+                dayRows.forEach(r => allRows.push(r));
+                prevDayRows = dayRows;
+            });
+
+            // Convertir a TSV
+            const tsv = allRows.map(row => row.join('\t')).join('\n');
+
+            try {
+                await navigator.clipboard.writeText(tsv);
+
+                const btn = document.getElementById(`copy-week-btn-${mondayDate}`);
+                if(btn) {
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '✓ Semana copiada!';
+                    btn.style.background = '#059669';
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        btn.style.background = '#2563eb';
+                    }, 2000);
+                }
+            } catch(err) {
+                alert('⚠️ Error al copiar. Asegúrate de usar un navegador moderno.');
+                console.error('Clipboard error:', err);
+            }
+        },
         exportGenerate: function() {
-            const start = App.uiState.exportStartDate;
-            const end = App.uiState.exportEndDate;
+            const monday = App.uiState.exportWeek;
+            if(!monday) { alert('⚠️ Selecciona una semana'); return; }
+            const sundayD = new Date(monday); sundayD.setDate(sundayD.getDate() + 6);
+            const start = monday;
+            const end = sundayD.toISOString().slice(0,10);
             const empIds = App.uiState.exportEmps;
             const realEmps = empIds.filter(i => typeof i === 'string').length;
             
@@ -402,8 +526,8 @@ Object.assign(App.logic, {
         },
         
         exportMasterData: function() {
-            const start = App.uiState.exportStartDate;
-            const end = App.uiState.exportEndDate;
+            const start = App.uiState.masterStart;
+            const end = App.uiState.masterEnd;
             
             if(!start || !end) {
                 alert('⚠️ Debes seleccionar un rango de fechas');
@@ -577,8 +701,8 @@ Object.assign(App.logic, {
             const emp = App.data.empleados.find(e => e.id === empId);
             if(!emp) { alert('⚠️ Selecciona un empleado'); return; }
 
-            const start = App.uiState.exportStartDate;
-            const end   = App.uiState.exportEndDate;
+            const start = App.uiState.icsStart;
+            const end   = App.uiState.icsEnd;
             if(!start || !end) { alert('⚠️ Selecciona un rango de fechas'); return; }
 
             const labelMode   = App.uiState.icsLabelMode   || 'code';

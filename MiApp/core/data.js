@@ -47,6 +47,11 @@ const App = {
         exportEmps: [], 
         exportStartDate: '', 
         exportEndDate: '',
+        exportWeek: '',
+        icsStart: '',
+        icsEnd: '',
+        masterStart: '',
+        masterEnd: '',
         icsLabelMode: 'code',   // 'code' | 'desc' | 'custom'
         icsLabelCustom: 'Turno',
         icsIncludeFixed: true,
