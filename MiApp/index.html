@@ -604,7 +604,11 @@ App.logic.updateContrato = function(empId, idx, campo, valor) {
     if (!emp || !emp.contratos[idx]) return;
     
     emp.contratos[idx][campo] = (campo === 'horas') ? parseFloat(valor) : valor;
-    emp.contratos.sort((a,b) => a.desde.localeCompare(b.desde));
+    
+    // Solo reordenar cuando cambian las fechas, no al cambiar rol u horas
+    if (campo === 'desde' || campo === 'hasta') {
+        emp.contratos.sort((a,b) => a.desde.localeCompare(b.desde));
+    }
     
     // Sincronizar campos antiguos para no romper el resto de la App
     emp.fechaInicio = emp.contratos[0].desde;

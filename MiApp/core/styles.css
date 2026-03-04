@@ -174,8 +174,8 @@
             border-radius: 12px; 
             padding: 15px; 
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            width: 985px; /* Total: 336 (nav) + 403 (paleta) + 192 (botones) + 24 (gaps) + 30 (padding) */
-            min-width: 985px; /* Forzar ancho mínimo */
+            width: 895px; /* Total: 336 (nav) + 313 (paleta) + 192 (botones) + 24 (gaps) + 30 (padding) */
+            min-width: 895px; /* Forzar ancho mínimo */
             transform-origin: top left;
             transition: transform 0.2s ease;
         }

@@ -4,7 +4,7 @@
 
 Object.assign(App.logic, {
         toggleEmpView: function() { App.uiState.empViewMode = (App.uiState.empViewMode==='data')?'prefs':'data'; App.ui.renderEmp(document.querySelector('.main-scroll')); },
-        empSelect: function(id) { App.uiState.selectedId=id; App.uiState.empInspTab='overview'; App.ui.renderEmp(document.querySelector('.main-scroll')); App.ui.renderEmpInspector(id); },
+        empSelect: function(id) { App.uiState.selectedId=id; if(!App.uiState.empInspTab) App.uiState.empInspTab='overview'; App.ui.renderEmp(document.querySelector('.main-scroll')); App.ui.renderEmpInspector(id); },
         empSave: function(id) { 
             const existing = id ? App.data.empleados.find(x=>x.id===id) : null;
             const inOverview = !!document.getElementById('ie-nom');

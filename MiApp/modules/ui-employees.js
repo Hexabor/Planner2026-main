@@ -38,12 +38,20 @@ Object.assign(App.ui, {
             if(!emp) return 0;
             const locked = App.data.lockedDays || {};
             const tracking = emp.festivoTracking || {};
+            // Recopilar Rs reales del empleado en el schedule
+            const realRs = new Set();
+            Object.keys(App.data.schedule || {}).forEach(iso => {
+                const sid = App.data.schedule[iso]?.[emp.id];
+                const sh = sid ? Utils.getShift(sid) : null;
+                if(sh && sh.fixed && sh.code === 'R') realRs.add(iso);
+            });
             const holidays = (App.data.storeConfig.holidays || [])
                 .filter(h => locked[h.date] && Utils.empleadoVigenteEnFecha(emp, h.date));
             let pendientes = 0;
             holidays.forEach(h => {
                 const tr = tracking[h.date] || {};
-                if(tr.rDate) return;
+                // R válida solo si aún existe en el schedule
+                if(tr.rDate && realRs.has(tr.rDate)) return;
                 const sid = App.data.schedule[h.date]?.[emp.id];
                 const shift = sid ? Utils.getShift(sid) : null;
                 if(!shift) return;
@@ -218,8 +226,11 @@ Object.assign(App.ui, {
                     <button type="button" onclick="App.logic.addContrato('${id||''}'); App.ui.renderEmpInspector('${id||''}'); App.ui.markDirty();" style="background:#2563eb; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:10px; font-weight:800; cursor:pointer;">+ AÑADIR</button>
                 </div>
                 <div id="contratos-container">
-                    ${e.contratos.map((t, i) => {
-                        const tRol = t.rol || e.rol || 'STF';
+                    ${(function(){
+                        // Normalizar: asegurar que cada tramo tiene su propio rol
+                        e.contratos.forEach(t => { if(!t.rol) { t.rol = e.rol || 'STF'; } });
+                        return e.contratos.map((t, i) => {
+                        const tRol = t.rol || 'STF';
                         return `
                         <div style="background:#f8fafc; padding:6px 8px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:6px;">
                             <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:6px; align-items:start; margin-bottom:5px;">
@@ -240,7 +251,7 @@ Object.assign(App.ui, {
                                 </div>
                             </div>
                         </div>`;
-                    }).join('')}
+                    }).join(''); })()}
                 </div>
             </div>
 
@@ -486,6 +497,7 @@ markDirty: function() {
     allRs.sort((a,b) => b.localeCompare(a)); // Rs más recientes primero en el desplegable
 
     const assignedRDates = new Set(Object.values(tracking).map(t => t.rDate).filter(Boolean));
+    const allRsSet = new Set(allRs);
 
     // --- Clasificación y Procesamiento ---
     let adeudadas = 0, dadas = 0;
@@ -495,26 +507,25 @@ markDirty: function() {
     holidays.forEach(h => {
         const estado = getEstado(h.date);
         const tr = tracking[h.date] || {};
-        const isCerrado = !!tr.rDate;
+        // rDate válida solo si la R aún existe en el schedule
+        const rDateValida = tr.rDate && allRsSet.has(tr.rDate);
+        const isResuelto = (estado === 'disfrutado') || rDateValida;
 
         if(estado === 'coincide' || estado === 'trabaja') adeudadas++;
-        if(isCerrado) dadas++;
+        if(rDateValida) dadas++;
 
         const itemHtml = this.renderFestivoItemRow(emp, h, estado, tr, allRs, assignedRDates);
         
-        if (isCerrado) {
+        if (isResuelto) {
             cerradosData.push({ date: h.date, html: itemHtml });
         } else {
             pendientesData.push({ date: h.date, html: itemHtml });
         }
     });
 
-    // --- ORDENACIÓN CRÍTICA ---
-    // Pendientes: De más antiguo (2024) a más futuro (2026) -> ASCENDENTE
+    // --- ORDENACIÓN: ambas secciones de más antiguo a más reciente ---
     pendientesData.sort((a, b) => a.date.localeCompare(b.date));
-    
-    // Cerrados: De más reciente a más antiguo -> DESCENDENTE
-    cerradosData.sort((a, b) => b.date.localeCompare(a.date));
+    cerradosData.sort((a, b) => a.date.localeCompare(b.date));
 
     const balancePendiente = adeudadas - dadas;
 
@@ -562,58 +573,7 @@ markDirty: function() {
     return html;
 },
 
-renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
-    const needsTracking = estado === 'coincide' || estado === 'trabaja';
-    const isTrabajado = estado === 'trabaja';
-    const d = new Date(h.date);
-    const label = `${d.getDate()} ${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][d.getMonth()]}`;
-    const yearShort = h.date.split('-')[0].slice(2);
-
-    const badge = {
-        disfrutado: ['#dcfce7','#15803d','✅ OK'],
-        coincide: ['#fef9c3','#854d0e','⚠️ Coincide'],
-        trabaja: ['#fee2e2','#991b1b','🔴 Trabaja'],
-        sin_definir: ['#f1f5f9','#94a3b8','⬜ ?']
-    }[estado];
-
-    let rOpts = `<option value="">— Sin asignar —</option>`;
-    allRs.forEach(rIso => {
-        if(!assignedRDates.has(rIso) || rIso === tr.rDate) {
-            const sel = tr.rDate === rIso ? 'selected' : '';
-            rOpts += `<option value="${rIso}" ${sel}>${Utils.getWeekCode(rIso)} · ${rIso.split('-').reverse().join('/')}</option>`;
-        }
-    });
-
-    return `
-    <div style="border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:8px; background:white;">
-        <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">
-            <div>
-                <div style="font-weight:700; font-size:0.85rem;">${label} <span style="font-weight:400; color:#94a3b8;">'${yearShort}</span></div>
-                <div style="font-size:0.65rem; color:var(--text-muted);">${h.note || 'Festivo'}</div>
-            </div>
-            <span style="background:${badge[0]}; color:${badge[1]}; padding:2px 6px; border-radius:6px; font-size:0.6rem; font-weight:800; white-space:nowrap;">${badge[2]}</span>
-        </div>
-        
-        ${needsTracking ? `
-            <div style="display:flex; flex-direction:column; gap:6px; padding-top:6px; border-top:1px dashed var(--border);">
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <span style="font-size:0.65rem; color:var(--text-muted); width:50px;">R dada:</span>
-                    <select style="flex:1; padding:3px; border:1px solid var(--border); border-radius:4px; font-size:0.7rem;"
-                        onchange="App.logic.festivoTrackUpd('${emp.id}','${h.date}','rDate',this.value);">
-                        ${rOpts}
-                    </select>
-                </div>
-                ${isTrabajado ? `
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <span style="font-size:0.65rem; color:var(--text-muted); width:50px;">Fact.:</span>
-                    <div style="flex:1;">${Utils.getDateInputHTML(`fact-${h.date}`, tr.factorialDate || '', `App.logic.festivoTrackUpd('${emp.id}','${h.date}','factorialDate',this.dataset.isoValue)`)}</div>
-                </div>` : ''}
-            </div>
-        ` : ''}
-    </div>`;
-},
-
-// Función auxiliar para renderizar cada tarjeta (para evitar duplicar código)
+// Función auxiliar para renderizar cada tarjeta de festivo
 renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
     const needsTracking = estado === 'coincide' || estado === 'trabaja';
     const isTrabajado = estado === 'trabaja';
