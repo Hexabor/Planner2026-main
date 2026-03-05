@@ -111,6 +111,10 @@ Object.assign(App.logic, {
             contratosFinales.sort((a,b) => a.desde.localeCompare(b.desde));
             
             App.data.empleados[i].contratos = contratosFinales;
+            // Sincronizar campos legacy
+            App.data.empleados[i].fechaInicio = contratosFinales[0].desde;
+            const ulti = contratosFinales[contratosFinales.length - 1];
+            App.data.empleados[i].fechaFin = ulti.hasta || null;
             Safe.save('v40_db', App.data);
             App.ui.renderEmpInspector(id);
         },
@@ -144,6 +148,13 @@ Object.assign(App.logic, {
             contratos.splice(idx, 1);
             if(contratos.length === 0) {
                 delete App.data.empleados[i].contratos;
+                App.data.empleados[i].fechaInicio = null;
+                App.data.empleados[i].fechaFin = null;
+            } else {
+                // Sincronizar campos legacy con contratos restantes
+                App.data.empleados[i].fechaInicio = contratos[0].desde;
+                const ultimo = contratos[contratos.length - 1];
+                App.data.empleados[i].fechaFin = ultimo.hasta || null;
             }
             
             Safe.save('v40_db', App.data);

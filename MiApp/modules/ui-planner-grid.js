@@ -128,7 +128,7 @@ Object.assign(App.ui, {
                                     style="display:flex; align-items:center; gap:4px; padding:3px 14px; border:none; border-radius:14px; font-size:0.68rem; font-weight:700; cursor:pointer; transition:all 0.15s; min-width:80px; justify-content:center;
                                            background:${!isIndividual ? '#2563eb' : 'transparent'};
                                            color:${!isIndividual ? 'white' : '#64748b'};">👥 Grupo</button>
-                                <button onclick="if(!App.uiState.individualEmpId){const first=App.data.empleados.find(e=>e.active!==false);if(first)App.uiState.individualEmpId=first.id;} App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));"
+                                <button onclick="if(!App.uiState.individualEmpId){const first=App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder)[0]; if(first)App.uiState.individualEmpId=first.id;} App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));"
                                     style="display:flex; align-items:center; gap:4px; padding:3px 14px; border:none; border-radius:14px; font-size:0.68rem; font-weight:700; cursor:pointer; transition:all 0.15s; min-width:80px; justify-content:center;
                                            background:${isIndividual ? '#2563eb' : 'transparent'};
                                            color:${isIndividual ? 'white' : '#64748b'};">👤 Individual</button>
@@ -383,7 +383,7 @@ Object.assign(App.ui, {
 
                 // --- 4. SALIDA HTML ---
                 html += `<div class="pg-row" onclick="App.logic.paint('${e.id}')">
-                    <div class="pg-name ${tag3Class}" style="${disabledBg}; cursor:help;" title="${txtTooltip}">${nameContent}</div>
+                    <div class="pg-name ${tag3Class}" style="${disabledBg}; cursor:pointer;" title="${txtTooltip}" onclick="event.stopPropagation(); App.uiState.individualEmpId='${e.id}'; App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));">${nameContent}</div>
                     <div class="pg-rol ${tag3Class}" style="${disabledBg}">${rolContent}</div>
                     <div class="pg-tag ${tag3Class}" style="${disabledBg}">${tagContent}</div>
                     <div class="pg-hours" style="${disabledBg}">${hoursContent}</div>
@@ -490,11 +490,25 @@ Object.assign(App.ui, {
             // Horas contrato del empleado en esta semana (misma función que el balance)
             const contratHoras = Utils.getContrato(emp, monday);
             
+            // Navegación prev/next entre empleados
+            const empIdx = activeEmps.findIndex(e => e.id === empId);
+            const prevEmp = empIdx > 0 ? activeEmps[empIdx - 1] : null;
+            const nextEmp = empIdx < activeEmps.length - 1 ? activeEmps[empIdx + 1] : null;
+            const arrowStyle = `padding:4px 8px; border:1px solid var(--border); border-radius:6px; background:white; font-size:0.85rem; cursor:pointer; font-weight:700; line-height:1;`;
+            const prevBtn = prevEmp 
+                ? `<button onclick="App.uiState.individualEmpId='${prevEmp.id}'; App.ui.renderPlanner(document.getElementById('main-view'));" style="${arrowStyle}" title="${prevEmp.nombre}">◀</button>`
+                : `<button style="${arrowStyle} opacity:0.25; cursor:default;" disabled>◀</button>`;
+            const nextBtn = nextEmp
+                ? `<button onclick="App.uiState.individualEmpId='${nextEmp.id}'; App.ui.renderPlanner(document.getElementById('main-view'));" style="${arrowStyle}" title="${nextEmp.nombre}">▶</button>`
+                : `<button style="${arrowStyle} opacity:0.25; cursor:default;" disabled>▶</button>`;
+
             let html = `<div style="margin-top:12px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:white; border:1px solid var(--border); border-radius:8px 8px 0 0; border-bottom:2px solid var(--primary);">
-                    <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
                         <span style="font-size:1.1rem;">👤</span>
+                        ${prevBtn}
                         ${selectHtml}
+                        ${nextBtn}
                         <span class="badge-role" style="font-size:0.7rem;">${emp.rol}</span>
                     </div>
                     <div style="display:flex; gap:6px; align-items:center;">
@@ -578,10 +592,13 @@ Object.assign(App.ui, {
                 </tr>`;
             });
 
-            // Fila total
-            const diff = totalHours - contratHoras;
+            // Fila total — incluir horas justificadas (V, R, B, P, F) igual que el balance semanal
+            const { justifiedH } = Utils.calcEsperadas(contratHoras, weekDays, empId);
+            const effectiveTotal = Math.round((totalHours + justifiedH) * 10) / 10;
+            const diff = Math.round((effectiveTotal - contratHoras) * 10) / 10;
             const diffColor = diff > 0 ? '#22c55e' : (diff < 0 ? '#ef4444' : 'var(--text-muted)');
             const diffSign = diff > 0 ? '+' : '';
+            const justifiedNote = justifiedH > 0 ? `<div style="font-size:0.65rem; color:#a78bfa;" title="Horas cubiertas por ausencias justificadas (V, R, B, P, F)">✦ ${justifiedH}h justif.</div>` : '';
             html += `</tbody><tfoot><tr style="background:#f8fafc; font-weight:700;">
                 <td colspan="3" style="text-align:right; padding-right:15px; font-size:0.8rem;">
                     TOTAL SEMANA
@@ -589,6 +606,7 @@ Object.assign(App.ui, {
                 </td>
                 <td style="text-align:center; font-size:0.9rem;">
                     ${totalHours}h
+                    ${justifiedNote}
                     <div style="font-size:0.7rem; color:${diffColor};">${diffSign}${diff}h</div>
                 </td>
             </tr></tfoot></table></div>`;

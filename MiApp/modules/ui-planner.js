@@ -20,7 +20,8 @@ Object.assign(App.ui, {
         renderPlannerInspector: function(c) {
             const tabs = [
                 {id: 'charts', icon: '📊', title: 'Gráficos'},
-                {id: 'findes', icon: '📅', title: 'Rotación Fines de Semana'}, // <-- ¡NUEVA PESTAÑA AQUÍ!
+                {id: 'findes', icon: '📅', title: 'Rotación Fines de Semana'},
+                {id: 'festdom', icon: '🐷', title: 'Domingos y Festivos'},
                 {id: 'balance', icon: '📋', title: 'Balance Semanal'},
                 {id: 'equilibrio', icon: '⚖️', title: 'Equilibrio de Turnos'}
                 // Add more modules here as needed
@@ -36,6 +37,8 @@ Object.assign(App.ui, {
             // NUEVO CONDICIONAL PARA LOS FINDES
             if(App.uiState.monitorTab === 'findes') {
                 html += App.ui.renderMonitorFindes();
+            } else if(App.uiState.monitorTab === 'festdom') {
+                html += App.ui.renderMonitorFestDom();
             } else if(App.uiState.monitorTab === 'balance') {
                 html += App.ui.renderMonitorBalance();
             } else if(App.uiState.monitorTab === 'charts') {
@@ -93,21 +96,22 @@ Object.assign(App.ui, {
             // 2. GENERAR CABECERAS DINÁMICAS (Ahora con padding 0 y doble dígito)
             let html = `
             <div style="padding: 15px; overflow-x: auto;">
-                <h3 style="margin-top: 0; font-size: 0.95rem; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Rotación de Fines de Semana (13W)</h3>
+                <h3 style="margin-top: 0; font-size: 0.95rem; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Rotación de Fines de Semana (12W)</h3>
                 
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; text-align: center; table-layout: auto;">
                     <thead>
                         <tr style="border-bottom: 2px solid #cbd5e1; color: #64748b;">
                             <th style="text-align: left; padding: 4px 2px; font-weight: 600;">Nombre</th>`;
             
-            // Bucle: 00 = semana actual, -01 a -12 = semanas anteriores
-            for (let w = 0; w <= 12; w++) {
+            // Bucle: 00 = semana actual, -01 a -11 = semanas anteriores
+            for (let w = 0; w <= 11; w++) {
                 const label = w === 0 ? `<span style="color:#2563eb;font-weight:700;">↓</span>` : `-${String(w).padStart(2, '0')}`;
                 const titleAttr = w === 0 ? 'Semana actual' : `Hace ${w} semana(s)`;
                 html += `<th style="padding: 4px 0; min-width: 24px; width: 24px;" title="${titleAttr}">${label}</th>`;
             }
             
-            html += `   </tr>
+            html += `   <th style="padding: 4px 2px; min-width: 32px; width: 32px; font-size:0.6rem;" title="Sábados / Domingos trabajados (12 semanas)">Σ</th>
+                        </tr>
                     </thead>
                     <tbody>`;
 
@@ -161,16 +165,30 @@ Object.assign(App.ui, {
                 return `<div style="width:12px;height:12px;background:${bg};border:${borderThickness} solid ${border};border-radius:2px;box-sizing:border-box;margin:0 auto;" title="${title}"></div>`;
             };
 
+            // Helper para detectar si un día fue "trabajado" (turno con horas, no ausencia)
+            const isWorked = (dateStr, empId) => {
+                const shiftId = App.data.schedule[dateStr] ? App.data.schedule[dateStr][empId] : null;
+                if(!shiftId) return false;
+                const shift = Utils.getShift(shiftId);
+                if(!shift) return false;
+                if(shift.fixed && ['L','F','R','V','B','P','DH'].includes(shift.code)) return false;
+                return true;
+            };
+
             // 3. RELLENAR FILAS DE EMPLEADOS VIAJANDO EN EL TIEMPO
             empList.forEach(e => {
                 html += `<tr style="border-bottom: 1px solid #f1f5f9;">
                             <td style="text-align: left; padding: 7px 2px; color: #334155; font-weight: 600; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${e.nombre}">${e.nombre}</td>`;
                 
-                for (let w = 0; w <= 12; w++) {
+                let countSab = 0, countDom = 0;
+                for (let w = 0; w <= 11; w++) {
                     const targetMonday = addDays(currentMondayStr, -(w * 7));
                     const sabadoStr = addDays(targetMonday, 5);
                     const domingoStr = addDays(targetMonday, 6);
                     
+                    if(isWorked(sabadoStr, e.id)) countSab++;
+                    if(isWorked(domingoStr, e.id)) countDom++;
+
                     const sqSab = getSquare(sabadoStr, e.id, 'Sáb');
                     const sqDom = getSquare(domingoStr, e.id, 'Dom');
                     
@@ -182,6 +200,16 @@ Object.assign(App.ui, {
                                 </div>
                              </td>`;
                 }
+                // Columna resumen S/D — umbrales: ≤6 gris, 7-8 verde, 9-10 naranja, 11-12 rojo
+                const getCountColor = (n) => n >= 11 ? '#ef4444' : n >= 9 ? '#f59e0b' : n >= 7 ? '#22c55e' : '#64748b';
+                const sabColor = getCountColor(countSab);
+                const domColor = getCountColor(countDom);
+                html += `<td style="padding: 4px 2px; text-align: center; border-left: 1px solid #e2e8f0;">
+                            <div style="display:flex; flex-direction:column; gap:1px; align-items:center; font-size:0.6rem; font-weight:700; line-height:1.3;">
+                                <span style="color:${sabColor};" title="${countSab} sábados trabajados de 12">S:${countSab}</span>
+                                <span style="color:${domColor};" title="${countDom} domingos trabajados de 12">D:${countDom}</span>
+                            </div>
+                         </td>`;
                 html += `</tr>`;
             });
 
@@ -219,6 +247,150 @@ Object.assign(App.ui, {
                 </div>
             </div>`;
 
+            return html;
+        },
+
+        renderMonitorFestDom: function() {
+            const currentDate = App.uiState.currentDate;
+            
+            // Recopilar todos los domingos y festivos hasta la fecha actual (incluida)
+            // y quedarnos con los últimos 6
+            const allDates = [];
+            
+            // Límite: hasta el domingo de la semana en estudio (puede ser futuro)
+            const currentMonday = Utils.getMonday(currentDate);
+            const addDays = (dateStr, days) => {
+                const d = new Date(dateStr);
+                d.setDate(d.getDate() + days);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${dd}`;
+            };
+            const currentSunday = addDays(currentMonday, 6);
+            
+            // 1. Recoger festivos del calendario que estén <= domingo de la semana actual
+            (App.data.storeConfig.holidays || []).forEach(h => {
+                if(h.date <= currentSunday) {
+                    allDates.push({ date: h.date, type: 'festivo', label: h.name || 'Festivo' });
+                }
+            });
+            
+            // 2. Recoger domingos: desde el de la semana actual hacia atrás (máx ~26 semanas)
+            for(let i = 0; i < 26; i++) {
+                const sun = addDays(currentSunday, -(i * 7));
+                // Solo añadir si no es ya un festivo (evitar duplicados)
+                if(!allDates.find(d => d.date === sun)) {
+                    allDates.push({ date: sun, type: 'domingo', label: 'Domingo' });
+                }
+            }
+            
+            // Ordenar por fecha descendente (reciente primero) y coger los 6 más recientes
+            allDates.sort((a, b) => b.date.localeCompare(a.date));
+            const last6 = allDates.slice(0, 8); // reciente a la izquierda, antiguo a la derecha
+            
+            // Empleados activos
+            let empList = App.data.empleados.filter(e => e.active !== false).sort((a,b) => {
+                const sk = App.uiState.sortKey || 'custom';
+                if(sk === 'custom') return a.customOrder - b.customOrder;
+                if(sk === 'contrato') return b.contrato - a.contrato;
+                if(sk === 'rol') { 
+                    const w = {"MNG":5,"AM":4,"SPV":3,"STF":2}; 
+                    return (w[b.rol]||0) - (w[a.rol]||0); 
+                }
+                return (a[sk]||'').localeCompare(b[sk]||'');
+            });
+            
+            // Helper para detectar trabajado
+            const isWorked = (dateStr, empId) => {
+                const shiftId = App.data.schedule[dateStr] ? App.data.schedule[dateStr][empId] : null;
+                if(!shiftId) return false;
+                const shift = Utils.getShift(shiftId);
+                if(!shift) return false;
+                if(shift.fixed && ['L','F','R','V','B','P','DH'].includes(shift.code)) return false;
+                return true;
+            };
+            
+            // Helper cuadrado
+            const getSquare = (dateStr, empId, info) => {
+                const shiftId = App.data.schedule[dateStr] ? App.data.schedule[dateStr][empId] : null;
+                let bg = '#f1f5f9'; 
+                let border = '#e2e8f0';
+                let borderThickness = '1px';
+                let title = `${info.label} (${Utils.formatDateES(dateStr)}): Sin datos`;
+                
+                if(shiftId) {
+                    const shift = Utils.getShift(shiftId);
+                    if(shift) {
+                        const isCustom = typeof Utils.isCustomShift === 'function' ? Utils.isCustomShift(shift) : (!shift.fixed && !shift.color && shift.start);
+                        if(isCustom) {
+                            bg = '#cbd5e1'; border = '#94a3b8';
+                            title = `${info.label} (${Utils.formatDateES(dateStr)}): Custom`;
+                        } else {
+                            bg = shift.color || '#3b82f6'; border = shift.color || '#2563eb';
+                            title = `${info.label} (${Utils.formatDateES(dateStr)}): ${shift.code || 'Turno'}`;
+                        }
+                        if(['L','F','R'].includes(shift.code)) { bg = 'transparent'; border = '#22c55e'; borderThickness = '2px'; title = `${info.label} (${Utils.formatDateES(dateStr)}): ${shift.code}`; }
+                        else if(shift.code === 'V') { bg = 'transparent'; border = '#a855f7'; borderThickness = '2px'; title = `${info.label} (${Utils.formatDateES(dateStr)}): Vacaciones`; }
+                        else if(['B','P'].includes(shift.code)) { bg = 'transparent'; border = '#ef4444'; borderThickness = '2px'; title = `${info.label} (${Utils.formatDateES(dateStr)}): ${shift.code === 'B' ? 'Baja' : 'Permiso'}`; }
+                    }
+                }
+                return `<div style="width:16px;height:16px;background:${bg};border:${borderThickness} solid ${border};border-radius:3px;box-sizing:border-box;margin:0 auto;" title="${title}"></div>`;
+            };
+            
+            // Header
+            let html = `<div style="padding: 15px;">
+                <h3 style="margin-top: 0; font-size: 0.95rem; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">🐷 Domingos y Festivos (últimos 8)</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: center; table-layout: auto;">
+                    <thead><tr style="border-bottom: 2px solid #cbd5e1; color: #64748b;">
+                        <th style="text-align: left; padding: 6px 2px; font-weight: 600;">Nombre</th>`;
+            
+            last6.forEach(info => {
+                const dayNum = info.date.split('-')[2];
+                const month = info.date.split('-')[1];
+                const icon = info.type === 'festivo' ? '🎉' : 'D';
+                const colTitle = `${info.label} — ${dayNum}/${month}`;
+                html += `<th style="padding: 6px 0; min-width: 32px; width: 32px;" title="${colTitle}">
+                    <div style="font-size:0.65rem; line-height:1.2;">${icon}</div>
+                    <div style="font-size:0.6rem; color:#94a3b8;">${dayNum}/${month}</div>
+                </th>`;
+            });
+            
+            html += `<th style="padding: 6px 2px; min-width: 32px; width: 32px; font-size:0.65rem;" title="Total trabajados de ${last6.length}">Σ</th>`;
+            html += `</tr></thead><tbody>`;
+            
+            // Filas
+            empList.forEach(e => {
+                html += `<tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="text-align: left; padding: 10px 2px; color: #334155; font-weight: 600; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${e.nombre}">${e.nombre}</td>`;
+                
+                let count = 0;
+                last6.forEach(info => {
+                    if(isWorked(info.date, e.id)) count++;
+                    html += `<td style="padding: 10px 0; text-align: center;">
+                        ${getSquare(info.date, e.id, info)}
+                    </td>`;
+                });
+                
+                // Σ con umbrales: 0–3 gris, 4–5 verde, 6–7 naranja, 8 rojo
+                const countColor = count >= 8 ? '#ef4444' : count >= 6 ? '#f59e0b' : count >= 4 ? '#22c55e' : '#64748b';
+                html += `<td style="padding: 10px 2px; text-align: center; border-left: 1px solid #e2e8f0;">
+                    <span style="font-size:0.95rem; font-weight:700; color:${countColor};" title="${count} de ${last6.length} trabajados">${count}</span>
+                </td>`;
+                html += `</tr>`;
+            });
+            
+            if(empList.length === 0) {
+                html += `<tr><td colspan="${last6.length + 2}" style="padding: 15px; color: #94a3b8;">No hay empleados activos.</td></tr>`;
+            }
+            
+            html += `</tbody></table>`;
+            
+            // Mini-leyenda
+            html += `<div style="margin-top:10px; font-size:0.65rem; color:#64748b; text-align:center;">
+                Un cuadrado por cada domingo o festivo · Sólido = trabajó · Hueco = libró
+            </div></div>`;
+            
             return html;
         },
 
@@ -467,14 +639,12 @@ Object.assign(App.ui, {
                         // Calcular desvío acumulado para este empleado (rango configurado o año fiscal)
                         const emp = App.data.empleados.find(e => e.nombre === st.name);
                         if(!emp) return st.contract;
-                        const rangeStart = App.uiState.analisisDesvioStart || App.data.config.weekStart;
-                        const rangeEnd   = App.uiState.analisisDesvioEnd   || Utils.getMonday(new Date());
-                        let acum = 0;
-                        let cur = new Date(Utils.getMonday(rangeStart));
-                        const endD = new Date(Utils.getMonday(rangeEnd));
-                        while(cur <= endD) {
-                            const isoWeek = cur.toISOString().slice(0,10);
-                            if(Utils.empleadoVigenteEnFecha(emp, isoWeek)) {
+                        // Usar semanas cerradas + vigentes como el inspector de empleados
+                        const empLockedWeeks = App.ui._getLockedWeeks(emp);
+                        const rangeStart = empLockedWeeks.length > 0 ? empLockedWeeks[0] : Utils.getMonday(App.uiState.currentDate);
+                        const rangeEnd = empLockedWeeks.length > 0 ? empLockedWeeks[empLockedWeeks.length - 1] : rangeStart;
+                        let acum = emp.saldoInicial || 0;
+                        empLockedWeeks.forEach(isoWeek => {
                                 const wdays = Utils.getWeekDays(isoWeek);
                                 let worked = 0;
                                 wdays.forEach(d => {
@@ -484,9 +654,7 @@ Object.assign(App.ui, {
                                 });
                                 const { esperadas } = Utils.calcEsperadas(Utils.getContrato(emp, isoWeek), wdays, emp.id);
                                 acum += worked - esperadas;
-                            }
-                            cur.setDate(cur.getDate() + 7);
-                        }
+                        });
                         acum = Math.round(acum * 10) / 10;
                         const sign = acum > 0 ? '+' : '';
                         const color = acum > 0.5 ? '#f59e0b' : acum < -0.5 ? '#3b82f6' : '#10b981';

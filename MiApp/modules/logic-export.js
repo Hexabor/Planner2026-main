@@ -2,6 +2,8 @@
 // LÓGICA: Exportar: Excel, master data, ICS/calendario
 // ============================================================
 
+if(typeof _localISO === 'undefined') var _localISO = (d) => { const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; };
+
 Object.assign(App.logic, {
         exportToggle: function(empId) {
             const idx = App.uiState.exportEmps.indexOf(empId);
@@ -329,7 +331,7 @@ Object.assign(App.logic, {
             if(!monday) { alert('⚠️ Selecciona una semana'); return; }
             const sundayD = new Date(monday); sundayD.setDate(sundayD.getDate() + 6);
             const start = monday;
-            const end = sundayD.toISOString().slice(0,10);
+            const end = _localISO(sundayD);
             const empIds = App.uiState.exportEmps;
             const realEmps = empIds.filter(i => typeof i === 'string').length;
             
@@ -363,7 +365,7 @@ Object.assign(App.logic, {
             const endDate = new Date(end);
             
             while(currentDate <= endDate) {
-                const dateStr = currentDate.toISOString().slice(0,10);
+                const dateStr = _localISO(currentDate);
                 const monday = Utils.getMonday(dateStr);
                 
                 if(!weekMap.has(monday)) {
@@ -559,7 +561,7 @@ Object.assign(App.logic, {
             const endDate = new Date(end);
             
             while(currentDate <= endDate) {
-                const dateStr = currentDate.toISOString().slice(0,10);
+                const dateStr = _localISO(currentDate);
                 const daySchedule = App.data.schedule[dateStr] || {};
                 
                 // Calcular código de semana
@@ -739,7 +741,7 @@ Object.assign(App.logic, {
             const endD = new Date(end + 'T00:00:00');
 
             while(cur <= endD) {
-                const dateISO = cur.toISOString().slice(0,10);
+                const dateISO = _localISO(cur);
                 const sid   = App.data.schedule[dateISO]?.[empId];
                 const shift = sid ? Utils.getShift(sid) : null;
 
@@ -786,7 +788,7 @@ Object.assign(App.logic, {
                     // DTEND de todo el día = día siguiente
                     const nextDay = new Date(dateISO + 'T00:00:00');
                     nextDay.setDate(nextDay.getDate() + 1);
-                    const [ny,nmo,nd] = nextDay.toISOString().slice(0,10).split('-');
+                    const [ny,nmo,nd] = _localISO(nextDay).split('-');
                     const nextVal = `${ny}${nmo}${nd}`;
                     const label = shift.desc || shift.code || 'Libre';
                     lines.push(

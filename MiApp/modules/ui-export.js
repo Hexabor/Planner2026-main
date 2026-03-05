@@ -2,6 +2,9 @@
 // UI: Vista de exportación
 // ============================================================
 
+// Helper: formato ISO local (evita bug DST con toISOString que devuelve UTC)
+var _localISO = _localISO || function(d) { const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; };
+
 Object.assign(App.ui, {
         renderExport: function(c) {
             // Inicializar exportEmps si está vacío con todos los empleados activos
@@ -21,13 +24,13 @@ Object.assign(App.ui, {
             if(!App.uiState.icsStart) {
                 App.uiState.icsStart = App.uiState.exportWeek;
                 const e = new Date(App.uiState.exportWeek); e.setDate(e.getDate()+6);
-                App.uiState.icsEnd = e.toISOString().slice(0,10);
+                App.uiState.icsEnd = _localISO(e);
             }
             // Inicializar fechas Master Data
             if(!App.uiState.masterStart) {
                 App.uiState.masterStart = App.uiState.exportWeek;
                 const e = new Date(App.uiState.exportWeek); e.setDate(e.getDate()+6);
-                App.uiState.masterEnd = e.toISOString().slice(0,10);
+                App.uiState.masterEnd = _localISO(e);
             }
 
             // Valores para el selector de semana
@@ -35,7 +38,7 @@ Object.assign(App.ui, {
             const weekCode = Utils.getWeekCode(monday);
             const [wy, wm, wd] = monday.split('-');
             const sundayD = new Date(monday); sundayD.setDate(sundayD.getDate()+6);
-            const [sy, sm, sd] = sundayD.toISOString().slice(0,10).split('-');
+            const [sy, sm, sd] = _localISO(sundayD).split('-');
             const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
             const wMonthName = monthNames[parseInt(wm)-1];
             const sMonthName = monthNames[parseInt(sm)-1];
@@ -266,7 +269,7 @@ Object.assign(App.ui, {
         exportNavWeek: function(dir) {
             const d = new Date(App.uiState.exportWeek);
             d.setDate(d.getDate() + (dir * 7));
-            App.uiState.exportWeek = d.toISOString().slice(0,10);
+            App.uiState.exportWeek = _localISO(d);
             App.ui.exportRefreshWeekDisplay();
             App.ui.updateExportPreview();
         },
@@ -288,7 +291,7 @@ Object.assign(App.ui, {
             const wc = Utils.getWeekCode(mon);
             const [y,m,dd] = mon.split('-');
             const sun = new Date(mon); sun.setDate(sun.getDate()+6);
-            const [sy,sm,sd] = sun.toISOString().slice(0,10).split('-');
+            const [sy,sm,sd] = _localISO(sun).split('-');
             const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
             display.innerHTML = `<div>${wc}</div><div style="font-size:0.6rem; font-weight:600; color:#3b82f6;">${dd} ${mNames[parseInt(m)-1]} — ${sd} ${mNames[parseInt(sm)-1]}</div>`;
         },
@@ -301,7 +304,7 @@ Object.assign(App.ui, {
                 const dow = d.getDay(); // 0=dom, 1=lun...
                 const daysToSunday = dow === 0 ? 0 : 7 - dow;
                 d.setDate(d.getDate() + daysToSunday);
-                App.uiState.icsEnd = d.toISOString().slice(0,10);
+                App.uiState.icsEnd = _localISO(d);
                 App.ui.renderExport(document.querySelector('.main-scroll'));
             }
         },
@@ -325,7 +328,7 @@ Object.assign(App.ui, {
             const weekCode = Utils.getWeekCode(monday);
             const [wy2, wm2, wd2] = monday.split('-');
             const sunD = new Date(monday); sunD.setDate(sunD.getDate()+6);
-            const [sy2, sm2, sd2] = sunD.toISOString().slice(0,10).split('-');
+            const [sy2, sm2, sd2] = _localISO(sunD).split('-');
 
             // Mapa de fila Excel por día de la semana (Lun=C9, Mar=C27, ...)
             const excelRowMap = [9, 27, 45, 63, 81, 99, 117]; // Lun a Dom

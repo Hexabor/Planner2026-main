@@ -63,6 +63,15 @@ App.logic = {
                     }
                 }
             }
+
+            // Migración: re-sincronizar fechaInicio/fechaFin desde contratos
+            (App.data.empleados || []).forEach(emp => {
+                if(emp.contratos && emp.contratos.length > 0) {
+                    emp.fechaInicio = emp.contratos[0].desde;
+                    const ult = emp.contratos[emp.contratos.length - 1];
+                    emp.fechaFin = ult.hasta || null;
+                }
+            });
         },
         // ═══════════════════════════════════════════════════════════
         // SISTEMA UNDO/REDO

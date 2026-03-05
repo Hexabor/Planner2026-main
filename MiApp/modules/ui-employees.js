@@ -55,6 +55,7 @@ Object.assign(App.ui, {
                 const sid = App.data.schedule[h.date]?.[emp.id];
                 const shift = sid ? Utils.getShift(sid) : null;
                 if(!shift) return;
+                if(shift.fixed && shift.code === 'V') return; // Vacaciones = festivo disfrutado
                 if(shift.fixed && shift.code === 'F') {
                     const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
                     let countL = 0;
@@ -472,6 +473,7 @@ markDirty: function() {
         const sid = App.data.schedule[hDate]?.[emp.id];
         const shift = sid ? Utils.getShift(sid) : null;
         if(!shift) return 'sin_definir';
+        if(shift.fixed && shift.code === 'V') return 'disfrutado';
         if(shift.fixed && shift.code === 'F') {
             const monday = Utils.getMonday(hDate);
             const wdays  = Utils.getWeekDays(monday);
