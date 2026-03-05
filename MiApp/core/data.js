@@ -56,6 +56,8 @@ const App = {
         plannerViewMode: 'group', // 'group' | 'individual'
         individualEmpId: null, // empleado seleccionado en vista individual
         copiedWeekPattern: null, // patrón copiado: { sourceEmpName, sourceWeek, shifts }
+        // REPLICADOR
+        replicatorRange: null, // { startWeek, endWeek } — se conserva al cerrar modal para re-abrir
         customGalleryPage: 0, // Página actual del popup CUSTOM (0-indexed)
         customGalleryPerPage: 15, // Turnos por página
         equilibrioSortKey: null, // Columna de ordenación en equilibrio (null, 'nombre', 'M', 'T', 'I', 'P', 'total', 'pref')

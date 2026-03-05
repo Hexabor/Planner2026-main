@@ -1558,4 +1558,393 @@ Object.assign(App.logic, {
         },
         
         // SHIFTS LOGIC
+
+        // ═══════════════════════════════════════════════════════════
+        // REPLICADOR DE SEMANAS
+        // ═══════════════════════════════════════════════════════════
+
+        openReplicator: function() {
+            const empId = App.uiState.individualEmpId;
+            const emp = App.data.empleados.find(e => e.id === empId);
+            if(!emp) return;
+
+            const monday = Utils.getMonday(App.uiState.currentDate);
+            const weekDays = Utils.getWeekDays(monday);
+            const weekCode = Utils.getWeekCode(monday);
+
+            // Resumen compacto del origen
+            const dayLabels = ['L','M','X','J','V','S','D'];
+            const originSummary = weekDays.map((d, i) => {
+                const sid = (App.data.schedule[d] || {})[empId];
+                const sh = sid ? Utils.getShift(sid) : null;
+                const code = sh ? (sh.code || (sh.start ? sh.start.substring(0,5) : '—')) : '—';
+                return `${dayLabels[i]}:${code}`;
+            }).join(' · ');
+
+            // Rango por defecto: siguiente semana + 4
+            const saved = App.uiState.replicatorRange;
+            const _localISO = (d) => { const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; };
+            const _addWeeks = (mon, n) => { const d = new Date(mon); d.setDate(d.getDate() + n * 7); return _localISO(d); };
+            const defaultStart = saved?.startWeek || _addWeeks(monday, 1);
+            const defaultEnd = saved?.endWeek || _addWeeks(monday, 4);
+
+            // Week options para dropdowns
+            const weekOpts = App.logic.getWeekOptions(monday);
+
+            // Build modal
+            // Mini tabla del origen
+            const dayNamesShort = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
+            let originTableRows = '';
+            weekDays.forEach((d, i) => {
+                const sid = (App.data.schedule[d] || {})[empId];
+                const sh = sid ? Utils.getShift(sid) : null;
+                const dayNum = d.split('-')[2];
+                let horario = '<span style="color:#cbd5e1;">—</span>';
+                let horarioColor = '';
+                if(sh) {
+                    if(sh.fixed) {
+                        horario = `<span style="color:${sh.color}; font-weight:700;">${sh.code}</span>`;
+                    } else if(sh.start && sh.end) {
+                        horarioColor = `color:${sh.color || '#6b7280'}; font-weight:600;`;
+                        horario = `${sh.start.substring(0,5)}-${sh.end.substring(0,5)}`;
+                    }
+                }
+                // Tinte de ausencia
+                let rowBg = '';
+                if(sh && sh.fixed) {
+                    if(sh.code === 'V') rowBg = 'background:#f3e8ff;';
+                    else if(['L','F','R','DH'].includes(sh.code)) rowBg = 'background:#dcfce7;';
+                    else if(['B','P'].includes(sh.code)) rowBg = 'background:#fee2e2;';
+                }
+                originTableRows += `<tr style="${rowBg}">
+                    <td style="padding:3px 8px; font-weight:700; font-size:0.72rem;">${dayNamesShort[i]} <span style="font-weight:400; color:var(--text-muted);">${dayNum}</span></td>
+                    <td style="padding:3px 8px; text-align:center; font-size:0.72rem; ${horarioColor}">${horario}</td>
+                </tr>`;
+            });
+
+            let overlay = document.getElementById('replicator-overlay');
+            if(!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'replicator-overlay';
+                overlay.className = 'modal-overlay';
+                document.body.appendChild(overlay);
+            }
+
+            overlay.innerHTML = `
+            <div class="modal" style="width:750px; max-width:95%; max-height:90vh; overflow-y:auto;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h3 style="margin:0;">🔁 Replicar Semana</h3>
+                    <button onclick="document.getElementById('replicator-overlay').classList.remove('open')" style="background:none; border:none; cursor:pointer; font-size:1.2rem;">✕</button>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px;">
+                    <!-- COLUMNA IZQUIERDA: Origen + Preview -->
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <div style="padding:10px; background:#f0f9ff; border-radius:6px; border-left:3px solid #3b82f6;">
+                            <div style="font-weight:700; font-size:0.78rem; margin-bottom:6px;">ORIGEN: ${weekCode} · ${emp.nombre}</div>
+                            <table style="width:100%; border-collapse:collapse; font-size:0.75rem;">
+                                ${originTableRows}
+                            </table>
+                        </div>
+
+                        <div>
+                            <div style="font-weight:700; font-size:0.8rem; margin-bottom:6px; color:#334155;">Vista previa</div>
+                            <div id="rep-preview" style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; background:white;">
+                                <div style="padding:15px; text-align:center; color:var(--text-muted); font-size:0.75rem;">Calculando...</div>
+                            </div>
+                            <div id="rep-summary" style="padding:6px 10px; background:#f8fafc; border-radius:0 0 6px 6px; font-size:0.73rem; font-weight:600; text-align:center; color:#475569; border:1px solid var(--border); border-top:none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- COLUMNA DERECHA: Destino + Opciones -->
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <div>
+                            <div style="font-weight:700; font-size:0.8rem; margin-bottom:6px; color:#334155;">Destino</div>
+                            <div style="display:flex; flex-direction:column; gap:10px; padding:12px; background:#f8fafc; border-radius:6px; border:1px solid var(--border);">
+                                <label style="display:flex; align-items:flex-start; gap:8px; font-size:0.78rem; cursor:pointer;">
+                                    <input type="radio" name="rep-mode" value="range" checked onchange="App.logic._repModeChanged()" style="margin-top:3px;">
+                                    <div style="flex:1;">
+                                        <div style="font-weight:600; margin-bottom:6px;">Rango de semanas</div>
+                                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                                            <span style="font-size:0.7rem; color:var(--text-muted); min-width:38px;">Desde</span>
+                                            <select id="rep-start" onchange="App.logic._repPreviewUpdate()" style="flex:1; padding:4px 6px; border:1px solid var(--border); border-radius:4px; font-size:0.72rem;">${weekOpts}</select>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="font-size:0.7rem; color:var(--text-muted); min-width:38px;">Hasta</span>
+                                            <select id="rep-end" onchange="App.logic._repPreviewUpdate()" style="flex:1; padding:4px 6px; border:1px solid var(--border); border-radius:4px; font-size:0.72rem;">${weekOpts}</select>
+                                        </div>
+                                    </div>
+                                </label>
+                                <div style="height:1px; background:var(--border);"></div>
+                                <label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; cursor:pointer;">
+                                    <input type="radio" name="rep-mode" value="count" onchange="App.logic._repModeChanged()">
+                                    <span style="font-weight:600;">Nº semanas:</span>
+                                    <input type="number" id="rep-count" min="1" max="52" value="4" onchange="App.logic._repPreviewUpdate()" style="width:55px; padding:4px 6px; border:1px solid var(--border); border-radius:4px; font-size:0.75rem;" disabled>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style="font-weight:700; font-size:0.8rem; margin-bottom:6px; color:#334155;">Opciones</div>
+                            <div style="display:flex; flex-direction:column; gap:8px; padding:12px; background:#f8fafc; border-radius:6px; border:1px solid var(--border); font-size:0.75rem;">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="rep-opt-locked" checked> Respetar días bloqueados (🔒)
+                                </label>
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="rep-opt-vac" checked> No sobreescribir vacaciones (V)
+                                </label>
+                                <div style="margin-top:2px; padding-top:8px; border-top:1px solid var(--border);">
+                                    <div style="font-weight:600; margin-bottom:6px;">En días festivos:</div>
+                                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:4px;">
+                                        <input type="radio" name="rep-festivo" value="keep" checked> Respetar turnos
+                                    </label>
+                                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:4px;">
+                                        <input type="radio" name="rep-festivo" value="setF"> Poner F en festivos
+                                    </label>
+                                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                        <input type="radio" name="rep-festivo" value="skip"> No tocar festivos
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" style="flex:1; background:#f1f5f9; color:#64748b;" onclick="document.getElementById('replicator-overlay').classList.remove('open')">Cancelar</button>
+                    <button class="btn btn-primary" id="rep-execute-btn" style="flex:2;" onclick="App.logic.executeReplicate()">🔁 Replicar</button>
+                </div>
+            </div>`;
+
+            // Set correct selected values in dropdowns
+            overlay.classList.add('open');
+            const startSel = document.getElementById('rep-start');
+            const endSel = document.getElementById('rep-end');
+            if(startSel) startSel.value = defaultStart;
+            if(endSel) endSel.value = defaultEnd;
+
+            // Initial preview
+            setTimeout(() => App.logic._repPreviewUpdate(), 50);
+        },
+
+        _repModeChanged: function() {
+            const mode = document.querySelector('input[name="rep-mode"]:checked')?.value;
+            document.getElementById('rep-start').disabled = (mode !== 'range');
+            document.getElementById('rep-end').disabled = (mode !== 'range');
+            document.getElementById('rep-count').disabled = (mode !== 'count');
+            App.logic._repPreviewUpdate();
+        },
+
+        _repGetDestWeeks: function() {
+            const mode = document.querySelector('input[name="rep-mode"]:checked')?.value;
+            const monday = Utils.getMonday(App.uiState.currentDate);
+            const _localISO = (d) => { const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; };
+            let weeks = [];
+
+            if(mode === 'range') {
+                const start = document.getElementById('rep-start')?.value;
+                const end = document.getElementById('rep-end')?.value;
+                if(!start || !end || start > end) return [];
+                let cur = new Date(start);
+                const endD = new Date(end);
+                while(cur <= endD) {
+                    const iso = _localISO(cur);
+                    if(iso !== monday) weeks.push(iso); // excluir semana origen
+                    cur.setDate(cur.getDate() + 7);
+                }
+            } else {
+                const count = parseInt(document.getElementById('rep-count')?.value) || 0;
+                for(let i = 1; i <= count; i++) {
+                    const d = new Date(monday);
+                    d.setDate(d.getDate() + i * 7);
+                    weeks.push(_localISO(d));
+                }
+            }
+
+            // Guardar rango para re-abrir
+            if(weeks.length > 0) {
+                App.uiState.replicatorRange = { startWeek: weeks[0], endWeek: weeks[weeks.length - 1] };
+            }
+            return weeks;
+        },
+
+        _repScanWeek: function(destMonday, empId) {
+            const days = Utils.getWeekDays(destMonday);
+            let hasTurnos = 0, hasReqs = 0, hasLocked = 0, hasFestivos = 0;
+            let reqDetails = [], turnoDetails = [], festivoDetails = [];
+
+            days.forEach(d => {
+                const sid = (App.data.schedule[d] || {})[empId];
+                if(sid) { hasTurnos++; const sh = Utils.getShift(sid); turnoDetails.push(sh ? (sh.code || sh.start?.substring(0,5)) : '?'); }
+                const req = Utils.getRequest(empId, d);
+                if(req && req.status !== 'rejected') { hasReqs++; reqDetails.push(`${req.type} ${Utils.getDayName(d)}`); }
+                if(App.data.lockedDays && App.data.lockedDays[d]) hasLocked++;
+                const hol = App.data.storeConfig.holidays.find(h => h.date === d);
+                if(hol) { hasFestivos++; festivoDetails.push(hol.name || 'Festivo'); }
+            });
+
+            const allLocked = hasLocked === 7;
+            return { destMonday, hasTurnos, hasReqs, hasLocked, allLocked, hasFestivos, reqDetails, turnoDetails, festivoDetails };
+        },
+
+        _repPreviewUpdate: function() {
+            const empId = App.uiState.individualEmpId;
+            const weeks = App.logic._repGetDestWeeks();
+            const container = document.getElementById('rep-preview');
+            const summary = document.getElementById('rep-summary');
+            const btn = document.getElementById('rep-execute-btn');
+            if(!container) return;
+
+            if(weeks.length === 0) {
+                container.innerHTML = `<div style="padding:15px; text-align:center; color:var(--text-muted); font-size:0.75rem;">Selecciona un rango válido</div>`;
+                if(summary) summary.textContent = '';
+                if(btn) btn.textContent = '🔁 Replicar';
+                return;
+            }
+
+            const scans = weeks.map(w => App.logic._repScanWeek(w, empId));
+            let libre = 0, conflictos = 0, bloqueadas = 0;
+
+            let html = '';
+            scans.forEach(s => {
+                const wc = Utils.getWeekCode(s.destMonday);
+                if(s.allLocked) {
+                    bloqueadas++;
+                    html += `<div style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid #f1f5f9; font-size:0.73rem; color:#94a3b8;">
+                        <span>🔒</span> <span style="font-weight:600;">${wc}</span> <span>Semana bloqueada — se salta</span>
+                    </div>`;
+                } else if(s.hasTurnos === 0 && s.hasReqs === 0) {
+                    libre++;
+                    html += `<div style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid #f1f5f9; font-size:0.73rem; color:#10b981;">
+                        <span>✅</span> <span style="font-weight:600;">${wc}</span> <span>Libre</span>
+                        ${s.hasFestivos ? `<span style="margin-left:auto; font-size:0.65rem; background:#ec4899; color:white; padding:1px 5px; border-radius:3px;">${s.hasFestivos} festivo${s.hasFestivos>1?'s':''}</span>` : ''}
+                    </div>`;
+                } else {
+                    conflictos++;
+                    let details = [];
+                    if(s.hasTurnos) details.push(`${s.hasTurnos} turno${s.hasTurnos>1?'s':''}`);
+                    if(s.hasReqs) details.push(`${s.hasReqs} petición: ${s.reqDetails.join(', ')}`);
+                    html += `<div onclick="App.logic._repGoToWeek('${s.destMonday}')" style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid #f1f5f9; font-size:0.73rem; color:#f59e0b; cursor:pointer; transition:background 0.1s;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background=''">
+                        <span>⚠️</span> <span style="font-weight:600;">${wc}</span> <span>${details.join(' · ')}</span>
+                        ${s.hasFestivos ? `<span style="margin-left:auto; font-size:0.65rem; background:#ec4899; color:white; padding:1px 5px; border-radius:3px;">${s.hasFestivos}F</span>` : ''}
+                        <span style="margin-left:auto; font-size:0.65rem; color:#3b82f6;">→ ir</span>
+                    </div>`;
+                }
+            });
+
+            container.innerHTML = html || `<div style="padding:15px; text-align:center; color:var(--text-muted);">Sin semanas</div>`;
+
+            const total = weeks.length;
+            if(summary) summary.innerHTML = `${total} semana${total>1?'s':''} · <span style="color:#10b981;">${libre} libre${libre>1?'s':''}</span>${conflictos ? ` · <span style="color:#f59e0b;">${conflictos} con conflictos</span>` : ''}${bloqueadas ? ` · <span style="color:#94a3b8;">${bloqueadas} bloqueada${bloqueadas>1?'s':''}</span>` : ''}`;
+            if(btn) btn.textContent = `🔁 Replicar ${total - bloqueadas} semana${(total-bloqueadas)>1?'s':''}`;
+        },
+
+        _repGoToWeek: function(monday) {
+            document.getElementById('replicator-overlay')?.classList.remove('open');
+            App.uiState.currentDate = monday;
+            App.ui.renderPlanner(document.getElementById('main-view'));
+        },
+
+        executeReplicate: function() {
+            const empId = App.uiState.individualEmpId;
+            const emp = App.data.empleados.find(e => e.id === empId);
+            if(!emp) return;
+
+            const monday = Utils.getMonday(App.uiState.currentDate);
+            const weekDays = Utils.getWeekDays(monday);
+            const weeks = App.logic._repGetDestWeeks();
+            const scans = weeks.map(w => App.logic._repScanWeek(w, empId));
+
+            // Opciones
+            const optLocked = document.getElementById('rep-opt-locked')?.checked;
+            const optVac = document.getElementById('rep-opt-vac')?.checked;
+            const festivoMode = document.querySelector('input[name="rep-festivo"]:checked')?.value || 'keep';
+
+            const conflicts = scans.filter(s => !s.allLocked && (s.hasTurnos > 0 || s.hasReqs > 0));
+            const effectiveWeeks = scans.filter(s => !s.allLocked);
+
+            if(effectiveWeeks.length === 0) {
+                alert('No hay semanas disponibles para replicar.');
+                return;
+            }
+
+            // Primera confirmación si hay conflictos
+            if(conflicts.length > 0) {
+                const conReqs = conflicts.filter(s => s.hasReqs > 0).length;
+                let msg = `⚠️ ATENCIÓN\n\nSe van a sobreescribir turnos en ${conflicts.length} semana${conflicts.length>1?'s':''} que ya tenían datos.`;
+                if(conReqs > 0) msg += `\n\nAdemás, ${conReqs} semana${conReqs>1?'s':''} tiene${conReqs>1?'n':''} peticiones activas.`;
+                msg += `\n\n¿Deseas continuar?`;
+                if(!confirm(msg)) return;
+            }
+
+            // Segunda confirmación (escribir REPLICAR)
+            const weekCode = Utils.getWeekCode(monday);
+            const input = prompt(
+                `⚠️ CONFIRMACIÓN FINAL\n\n` +
+                `Vas a replicar ${weekCode} de ${emp.nombre} sobre ${effectiveWeeks.length} semanas.\n\n` +
+                `Esta acción NO se puede deshacer fácilmente.\n\n` +
+                `Escribe REPLICAR para confirmar:`
+            );
+            if(input !== 'REPLICAR') {
+                if(input !== null) alert('Operación cancelada. Debes escribir REPLICAR exactamente.');
+                return;
+            }
+
+            // Origen: turnos de la semana actual
+            const originShifts = weekDays.map(d => (App.data.schedule[d] || {})[empId] || null);
+
+            // Ejecutar
+            let applied = 0, skipped = 0;
+            scans.forEach(scan => {
+                if(scan.allLocked) { skipped += 7; return; }
+
+                const destDays = Utils.getWeekDays(scan.destMonday);
+                destDays.forEach((d, i) => {
+                    // Bloqueado
+                    if(optLocked && App.data.lockedDays && App.data.lockedDays[d]) { skipped++; return; }
+
+                    // Vacaciones
+                    const existingSid = (App.data.schedule[d] || {})[empId];
+                    const existingShift = existingSid ? Utils.getShift(existingSid) : null;
+                    if(optVac && existingShift && existingShift.fixed && existingShift.code === 'V') { skipped++; return; }
+
+                    // Festivos
+                    const isFestivo = App.data.storeConfig.holidays.some(h => h.date === d);
+                    if(isFestivo) {
+                        if(festivoMode === 'skip') { skipped++; return; }
+                        if(festivoMode === 'setF') {
+                            if(!App.data.schedule[d]) App.data.schedule[d] = {};
+                            App.data.schedule[d][empId] = 'fixed_F';
+                            applied++;
+                            return;
+                        }
+                        // 'keep' → cae al flujo normal
+                    }
+
+                    // Aplicar turno del origen
+                    if(!App.data.schedule[d]) App.data.schedule[d] = {};
+                    if(originShifts[i]) {
+                        App.data.schedule[d][empId] = originShifts[i];
+                    } else {
+                        delete App.data.schedule[d][empId];
+                    }
+                    applied++;
+                });
+            });
+
+            App.logic.saveSnapshot(`Replicar ${weekCode} × ${effectiveWeeks.length} semanas`);
+            Safe.save('v40_db', App.data);
+            App.logic.checkAlerts();
+
+            document.getElementById('replicator-overlay')?.classList.remove('open');
+
+            alert(`✅ Replicado: ${applied} turnos aplicados en ${effectiveWeeks.length} semanas.\n${skipped > 0 ? `⏭️ ${skipped} día(s) saltados por opciones de protección.` : ''}`);
+
+            // Navegar a la primera semana destino
+            if(weeks.length > 0) {
+                App.uiState.currentDate = weeks[0];
+            }
+            App.ui.renderPlanner(document.getElementById('main-view'));
+            App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
+        },
 });

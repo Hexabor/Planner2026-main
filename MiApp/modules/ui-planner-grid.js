@@ -513,6 +513,8 @@ Object.assign(App.ui, {
                     </div>
                     <div style="display:flex; gap:6px; align-items:center;">
                         ${copyBtn} ${pasteBtn}
+                        <div style="width:1px; height:20px; background:#e2e8f0;"></div>
+                        <button class="btn btn-header" onclick="App.logic.openReplicator()" style="padding:4px 10px; font-size:0.75rem; background:#eff6ff; border-color:#3b82f6; color:#2563eb;">🔁 Replicar</button>
                     </div>
                 </div>`;
 
