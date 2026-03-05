@@ -519,9 +519,11 @@ Object.assign(App.ui, {
             // Tabla de 7 días
             html += `<table class="data-table individual-week-table" style="font-size:0.82rem; border-radius:0 0 8px 8px; border-top:none;">
                 <thead><tr>
-                    <th style="width:75px; text-align:center;">Día</th>
-                    <th style="width:90px; text-align:center;">Turno</th>
-                    <th style="min-width:280px;">Gráfica (9:30–22:00)</th>
+                    <th style="width:65px; text-align:center;">Día</th>
+                    <th style="width:55px; text-align:center;"></th>
+                    <th style="width:90px; text-align:center;">Horario</th>
+                    <th style="width:30px; text-align:center;">Req</th>
+                    <th style="min-width:250px;">Gráfica (9:30–22:00)</th>
                     <th style="width:50px; text-align:center;">⏱</th>
                 </tr></thead><tbody>`;
 
@@ -552,22 +554,38 @@ Object.assign(App.ui, {
                     else if(code === 'L' || code === 'F' || code === 'R' || code === 'DH') absenceClass = 'absence-green';
                 }
 
-                // Contenido turno
-                let turnoPill = '<span style="color:#cbd5e1;">—</span>';
+                // Horario — réplica exacta del grupal
+                let scheduleContent = '<span style="color:#cbd5e1;">—</span>';
+                let scheduleColor = '';
                 let hours = 0;
                 if(shift) {
                     if(shift.fixed) {
-                        turnoPill = `<span style="display:inline-block; padding:3px 10px; border-radius:4px; font-weight:700; font-size:0.78rem; color:${shift.color}; border:1.5px solid ${shift.color}40; background:${shift.color}10;">${shift.code}</span>`;
+                        scheduleContent = `<span style="color:${shift.color}; font-size:0.65rem;">${shift.desc}</span>`;
                     } else if(shift.start && shift.end) {
                         hours = Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break);
-                        const isLight = Utils.isLightColor(shift.color);
-                        const textCol = isLight ? '#000' : '#fff';
-                        turnoPill = `<span style="display:inline-block; padding:3px 10px; border-radius:4px; font-weight:700; font-size:0.78rem; color:${textCol}; background:${shift.color};">${shift.code || shift.start.substring(0,5)}</span>`;
+                        scheduleColor = `color:${shift.color || '#6b7280'};font-weight:600;`;
+                        scheduleContent = `${shift.start.substring(0,5)}-${shift.end.substring(0,5)}`;
                     }
                 }
                 if(hours > 0 && !(shift && shift.external)) {
                     totalHours += hours;
                 }
+
+                // REQ — réplica exacta del grupal
+                const request = Utils.getRequest(empId, d);
+                let reqClass = ''; let reqIcon = '';
+                if(request && request.status !== 'rejected') {
+                    let icon='⚠️'; if(request.type==='VAC') icon='🏖️'; if(request.type==='BAJ') icon='🏥';
+                    if(request.type==='LIB') icon='🏠'; if(request.type==='AP') icon='📋'; if(request.type==='HRL') icon='⏰';
+                    reqIcon = icon;
+                    if(request.status === 'approved') reqClass = 'req-approved-attended';
+                    else if(request.status === 'pending') reqClass = 'req-pending';
+                }
+
+                // Festivo
+                const festivoCell = holiday 
+                    ? `<span style="display:inline-block; padding:2px 6px; border-radius:4px; background:#ec4899; color:white; font-weight:700; font-size:0.55rem; letter-spacing:-0.02em;" title="${holiday.name || holiday.note || 'Festivo'}">FESTIVO</span>` 
+                    : '';
 
                 // Highlight del día activo (currentDate)
                 const isActiveDay = d === App.uiState.currentDate;
@@ -586,7 +604,9 @@ Object.assign(App.ui, {
                         <div style="font-weight:700; font-size:0.8rem;">${dayNames[i]}</div>
                         <div style="font-size:0.7rem; color:var(--text-muted);">${dayNum}${lockIcon}</div>
                     </td>
-                    <td style="text-align:center;">${turnoPill}</td>
+                    <td style="text-align:center; padding:2px;">${festivoCell}</td>
+                    <td style="text-align:center; ${scheduleColor}">${scheduleContent}</td>
+                    <td class="${reqClass}" style="text-align:center;">${reqIcon}</td>
                     <td style="padding:4px 8px;" ondragover="App.logic.shiftDragOver(event)" ondrop="App.logic.shiftDrop(event, '${empId}', '${d}')" ondragleave="event.currentTarget.classList.remove('drag-over-active')">${timeline}</td>
                     <td style="text-align:center; font-weight:700;">${hours > 0 ? hours + 'h' : ''}</td>
                 </tr>`;
@@ -600,7 +620,7 @@ Object.assign(App.ui, {
             const diffSign = diff > 0 ? '+' : '';
             const justifiedNote = justifiedH > 0 ? `<div style="font-size:0.65rem; color:#a78bfa;" title="Horas cubiertas por ausencias justificadas (V, R, B, P, F)">✦ ${justifiedH}h justif.</div>` : '';
             html += `</tbody><tfoot><tr style="background:#f8fafc; font-weight:700;">
-                <td colspan="3" style="text-align:right; padding-right:15px; font-size:0.8rem;">
+                <td colspan="5" style="text-align:right; padding-right:15px; font-size:0.8rem;">
                     TOTAL SEMANA
                     <span style="margin-left:10px; font-weight:500; color:var(--text-muted); font-size:0.75rem;">(contrato: ${contratHoras}h)</span>
                 </td>
