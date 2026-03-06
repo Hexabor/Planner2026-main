@@ -525,7 +525,7 @@ const Utils = {
     return null;
 },
     
-    getRequest: function(empId, date) { return App.data.requests.find(r=>r.empId===empId && date>=r.start && date<=r.end); },
+    getRequest: function(empId, date) { return App.data.requests.find(r=>r.empId===empId && !r.archived && date>=r.start && date<=r.end); },
     calcHours: function(start, end, bStart, bEnd, breakMinutes) { if(!start || !end) return 0; const getMin=(t)=>{if(!t)return 0;const[h,m]=t.split(':').map(Number);return h*60+m;}; let total=getMin(end)-getMin(start); if(total<0) total+=24*60; let brk=0; if(bStart && bEnd){ brk=getMin(bEnd)-getMin(bStart); if(brk<0) brk+=24*60; } else if(typeof breakMinutes==='number' && breakMinutes>0){ brk=breakMinutes; } return Math.max(0,(total-brk)/60); },
     
     isShiftValidForDay: function(shift, dayConfig) {

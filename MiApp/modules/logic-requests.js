@@ -30,6 +30,18 @@ Object.assign(App.logic, {
             App.data.requests[i].factorialDone = !App.data.requests[i].factorialDone;
             Safe.save('v40_db', App.data);
         },
+        reqToggleType: function(t) {
+            const ALL = ['VAC','LIB','HRL','AP','BAJ'];
+            let f = [...(App.uiState.reqTypeFilter || ALL)];
+            if (f.includes(t)) { f = f.filter(x => x !== t); if (f.length === 0) f = ALL; }
+            else f.push(t);
+            App.uiState.reqTypeFilter = f;
+            App.ui._reqRefresh();
+        },
+        reqResetTypeFilter: function() {
+            App.uiState.reqTypeFilter = ['VAC','LIB','HRL','AP','BAJ'];
+            App.ui._reqRefresh();
+        },
         reqSort: function(key) {
             if(App.uiState.reqSortKey === key) {
                 App.uiState.reqSortDir = App.uiState.reqSortDir === 'asc' ? 'desc' : 'asc';
@@ -37,7 +49,7 @@ Object.assign(App.logic, {
                 App.uiState.reqSortKey = key;
                 App.uiState.reqSortDir = 'asc';
             }
-            App.ui.renderRequests(document.querySelector('.main-scroll'));
+            App.ui._reqRefresh();
         },
         reqToggleArchive: function(id) {
             const i = App.data.requests.findIndex(r => r.id === id);
@@ -49,9 +61,9 @@ Object.assign(App.logic, {
                 App.uiState.selectedId = null;
                 document.getElementById('inspector-content').innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">Selecciona una solicitud o crea una nueva.</p>';
             }
-            App.ui.renderRequests(document.querySelector('.main-scroll'));
+            App.ui._reqRefresh();
         },
-        reqSelect: function(id) { App.uiState.selectedId=id; App.ui.renderRequests(document.querySelector('.main-scroll')); App.ui.renderReqInspector(id); },
+        reqSelect: function(id) { App.uiState.selectedId=id; App.ui._reqRefresh(); App.ui.renderReqInspector(id); },
         reqSave: function(id) {
             const startInput = document.getElementById('rq-start');
             const type = document.getElementById('rq-type').value;
@@ -252,5 +264,188 @@ Object.assign(App.logic, {
             }
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
         },
+        // ============================================================
+        // PETICIONES RECURRENTES
+        // ============================================================
+
+        recurringSelect: function(id) {
+            App.uiState.recurringSelectedId = id;
+            App.ui.renderRecurringInspector(id);
+            document.querySelectorAll('.rr-row').forEach(el => {
+                el.classList.toggle('selected', el.dataset.id === id);
+            });
+        },
+
+        recurringSave: function(id) {
+            const empId = document.getElementById('rr-emp').value;
+            if (!empId) { alert('Selecciona un empleado.'); return; }
+
+            const typeBtn  = document.querySelector('.rr-type-btn.active');
+            const type     = typeBtn ? typeBtn.dataset.type : 'libre';
+            const franjaBtn = document.querySelector('.rr-franja-btn.active');
+            const franja   = (type === 'franja' && franjaBtn) ? franjaBtn.dataset.franja : null;
+            if (type === 'franja' && !franja) { alert('Selecciona Mañana o Tarde.'); return; }
+
+            const days = Array.from(document.querySelectorAll('.rr-day-btn.active')).map(b => parseInt(b.dataset.day));
+            if (days.length === 0) { alert('Selecciona al menos un día de la semana.'); return; }
+
+            const fromInput = document.getElementById('rr-from');
+            const toInput   = document.getElementById('rr-to');
+            Utils.handleDateInput(fromInput);
+            Utils.handleDateInput(toInput);
+            const dateFrom = fromInput.dataset.isoValue;
+            const dateTo   = toInput.dataset.isoValue;
+            if (!dateFrom || !dateTo) { alert('Introduce las fechas en formato DD/MM/AAAA.'); return; }
+            if (dateFrom > dateTo)    { alert('La fecha de inicio debe ser anterior a la de fin.'); return; }
+
+            const skipHolidays = document.getElementById('rr-skip-holidays').checked;
+            const note = document.getElementById('rr-note').value.trim();
+
+            // Franja personalizada: leer los selects
+            let hrlFrom = '', hrlTo = '';
+            if (type === 'franja') {
+                if (franja === 'manana')       { hrlFrom = '10:00'; hrlTo = '16:00'; }
+                else if (franja === 'tarde')   { hrlFrom = '16:00'; hrlTo = '22:00'; }
+                else if (franja === 'custom')  {
+                    hrlFrom = document.getElementById('rr-custom-from')?.value || '10:00';
+                    hrlTo   = document.getElementById('rr-custom-to')?.value   || '14:00';
+                    if (hrlFrom >= hrlTo) { alert('La hora de inicio debe ser anterior a la de fin.'); return; }
+                }
+            }
+
+            const pattern = {
+                id: id || ('rr_' + Date.now()),
+                empId, type, franja, days, dateFrom, dateTo, skipHolidays, note,
+                hrlFrom, hrlTo,
+                createdAt: id
+                    ? (App.data.recurringRequests.find(r => r.id === id)?.createdAt || new Date().toISOString())
+                    : new Date().toISOString()
+            };
+
+            if (id) {
+                const i = App.data.recurringRequests.findIndex(r => r.id === id);
+                App.data.recurringRequests[i] = pattern;
+            } else {
+                App.data.recurringRequests.push(pattern);
+            }
+
+            Safe.save('v40_db', App.data);
+            App.uiState.recurringSelectedId = pattern.id;
+            App.router.go('requests');
+        },
+
+        recurringDel: function(id) {
+            const pattern = App.data.recurringRequests.find(r => r.id === id);
+            if (!pattern) return;
+            if (!confirm('¿Eliminar este patrón recurrente?')) return;
+
+            const linked = App.data.requests.filter(r => r.recurringId === id);
+            if (linked.length > 0) {
+                const deleteLinked = confirm(
+                    `Este patrón tiene ${linked.length} petición${linked.length !== 1 ? 'es' : ''} generada${linked.length !== 1 ? 's' : ''}.\n\n` +
+                    `¿Eliminar también las peticiones generadas?\n\nAcepta: Eliminar todo · Cancela: Solo el patrón`
+                );
+                if (deleteLinked) {
+                    App.data.requests = App.data.requests.filter(r => r.recurringId !== id);
+                }
+            }
+
+            App.data.recurringRequests = App.data.recurringRequests.filter(r => r.id !== id);
+            Safe.save('v40_db', App.data);
+            App.uiState.recurringSelectedId = null;
+            App.router.go('requests');
+        },
+
+        recurringGenerate: function(id) {
+            const pattern = App.data.recurringRequests.find(r => r.id === id);
+            if (!pattern) return;
+
+            const emp = App.data.empleados.find(e => e.id === pattern.empId);
+            if (!emp) { alert('Empleado no encontrado.'); return; }
+
+            // Calcular fechas objetivo
+            const dates = [];
+            const holidays = new Set((App.data.storeConfig.holidays || []).map(h => h.date));
+            let cur = new Date(pattern.dateFrom + 'T00:00:00');
+            const endDate = new Date(pattern.dateTo + 'T00:00:00');
+
+            while (cur <= endDate) {
+                const dateStr = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`;
+                const isoDay  = cur.getDay() === 0 ? 7 : cur.getDay(); // 1=Lun…7=Dom
+                if (pattern.days.includes(isoDay)) {
+                    if (!pattern.skipHolidays || !holidays.has(dateStr)) {
+                        dates.push(dateStr);
+                    }
+                }
+                cur.setDate(cur.getDate() + 1);
+            }
+
+            if (dates.length === 0) {
+                alert('No se encontraron fechas que coincidan con el patrón en el rango seleccionado.');
+                return;
+            }
+
+            // Detectar conflictos
+            const conflicts = dates.filter(date =>
+                App.data.requests.some(r =>
+                    r.empId === pattern.empId && !r.archived &&
+                    date >= r.start && date <= r.end
+                )
+            );
+
+            const doGenerate = (skipExisting) => {
+                this.saveSnapshot('Generar peticiones recurrentes');
+                let created = 0, skipped = 0;
+
+                dates.forEach(date => {
+                    const hasConflict = App.data.requests.some(r =>
+                        r.empId === pattern.empId && !r.archived &&
+                        date >= r.start && date <= r.end
+                    );
+                    if (hasConflict) {
+                        if (skipExisting) { skipped++; return; }
+                        App.data.requests = App.data.requests.filter(r =>
+                            !(r.empId === pattern.empId && !r.archived &&
+                              date >= r.start && date <= r.end)
+                        );
+                    }
+                    const isHRL  = pattern.type === 'franja';
+                    const hrlFrom = isHRL ? (pattern.hrlFrom || '10:00') : '';
+                    const hrlTo   = isHRL ? (pattern.hrlTo   || '22:00') : '';
+                    App.data.requests.push({
+                        id: 'r' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                        empId: pattern.empId,
+                        type: isHRL ? 'HRL' : 'LIB',
+                        start: date, end: date,
+                        hrlFrom, hrlTo,
+                        status: 'pending',
+                        note: pattern.note ? `[🔁] ${pattern.note}` : '[🔁 Recurrente]',
+                        recurringId: pattern.id,
+                        archived: false
+                    });
+                    created++;
+                });
+
+                Safe.save('v40_db', App.data);
+                alert(
+                    `✅ ${created} petición${created !== 1 ? 'es' : ''} generada${created !== 1 ? 's' : ''}` +
+                    (skipped > 0 ? `\nℹ️ ${skipped} omitida${skipped !== 1 ? 's' : ''} (ya existían)` : '')
+                );
+                App.uiState.reqSection = 'individual';
+                App.router.go('requests');
+            };
+
+            if (conflicts.length > 0) {
+                App.ui.showRecurringConflictModal(
+                    conflicts.map(d => Utils.formatDateES(d)),
+                    emp.nombre,
+                    () => doGenerate(true),
+                    () => doGenerate(false)
+                );
+            } else {
+                doGenerate(false);
+            }
+        },
+
         // STORE LOGIC
 });

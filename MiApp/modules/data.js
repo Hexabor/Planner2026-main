@@ -69,6 +69,7 @@ const App = {
         analisisDesvioEnd: null,   // Fecha fin rango desvío
         // SOLICITUDES
         reqShowArchived: false,
+        reqTypeFilter: ['VAC','LIB','HRL','AP','BAJ'], // tipos visibles
         reqSortKey: 'start',
         reqSortDir: 'desc',
         reqView: 'table',

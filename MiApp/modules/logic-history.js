@@ -19,6 +19,7 @@ App.logic = {
             if(vPos >= 0) App.data.fixedShifts.splice(vPos, 0, dhDef); // insertar antes de V
             else App.data.fixedShifts.push(dhDef); // fallback: al final
             if(!Array.isArray(App.data.requests)) App.data.requests = [];
+            if(!Array.isArray(App.data.recurringRequests)) App.data.recurringRequests = [];
             if(!App.data.schedule || typeof App.data.schedule !== 'object') App.data.schedule = {};
             if(!App.data.storeConfig) App.data.storeConfig = { base: {}, special: [], holidays: [] };
 
@@ -93,6 +94,7 @@ App.logic = {
                     schedule: JSON.parse(JSON.stringify(App.data.schedule)),
                     shiftDefs: JSON.parse(JSON.stringify(App.data.shiftDefs)),
                     requests: JSON.parse(JSON.stringify(App.data.requests)),
+                    recurringRequests: JSON.parse(JSON.stringify(App.data.recurringRequests || [])),
                     storeConfig: JSON.parse(JSON.stringify(App.data.storeConfig)),
                     lockedDays: JSON.parse(JSON.stringify(App.data.lockedDays || {}))
                 }
@@ -144,6 +146,7 @@ App.logic = {
                 App.data.schedule = JSON.parse(JSON.stringify(snapshot.data.schedule));
                 App.data.shiftDefs = JSON.parse(JSON.stringify(snapshot.data.shiftDefs));
                 App.data.requests = JSON.parse(JSON.stringify(snapshot.data.requests));
+                App.data.recurringRequests = JSON.parse(JSON.stringify(snapshot.data.recurringRequests || []));
                 App.data.storeConfig = JSON.parse(JSON.stringify(snapshot.data.storeConfig));
 
                 console.log('Datos restaurados');
@@ -199,6 +202,7 @@ App.logic = {
                 App.data.schedule = JSON.parse(JSON.stringify(snapshot.data.schedule));
                 App.data.shiftDefs = JSON.parse(JSON.stringify(snapshot.data.shiftDefs));
                 App.data.requests = JSON.parse(JSON.stringify(snapshot.data.requests));
+                App.data.recurringRequests = JSON.parse(JSON.stringify(snapshot.data.recurringRequests || []));
                 App.data.storeConfig = JSON.parse(JSON.stringify(snapshot.data.storeConfig));
 
                 console.log('Datos restaurados');
