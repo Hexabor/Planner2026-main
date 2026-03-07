@@ -373,10 +373,11 @@ Object.assign(App.ui, {
                 return;
             }
 
+            const TH_WIDTH = { emp: '', type: '', start: '', status: 'width:95px;' };
             const th = (key, label) => {
                 const isActive = sk === key;
                 const arrow = isActive ? (App.uiState.reqSortDir === 'asc' ? ' ↑' : ' ↓') : '';
-                return `<th style="cursor:pointer;user-select:none;white-space:nowrap;padding:8px 12px;font-size:0.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;" onclick="App.logic.reqSort('${key}')">${label}${arrow}</th>`;
+                return `<th style="cursor:pointer;user-select:none;white-space:nowrap;padding:8px 12px;font-size:0.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;${TH_WIDTH[key]||''}" onclick="App.logic.reqSort('${key}')">${label}${arrow}</th>`;
             };
 
             let html = `<div style="max-width:580px;margin:0 auto;">
@@ -400,7 +401,7 @@ Object.assign(App.ui, {
                 const isSel = App.uiState.selectedId === r.id;
                 const rowBg = isSel ? '#eff6ff' : (i%2===0?'white':'#fafafa');
                 const rowBL = isSel ? '3px solid #2563eb' : '3px solid transparent';
-                const recurDot = r.recurringId ? `<span title="Recurrente" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#8b5cf6;margin-left:4px;vertical-align:middle;"></span>` : '';
+                const recurPill = r.recurringId ? `<span style="display:inline-block;margin-top:4px;padding:1px 7px;border-radius:20px;font-size:0.62rem;font-weight:700;background:#ede9fe;color:#7c3aed;letter-spacing:0.02em;">🔁 Recurrente</span>` : '';
                 const archIco = r.archived
                     ? ico('<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><polyline points="10 12 12 10 14 12"/><line x1="12" y1="10" x2="12" y2="17"/>', 14)
                     : ico('<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>', 14);
@@ -409,16 +410,24 @@ Object.assign(App.ui, {
                     onclick="App.logic.reqSelect('${r.id}')"
                     onmouseover="if(!${isSel})this.style.background='#f0f9ff'"
                     onmouseout="if(!${isSel})this.style.background='${rowBg}'">
-                    <td style="padding:10px 12px;font-size:0.88rem;font-weight:500;color:#1e293b;">${name}${recurDot}</td>
+                    <td style="padding:10px 12px;font-size:0.88rem;font-weight:500;color:#1e293b;">${name}</td>
                     <td style="padding:10px 12px;">
-                        <div style="display:flex;align-items:center;gap:6px;color:#475569;">${icoT}<span style="font-size:0.82rem;font-weight:600;">${r.type}</span></div>
+                        <div style="display:flex;flex-direction:column;gap:2px;">
+                            <div style="display:flex;align-items:center;gap:6px;color:#475569;">${icoT}<span style="font-size:0.82rem;font-weight:600;">${r.type}</span></div>
+                            ${recurPill}
+                        </div>
                     </td>
                     <td style="padding:10px 12px;">
                         <div style="font-size:0.83rem;color:#1e293b;">${dateStr}</div>
                         <div style="font-size:0.68rem;color:#94a3b8;margin-top:1px;">${wk}</div>
                     </td>
-                    <td style="padding:10px 12px;">
-                        <span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:0.72rem;font-weight:600;background:${stBg};color:${stColor};">${stText}</span>
+                    <td style="padding:10px 12px;position:relative;white-space:nowrap;">
+                        <span onclick="event.stopPropagation(); App.ui.showStatusPopover('${r.id}', this)"
+                            style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:0.72rem;font-weight:600;background:${stBg};color:${stColor};cursor:pointer;user-select:none;"
+                            onmouseover="this.style.filter='brightness(0.93)'"
+                            onmouseout="this.style.filter=''">
+                            ${stText} <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
                     </td>
                     <td style="padding:10px;text-align:center;">
                         <button title="${r.archived?'Restaurar':'Archivar'}" onclick="event.stopPropagation(); App.logic.reqToggleArchive('${r.id}')"
@@ -709,6 +718,7 @@ Object.assign(App.ui, {
                     const emp = App.data.empleados.find(e => e.id === p.empId);
                     const empName = emp ? emp.nombre : '(empleado eliminado)';
                     const linked = (App.data.requests || []).filter(r => r.recurringId === p.id).length;
+                    const pending = (App.data.requests || []).filter(r => r.recurringId === p.id && !r.archived && r.status === 'pending').length;
                     const isSelected = App.uiState.recurringSelectedId === p.id;
 
                     const dayPills = [1,2,3,4,5,6,7].map(d => {
@@ -744,8 +754,15 @@ Object.assign(App.ui, {
                             <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0;">
                                 <button class="btn btn-primary" style="width:auto;margin:0;padding:5px 12px;font-size:0.78rem;"
                                     onclick="event.stopPropagation(); App.logic.recurringGenerate('${p.id}')">
-                                    ▶ Generar
+                                    ↗ Aplicar patrón
                                 </button>
+                                ${pending > 0 ? `<button onclick="event.stopPropagation(); App.ui.showRecurringApproveModal('${p.id}')"
+                                    style="padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;cursor:pointer;
+                                           border:none;background:#fef3c7;color:#b45309;transition:background 0.15s;"
+                                    onmouseover="this.style.background='#fde68a'"
+                                    onmouseout="this.style.background='#fef3c7'">
+                                    ⏳ ${pending} pendiente${pending!==1?'s':''}
+                                </button>` : ''}
                                 ${linked > 0 ? `<span style="font-size:0.7rem;color:#64748b;">${linked} petición${linked!==1?'es':''}</span>` : ''}
                             </div>
                         </div>
@@ -891,7 +908,7 @@ Object.assign(App.ui, {
                 ${id ? `
                 <button class="btn" style="width:100%;margin-bottom:8px;background:#f8fafc;border:1px solid var(--border);"
                     onclick="App.logic.recurringGenerate('${id}')">
-                    ▶ Generar peticiones ahora
+                    ↗ Aplicar patrón
                 </button>
                 <button class="btn btn-danger" style="width:100%;"
                     onclick="App.logic.recurringDel('${id}')">
@@ -932,47 +949,237 @@ Object.assign(App.ui, {
             if (customPanel) customPanel.style.display = franja === 'custom' ? '' : 'none';
         },
 
-        showRecurringConflictModal: function(conflictDates, empName, onSkip, onOverwrite) {
+        showRecurringConflictModal: function(conflictItems, empName, typeLabel, onConfirm) {
             const existing = document.getElementById('rr-conflict-overlay');
             if (existing) existing.remove();
+
+            const TYPE_LABEL = typeLabel || { VAC:'Vacaciones', LIB:'Día libre', HRL:'Horas libres', AP:'Asuntos propios', BAJ:'Baja médica' };
+            // decisions: { [date]: 'skip'|'overwrite' }
+            const decisions = {};
 
             const overlay = document.createElement('div');
             overlay.id = 'rr-conflict-overlay';
             overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
 
-            const shown = conflictDates.slice(0, 6).join(', ') + (conflictDates.length > 6 ? ` ... (+${conflictDates.length - 6} más)` : '');
+            const render = () => {
+                const allDecided = conflictItems.every(ci => decisions[ci.date]);
 
-            overlay.innerHTML = `
-                <div style="background:white;border-radius:10px;padding:28px 30px;max-width:460px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
-                    <h3 style="margin:0 0 10px 0;font-size:1.1rem;">⚠️ Conflictos detectados</h3>
-                    <p style="color:#64748b;margin-bottom:14px;font-size:0.9rem;">
-                        Hay <strong>${conflictDates.length} petición${conflictDates.length>1?'es':''} existente${conflictDates.length>1?'s':''}</strong>
-                        para <strong>${empName}</strong> en las fechas seleccionadas:
-                    </p>
-                    <div style="background:#fef3c7;border:1px solid #fde047;border-radius:6px;padding:10px 14px;
-                                font-size:0.82rem;margin-bottom:20px;color:#92400e;line-height:1.6;">
-                        ${shown}
-                    </div>
-                    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
-                        <button onclick="document.getElementById('rr-conflict-overlay').remove()"
-                            style="padding:9px 16px;border:1px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:0.88rem;">
-                            Cancelar
-                        </button>
-                        <button id="rco-skip"
-                            style="padding:9px 16px;border:2px solid #3b82f6;border-radius:6px;background:white;
-                                   color:#2563eb;cursor:pointer;font-size:0.88rem;font-weight:600;">
-                            Saltar existentes
-                        </button>
-                        <button id="rco-overwrite"
-                            style="padding:9px 16px;border-radius:6px;background:#ef4444;color:white;
-                                   border:none;cursor:pointer;font-size:0.88rem;font-weight:600;">
-                            Sobreescribir todas
-                        </button>
-                    </div>
-                </div>`;
+                let rowsHtml = conflictItems.map((ci, idx) => {
+                    const r = ci.req;
+                    const tipo = TYPE_LABEL[r.type] || r.type;
+                    const rango = r.start === r.end
+                        ? Utils.formatDateES(r.start)
+                        : Utils.formatDateES(r.start) + ' \u2192 ' + Utils.formatDateES(r.end);
+                    const stColor = r.status === 'approved' ? '#16a34a' : r.status === 'rejected' ? '#dc2626' : '#92400e';
+                    const stText  = r.status === 'approved' ? 'Aprobada' : r.status === 'rejected' ? 'Rechazada' : 'Pendiente';
+                    const dec = decisions[ci.date];
+                    const btnSkip = '<button data-idx="' + idx + '" data-action="skip" style="padding:4px 10px;border-radius:5px;font-size:0.75rem;font-weight:700;cursor:pointer;border:2px solid ' + (dec==='skip'?'#2563eb':'#e2e8f0') + ';background:' + (dec==='skip'?'#eff6ff':'white') + ';color:' + (dec==='skip'?'#2563eb':'#64748b') + ';">Saltar</button>';
+                    const btnOvr = '<button data-idx="' + idx + '" data-action="overwrite" style="padding:4px 10px;border-radius:5px;font-size:0.75rem;font-weight:700;cursor:pointer;border:2px solid ' + (dec==='overwrite'?'#dc2626':'#e2e8f0') + ';background:' + (dec==='overwrite'?'#fef2f2':'white') + ';color:' + (dec==='overwrite'?'#dc2626':'#64748b') + ';">Sobreescribir</button>';
+                    return '<div style="display:grid;grid-template-columns:90px 1fr auto auto;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f1f5f9;">'
+                        + '<span style="font-weight:700;font-size:0.82rem;">' + Utils.formatDateES(ci.date) + '</span>'
+                        + '<span style="font-size:0.8rem;color:#475569;">' + tipo + (r.hrlFrom ? ' \xb7 ' + r.hrlFrom + '\u2013' + r.hrlTo : '') + (r.note ? ' \xb7 <em>' + r.note + '</em>' : '') + ' <span style="font-size:0.72rem;font-weight:700;color:' + stColor + ';">(' + stText + ')</span></span>'
+                        + btnSkip + btnOvr
+                        + '</div>';
+                }).join('');
 
-            document.body.appendChild(overlay);
-            document.getElementById('rco-skip').onclick = () => { overlay.remove(); onSkip(); };
-            document.getElementById('rco-overwrite').onclick = () => { overlay.remove(); onOverwrite(); };
+                const confirmStyle = allDecided
+                    ? 'padding:9px 20px;border-radius:6px;background:#2563eb;color:white;border:none;cursor:pointer;font-size:0.88rem;font-weight:700;'
+                    : 'padding:9px 20px;border-radius:6px;background:#e2e8f0;color:#94a3b8;border:none;cursor:not-allowed;font-size:0.88rem;font-weight:700;';
+
+                overlay.innerHTML = '<div style="background:white;border-radius:10px;padding:26px 28px;max-width:560px;width:93%;box-shadow:0 20px 60px rgba(0,0,0,0.25);max-height:82vh;overflow-y:auto;">'
+                    + '<h3 style="margin:0 0 8px 0;font-size:1.05rem;">\u26a0\ufe0f Conflictos detectados</h3>'
+                    + '<p style="color:#64748b;margin-bottom:6px;font-size:0.85rem;">Elige qu\xe9 hacer con cada petici\xf3n existente de <strong>' + empName + '</strong>:</p>'
+                    + '<div style="display:flex;gap:6px;margin-bottom:12px;">'
+                    + '<button id="rco-all-skip" style="padding:3px 10px;border-radius:4px;font-size:0.75rem;border:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;color:#475569;">Saltar todas</button>'
+                    + '<button id="rco-all-ovr" style="padding:3px 10px;border-radius:4px;font-size:0.75rem;border:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;color:#475569;">Sobreescribir todas</button>'
+                    + '</div>'
+                    + '<div id="rco-rows" style="margin-bottom:18px;">' + rowsHtml + '</div>'
+                    + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">'
+                    + '<span style="font-size:0.78rem;color:#94a3b8;flex:1;">' + (allDecided ? '\u2705 Todo decidido' : Object.keys(decisions).length + ' / ' + conflictItems.length + ' decididos') + '</span>'
+                    + '<button id="rco-cancel" style="padding:9px 16px;border:1px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:0.88rem;">Cancelar</button>'
+                    + '<button id="rco-confirm" ' + (allDecided ? '' : 'disabled') + ' style="' + confirmStyle + '">Confirmar</button>'
+                    + '</div></div>';
+
+                document.body.appendChild(overlay);
+
+                // Botones individuales
+                overlay.querySelectorAll('[data-action]').forEach(btn => {
+                    btn.onclick = () => {
+                        const ci = conflictItems[parseInt(btn.dataset.idx)];
+                        decisions[ci.date] = btn.dataset.action;
+                        overlay.remove();
+                        render();
+                    };
+                });
+                // Saltar / sobreescribir todas
+                document.getElementById('rco-all-skip').onclick = () => {
+                    conflictItems.forEach(ci => decisions[ci.date] = 'skip');
+                    overlay.remove(); render();
+                };
+                document.getElementById('rco-all-ovr').onclick = () => {
+                    conflictItems.forEach(ci => decisions[ci.date] = 'overwrite');
+                    overlay.remove(); render();
+                };
+                // Cancelar
+                document.getElementById('rco-cancel').onclick = () => overlay.remove();
+                // Confirmar
+                if (allDecided) {
+                    document.getElementById('rco-confirm').onclick = () => { overlay.remove(); onConfirm(decisions); };
+                }
+            };
+
+            render();
+        },
+
+        showRecurringApproveModal: function(patternId) {
+            const existing = document.getElementById('rr-approve-overlay');
+            if (existing) existing.remove();
+
+            const pattern = (App.data.recurringRequests || []).find(p => p.id === patternId);
+            if (!pattern) return;
+            const pending = (App.data.requests || []).filter(r =>
+                r.recurringId === patternId && !r.archived && r.status === 'pending'
+            ).sort((a, b) => a.start.localeCompare(b.start));
+            if (pending.length === 0) return;
+
+            const TYPE_LABEL = { VAC:'Vacaciones', LIB:'Día libre', HRL:'Horas libres', AP:'Asuntos propios', BAJ:'Baja médica' };
+            const checked = {}; // id -> true
+            pending.forEach(r => checked[r.id] = true);
+
+            const overlay = document.createElement('div');
+            overlay.id = 'rr-approve-overlay';
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+            const render = () => {
+                const selectedCount = Object.values(checked).filter(Boolean).length;
+                const allChecked = selectedCount === pending.length;
+
+                const rows = pending.map(r => {
+                    const tipo = TYPE_LABEL[r.type] || r.type;
+                    const fecha = r.start === r.end
+                        ? Utils.formatDateES(r.start)
+                        : Utils.formatDateES(r.start) + ' \u2192 ' + Utils.formatDateES(r.end);
+                    const isChecked = checked[r.id];
+                    return '<label style="display:grid;grid-template-columns:20px 1fr;gap:10px;align-items:center;'
+                        + 'padding:7px 0;border-bottom:1px solid #f1f5f9;cursor:pointer;'
+                        + (isChecked ? 'opacity:1;' : 'opacity:0.45;') + '">'
+                        + '<input type="checkbox" data-rid="' + r.id + '" ' + (isChecked ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;accent-color:#2563eb;">'
+                        + '<span style="font-size:0.83rem;">'
+                        + '<strong>' + fecha + '</strong>'
+                        + ' <span style="color:#64748b;">\xb7 ' + tipo + (r.hrlFrom ? ' ' + r.hrlFrom + '\u2013' + r.hrlTo : '') + '</span>'
+                        + (r.note ? ' <span style="color:#94a3b8;font-style:italic;">\xb7 ' + r.note + '</span>' : '')
+                        + '</span></label>';
+                }).join('');
+
+                overlay.innerHTML = '<div style="background:white;border-radius:10px;padding:26px 28px;max-width:480px;width:93%;'
+                    + 'box-shadow:0 20px 60px rgba(0,0,0,0.25);max-height:80vh;display:flex;flex-direction:column;">'
+                    + '<h3 style="margin:0 0 4px 0;font-size:1.05rem;">\u2705 Aprobar eventos pendientes</h3>'
+                    + '<p style="color:#64748b;font-size:0.83rem;margin:0 0 12px 0;">Patr\xf3n de <strong>' + (App.data.empleados.find(e=>e.id===pattern.empId)||{}).nombre + '</strong></p>'
+                    + '<label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:#475569;margin-bottom:10px;cursor:pointer;">'
+                    + '<input type="checkbox" id="rra-all" ' + (allChecked?'checked':'') + ' style="width:15px;height:15px;accent-color:#2563eb;"> Seleccionar todos'
+                    + '</label>'
+                    + '<div style="overflow-y:auto;flex:1;min-height:0;padding-right:2px;">' + rows + '</div>'
+                    + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9;">'
+                    + '<span style="flex:1;font-size:0.78rem;color:#94a3b8;">' + selectedCount + ' de ' + pending.length + ' seleccionadas</span>'
+                    + '<button id="rra-cancel" style="padding:8px 16px;border:1px solid #e2e8f0;border-radius:6px;background:white;cursor:pointer;font-size:0.87rem;">Cancelar</button>'
+                    + '<button id="rra-confirm" ' + (selectedCount===0?'disabled':'') + ' style="padding:8px 18px;border-radius:6px;border:none;cursor:' + (selectedCount===0?'not-allowed':'pointer') + ';font-size:0.87rem;font-weight:700;background:' + (selectedCount===0?'#e2e8f0':'#16a34a') + ';color:' + (selectedCount===0?'#94a3b8':'white') + ';">'
+                    + '\u2714 Aprobar ' + (selectedCount > 0 ? '(' + selectedCount + ')' : '') + '</button>'
+                    + '</div></div>';
+
+                document.body.appendChild(overlay);
+
+                // Checkbox individual
+                overlay.querySelectorAll('[data-rid]').forEach(cb => {
+                    cb.onchange = () => {
+                        checked[cb.dataset.rid] = cb.checked;
+                        overlay.remove(); render();
+                    };
+                });
+                // Seleccionar todos
+                document.getElementById('rra-all').onchange = (e) => {
+                    pending.forEach(r => checked[r.id] = e.target.checked);
+                    overlay.remove(); render();
+                };
+                // Cancelar
+                document.getElementById('rra-cancel').onclick = () => overlay.remove();
+                // Confirmar
+                if (selectedCount > 0) {
+                    document.getElementById('rra-confirm').onclick = () => {
+                        const toApprove = pending.filter(r => checked[r.id]);
+                        App.logic.saveSnapshot('Aprobar eventos recurrentes');
+                        toApprove.forEach(r => {
+                            const idx = App.data.requests.findIndex(req => req.id === r.id);
+                            if (idx !== -1) App.data.requests[idx].status = 'approved';
+                        });
+                        Safe.save('v40_db', App.data);
+                        overlay.remove();
+                        App.router.go('requests');
+                    };
+                }
+            };
+
+            render();
+        },
+
+        showStatusPopover: function(reqId, anchor) {
+            // Cerrar cualquier popover existente
+            const prev = document.getElementById('req-status-popover');
+            if (prev) {
+                prev.remove();
+                // Si era el mismo botón, solo cerrar
+                if (prev.dataset.reqid === reqId) return;
+            }
+
+            const STATES = [
+                { key: 'pending',  label: 'Pendiente', bg: '#fef08a', color: '#78350f', dot: '#eab308' },
+                { key: 'approved', label: 'Aprobada',  bg: '#dcfce7', color: '#166534', dot: '#16a34a' },
+                { key: 'rejected', label: 'Rechazada', bg: '#fee2e2', color: '#991b1b', dot: '#dc2626' }
+            ];
+            const req = (App.data.requests || []).find(r => r.id === reqId);
+            if (!req) return;
+
+            const pop = document.createElement('div');
+            pop.id = 'req-status-popover';
+            pop.dataset.reqid = reqId;
+            pop.style.cssText = 'position:fixed;z-index:9999;background:white;border-radius:8px;'
+                + 'box-shadow:0 4px 20px rgba(0,0,0,0.18);padding:6px;display:flex;flex-direction:column;gap:4px;min-width:130px;';
+
+            STATES.forEach(s => {
+                const btn = document.createElement('button');
+                const isCurrent = req.status === s.key;
+                btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;border:none;'
+                    + 'cursor:' + (isCurrent ? 'default' : 'pointer') + ';text-align:left;font-size:0.82rem;font-weight:600;'
+                    + 'background:' + (isCurrent ? s.bg : 'white') + ';color:' + (isCurrent ? s.color : '#475569') + ';';
+                btn.onmouseover = () => { if (!isCurrent) btn.style.background = '#f8fafc'; };
+                btn.onmouseout  = () => { if (!isCurrent) btn.style.background = 'white'; };
+                const dot = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + s.dot + ';flex-shrink:0;"></span>';
+                btn.innerHTML = dot + s.label + (isCurrent ? ' <span style="margin-left:auto;opacity:0.5;font-size:0.7rem;">\u2714</span>' : '');
+                if (!isCurrent) {
+                    btn.onclick = () => {
+                        pop.remove();
+                        App.logic.reqSetStatus(reqId, s.key);
+                    };
+                }
+                pop.appendChild(btn);
+            });
+
+            document.body.appendChild(pop);
+
+            // Posicionar bajo el anchor
+            const rect = anchor.getBoundingClientRect();
+            const popH = 120; // aprox
+            const below = rect.bottom + popH < window.innerHeight;
+            pop.style.top  = (below ? rect.bottom + 4 : rect.top - popH - 4) + 'px';
+            pop.style.left = Math.min(rect.left, window.innerWidth - 145) + 'px';
+
+            // Cerrar al click fuera
+            const dismiss = (e) => {
+                if (!pop.contains(e.target) && e.target !== anchor) {
+                    pop.remove();
+                    document.removeEventListener('mousedown', dismiss);
+                }
+            };
+            setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
         }
+
 });

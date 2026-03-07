@@ -281,7 +281,8 @@ App.io = {
             }
             if(document.getElementById('cb-exp-schedule').checked) {
                 exportData.schedule = App.data.schedule;
-                exportData.requests = App.data.requests; 
+                exportData.requests = App.data.requests;
+                exportData.recurringRequests = App.data.recurringRequests || [];
                 exportData.lockedDays = App.data.lockedDays || {};
             }
             
@@ -299,7 +300,10 @@ App.io = {
                 exportData.storeConfig.special = App.data.storeConfig.special;
             }
 
-            const filename = `Backup_Modular_${this.getTimestamp()}.json`;
+            const storeName = (App.data.storeConfig && App.data.storeConfig.nombre && App.data.storeConfig.nombre.trim())
+                ? App.data.storeConfig.nombre.trim().replace(/[^a-zA-Z0-9À-ɏ\s_-]/g, '').replace(/\s+/g, '_')
+                : 'Tienda';
+            const filename = `Backup_${storeName}_${this.getTimestamp()}.json`;
             const a = document.createElement('a');
             a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
             a.download = filename;
@@ -409,6 +413,7 @@ App.io = {
             if(document.getElementById('cb-imp-schedule').checked && !document.getElementById('cb-imp-schedule').disabled) {
                 App.data.schedule = data.schedule;
                 if(data.requests) App.data.requests = data.requests;
+                if(data.recurringRequests) App.data.recurringRequests = data.recurringRequests;
                 if(data.lockedDays) App.data.lockedDays = data.lockedDays;
                 affected.push("Planificación y Solicitudes");
             }

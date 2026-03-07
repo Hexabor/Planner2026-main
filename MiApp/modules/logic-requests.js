@@ -64,6 +64,16 @@ Object.assign(App.logic, {
             App.ui._reqRefresh();
         },
         reqSelect: function(id) { App.uiState.selectedId=id; App.ui._reqRefresh(); App.ui.renderReqInspector(id); },
+
+        reqSetStatus: function(id, status) {
+            const idx = (App.data.requests || []).findIndex(r => r.id === id);
+            if (idx === -1) return;
+            this.saveSnapshot('Cambiar estado petición');
+            App.data.requests[idx].status = status;
+            Safe.save('v40_db', App.data);
+            App.ui._reqRefresh();
+            App.ui.renderReqInspector(App.uiState.selectedId);
+        },
         reqSave: function(id) {
             const startInput = document.getElementById('rq-start');
             const type = document.getElementById('rq-type').value;
@@ -86,6 +96,7 @@ Object.assign(App.logic, {
             if(isHRL && (!hrlFrom || !hrlTo)) { alert('Indica el tramo de horas a respetar.'); return; }
             if(isHRL && hrlFrom >= hrlTo) { alert('La hora de inicio del tramo debe ser anterior a la hora de fin.'); return; }
 
+            const existing = id ? App.data.requests.find(x => x.id === id) : null;
             const r = {
                 id: id || 'r'+Date.now(),
                 empId:  document.getElementById('rq-emp').value,
@@ -95,8 +106,13 @@ Object.assign(App.logic, {
                 hrlFrom,
                 hrlTo,
                 status: document.getElementById('rq-status').value,
-                note:   document.getElementById('rq-note').value
+                note:   document.getElementById('rq-note').value,
+                // Preservar campos que el inspector no gestiona
+                archived:    existing ? (existing.archived || false) : false,
+                recurringId: existing ? (existing.recurringId || null) : null
             };
+            // Limpiar recurringId si es null para no contaminar objetos nuevos
+            if (!r.recurringId) delete r.recurringId;
 
             if(id) {
                 const i = App.data.requests.findIndex(x => x.id === id);
@@ -385,15 +401,20 @@ Object.assign(App.logic, {
                 return;
             }
 
-            // Detectar conflictos
-            const conflicts = dates.filter(date =>
-                App.data.requests.some(r =>
+            // Detectar conflictos — recoger objetos para mostrar descripción en modal
+            const TYPE_LABEL = { VAC:'Vacaciones', LIB:'Día libre', HRL:'Horas libres', AP:'Asuntos propios', BAJ:'Baja médica' };
+            const conflictItems = []; // { date, req }
+            dates.forEach(date => {
+                const blocking = App.data.requests.find(r =>
                     r.empId === pattern.empId && !r.archived &&
                     date >= r.start && date <= r.end
-                )
-            );
+                );
+                if (blocking) conflictItems.push({ date, req: blocking });
+            });
+            const conflicts = conflictItems.map(ci => ci.date);
 
-            const doGenerate = (skipExisting) => {
+            // decisions: Map { date -> 'skip'|'overwrite' } o null (sin conflictos)
+            const doGenerate = (decisions) => {
                 this.saveSnapshot('Generar peticiones recurrentes');
                 let created = 0, skipped = 0;
 
@@ -403,7 +424,9 @@ Object.assign(App.logic, {
                         date >= r.start && date <= r.end
                     );
                     if (hasConflict) {
-                        if (skipExisting) { skipped++; return; }
+                        const decision = decisions ? decisions[date] : null;
+                        if (!decision || decision === 'skip') { skipped++; return; }
+                        // overwrite: eliminar la petición existente
                         App.data.requests = App.data.requests.filter(r =>
                             !(r.empId === pattern.empId && !r.archived &&
                               date >= r.start && date <= r.end)
@@ -437,10 +460,10 @@ Object.assign(App.logic, {
 
             if (conflicts.length > 0) {
                 App.ui.showRecurringConflictModal(
-                    conflicts.map(d => Utils.formatDateES(d)),
+                    conflictItems,
                     emp.nombre,
-                    () => doGenerate(true),
-                    () => doGenerate(false)
+                    TYPE_LABEL,
+                    (decisions) => doGenerate(decisions)
                 );
             } else {
                 doGenerate(false);

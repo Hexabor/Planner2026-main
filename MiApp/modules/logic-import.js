@@ -25,6 +25,7 @@ Object.assign(App.logic, {
                         alert('⚠️ No se detectaron días en el formato ROTA.\n\nAsegúrate de que el texto incluye la fila de fechas (ej: "01/mar", "02/mar"...).\n\nAbre la consola del navegador (F12) para ver el log del parser.');
                         return;
                     }
+                    const rotaSel = this.importInitDaySelection(analyzed.days);
                     App.uiState.importState = {
                         step: 'preview',
                         rawText: text,
@@ -35,7 +36,9 @@ Object.assign(App.logic, {
                         selectedWeek: week,
                         previewDay: 0,
                         markFree: markFree,
-                        isRota: true
+                        isRota: true,
+                        selectedDays: rotaSel.selectedDays,
+                        unlockedDays: rotaSel.unlockedDays
                     };
                     App.router.go('import');
                     return;
@@ -93,6 +96,7 @@ Object.assign(App.logic, {
                 
                 const analyzed = this.importAnalyzeData(parsed.bloques, week);
                 
+                const weekSel = this.importInitDaySelection(analyzed.days);
                 App.uiState.importState = {
                     step: 'preview',
                     rawText: text,
@@ -102,7 +106,9 @@ Object.assign(App.logic, {
                     analyzed: analyzed,
                     selectedWeek: week,
                     previewDay: 0,
-                    markFree: markFree
+                    markFree: markFree,
+                    selectedDays: weekSel.selectedDays,
+                    unlockedDays: weekSel.unlockedDays
                 };
                 
                 App.router.go('import');
@@ -635,10 +641,15 @@ Object.assign(App.logic, {
             if (!App.uiState.importState.empMappings) {
                 App.uiState.importState.empMappings = {};
             }
+            const existing = App.uiState.importState.empMappings[empName] || {};
+            // Al cambiar a 'rename' sin newName explícito, conservar el que ya había (o el nombre original)
+            const resolvedName = newName != null
+                ? newName
+                : (action === 'rename' ? (existing.newName || empName) : null);
             App.uiState.importState.empMappings[empName] = {
                 action: action,
                 targetId: targetId,
-                newName: newName || null
+                newName: resolvedName
             };
             // NO re-render — the mapping screen manages its own DOM
         },
@@ -873,6 +884,73 @@ Object.assign(App.logic, {
             return null;
         },
 
+
+        // ── Filtro de días ────────────────────────────────────────────
+
+        importGetDayStatus: function(dateStr) {
+            if (App.data.lockedDays && App.data.lockedDays[dateStr]) return 'locked';
+            const schedule = App.data.schedule[dateStr] || {};
+            const activeEmps = App.data.empleados.filter(e =>
+                e.active !== false && Utils.empleadoVigenteEnFecha(e, dateStr)
+            );
+            if (activeEmps.length === 0) return 'empty';
+            const withShift = activeEmps.filter(e => schedule[e.id]).length;
+            if (withShift === 0) return 'empty';
+            if (withShift >= activeEmps.length) return 'full';
+            return 'partial';
+        },
+
+        importInitDaySelection: function(days) {
+            const selectedDays = {};
+            const unlockedDays = {};
+            days.forEach(day => {
+                const status = this.importGetDayStatus(day.date);
+                selectedDays[day.date] = (status === 'empty' || status === 'partial');
+            });
+            return { selectedDays, unlockedDays };
+        },
+
+        importToggleDay: function(date) {
+            const state = App.uiState.importState;
+            state.selectedDays[date] = !state.selectedDays[date];
+            App.router.go('import');
+        },
+
+        importUnlockDay: function(date) {
+            const state = App.uiState.importState;
+            state.unlockedDays[date] = true;
+            App.router.go('import');
+        },
+
+        importSelectWeek: function(weekDatesInput, mode) {
+            // weekDates: string separado por comas o array
+            const weekDates = typeof weekDatesInput === 'string' ? weekDatesInput.split(',') : weekDatesInput;
+            const state = App.uiState.importState;
+            weekDates.forEach(date => {
+                const status = this.importGetDayStatus(date);
+                const isUnlocked = state.unlockedDays[date];
+                const canToggle = isUnlocked || status === 'empty' || status === 'partial';
+                if (!canToggle) return;
+                if (mode === 'all')   state.selectedDays[date] = true;
+                if (mode === 'none')  state.selectedDays[date] = false;
+                if (mode === 'empty') state.selectedDays[date] = (status === 'empty');
+            });
+            App.router.go('import');
+        },
+
+        importSelectAll: function(mode) {
+            const state = App.uiState.importState;
+            state.analyzed.days.forEach(day => {
+                const status = this.importGetDayStatus(day.date);
+                const isUnlocked = state.unlockedDays[day.date];
+                const canToggle = isUnlocked || status === 'empty' || status === 'partial';
+                if (!canToggle) return;
+                if (mode === 'all')  state.selectedDays[day.date] = true;
+                if (mode === 'none') state.selectedDays[day.date] = false;
+            });
+            App.router.go('import');
+        },
+
         importApply: function() {
             // GUARDAR SNAPSHOT ANTES DE IMPORTAR
             this.saveSnapshot('Importar planificación Excel');
@@ -914,12 +992,13 @@ Object.assign(App.logic, {
                         App.data.empleados.push(newEmp);
                         empMap[empName.toLowerCase()] = newEmp.id;
                         empsCreated++;
-                    } else if (mapping.action === 'rename' && mapping.newName && mapping.newName.trim()) {
-                        // Crear nuevo empleado con nombre personalizado
+                    } else if (mapping.action === 'rename') {
+                        // Crear nuevo empleado con nombre personalizado (fallback al original si no se editó)
+                        const resolvedName = (mapping.newName && mapping.newName.trim()) ? mapping.newName.trim() : empName;
                         // La clave en empMap sigue siendo el nombre ORIGINAL del ROTA
                         const newEmp = {
                             id: 'e' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-                            nombre: mapping.newName.trim(),
+                            nombre: resolvedName,
                             rol: 'STF',
                             contrato: 40,
                             tag: 1,
@@ -947,8 +1026,12 @@ Object.assign(App.logic, {
                 });
             });
             
+            // Filtrar solo días seleccionados
+            const selectedDays = state.selectedDays || {};
+            const daysToImport = analyzed.days.filter(day => selectedDays[day.date] !== false && (Object.keys(selectedDays).length === 0 || selectedDays[day.date]));
+
             // Aplicar turnos al schedule
-            analyzed.days.forEach(day => {
+            daysToImport.forEach(day => {
                 if (!App.data.schedule[day.date]) {
                     App.data.schedule[day.date] = {};
                 }
