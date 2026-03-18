@@ -30,7 +30,9 @@ Object.assign(App.ui, {
                 const { esperadas } = Utils.calcEsperadas(contrato, wdays, emp.id);
                 acum = Math.round((acum + worked - esperadas) * 10) / 10;
             });
-            return acum;
+            // Ajustes manuales: cuentan siempre independientemente de semana cerrada
+            const ajusteTotal = (emp.ajustes || []).reduce((sum, a) => sum + a.signo * a.horas, 0);
+            return Math.round((acum + ajusteTotal) * 10) / 10;
         },
 
         // Helper: festivos pendientes en semanas cerradas
@@ -193,6 +195,8 @@ Object.assign(App.ui, {
                 style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='overview'?'white':'transparent'}; box-shadow:${tab==='overview'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">DATOS</button>
             <button type="button" onclick="App.uiState.empInspTab='desvio'; App.ui.renderEmpInspector('${id}')" 
                 style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='desvio'?'white':'transparent'}; box-shadow:${tab==='desvio'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">DESVÍO</button>
+            <button type="button" onclick="App.uiState.empInspTab='ajustes'; App.ui.renderEmpInspector('${id}')" 
+                style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='ajustes'?'white':'transparent'}; box-shadow:${tab==='ajustes'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">AJUSTES</button>
             <button type="button" onclick="App.uiState.empInspTab='festivos'; App.ui.renderEmpInspector('${id}')" 
                 style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='festivos'?'white':'transparent'}; box-shadow:${tab==='festivos'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">FESTIVOS</button>
         </div>` : '';
@@ -311,6 +315,9 @@ Object.assign(App.ui, {
     else if (tab === 'desvio') {
         content = (typeof App.ui.renderEmpDesvioInspector === 'function') ? App.ui.renderEmpDesvioInspector(e) : `<div>Error Desvío</div>`;
     } 
+    else if (tab === 'ajustes') {
+        content = (typeof App.ui.renderEmpAjustesInspector === 'function') ? App.ui.renderEmpAjustesInspector(e) : `<div>Error Ajustes</div>`;
+    }
     else if (tab === 'festivos') {
         content = (typeof App.ui.renderEmpFestivosInspector === 'function') ? App.ui.renderEmpFestivosInspector(e) : `<div>Error Festivos</div>`;
     }
@@ -383,20 +390,39 @@ markDirty: function() {
                 return { monday, worked, esperadas, justifiedH, desvio, acum };
             });
 
-            const totalFinal = rows.length ? rows[rows.length-1].acum : (emp.saldoInicial||0);
-            const totalColor = totalFinal > 0.5 ? '#f59e0b' : totalFinal < -0.5 ? '#3b82f6' : '#10b981';
-            const barScale = maxAbs > 0 ? maxAbs : 1;
+            const desvioBase  = rows.length ? rows[rows.length-1].acum : (emp.saldoInicial||0);
+            const ajusteTotal = Math.round(((emp.ajustes||[]).reduce((s,a) => s + a.signo * a.horas, 0)) * 10) / 10;
+            const totalFinal  = Math.round((desvioBase + ajusteTotal) * 10) / 10;
+            const totalColor  = totalFinal > 0.5 ? '#f59e0b' : totalFinal < -0.5 ? '#3b82f6' : '#10b981';
+            const baseColor   = desvioBase > 0.5 ? '#f59e0b' : desvioBase < -0.5 ? '#3b82f6' : '#10b981';
+            const ajColor     = ajusteTotal > 0 ? '#f59e0b' : ajusteTotal < 0 ? '#3b82f6' : '#94a3b8';
+            const barScale    = maxAbs > 0 ? maxAbs : 1;
+            const sg = n => (n > 0 ? '+' : '') + n + 'h';
 
             const rangeLabel = weeks.length > 0
                 ? `${Utils.getWeekCode(weeks[0])} → ${Utils.getWeekCode(weeks[weeks.length-1])}`
                 : '—';
 
-            let html = `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; margin-bottom:10px;">
-                <div>
-                    <div style="font-size:0.65rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:2px;">🔒 Semanas cerradas</div>
-                    <div style="font-size:0.72rem; color:var(--text-main); font-family:monospace;">${rangeLabel} · ${weeks.length} sem.</div>
+            let html = `<div style="padding:10px 12px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:${ajusteTotal !== 0 ? '8px' : '0'};">
+                    <div>
+                        <div style="font-size:0.65rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:2px;">🔒 Semanas cerradas</div>
+                        <div style="font-size:0.72rem; color:var(--text-main); font-family:monospace;">${rangeLabel} · ${weeks.length} sem.</div>
+                    </div>
+                    <div style="font-size:1.2rem; font-weight:800; color:${totalColor};">${sg(totalFinal)}</div>
                 </div>
-                <div style="font-size:1.2rem; font-weight:800; color:${totalColor};">${totalFinal>0?'+':''}${totalFinal}h</div>
+                ${ajusteTotal !== 0 ? `
+                <div style="display:flex; gap:6px; padding-top:7px; border-top:1px solid #e2e8f0;">
+                    <div style="flex:1; background:white; border:1px solid #e2e8f0; border-radius:6px; padding:5px 8px; text-align:center;">
+                        <div style="font-size:0.6rem; color:#94a3b8; text-transform:uppercase; font-weight:700; margin-bottom:2px;">Desvío semanas</div>
+                        <div style="font-family:monospace; font-weight:800; font-size:0.85rem; color:${baseColor};">${sg(desvioBase)}</div>
+                    </div>
+                    <div style="display:flex; align-items:center; color:#cbd5e1; font-size:0.8rem;">+</div>
+                    <div style="flex:1; background:white; border:1px solid #e2e8f0; border-radius:6px; padding:5px 8px; text-align:center;">
+                        <div style="font-size:0.6rem; color:#94a3b8; text-transform:uppercase; font-weight:700; margin-bottom:2px;">Ajustes</div>
+                        <div style="font-family:monospace; font-weight:800; font-size:0.85rem; color:${ajColor};">${sg(ajusteTotal)}</div>
+                    </div>
+                </div>` : ''}
             </div>`;
 
             if(rows.length === 0) {
@@ -415,18 +441,10 @@ markDirty: function() {
                 </tr></thead>
                 <tbody>`;
 
-            // Fila saldo arrastre
-            const saldo = emp.saldoInicial || 0;
-            if(saldo !== 0) {
-                const sc = saldo > 0 ? '#f59e0b' : '#3b82f6';
-                html += `<tr style="background:#fefce8; border-bottom:1px solid #fef08a;">
-                    <td colspan="3" style="padding:5px 4px; font-size:0.72rem; color:#92400e; font-weight:600; font-style:italic;">⟵ Saldo arrastre</td>
-                    <td style="text-align:right; padding:5px 4px; font-family:monospace; font-weight:700; color:${sc};">${saldo>0?'+':''}${saldo}h</td>
-                    <td style="text-align:right; padding:5px 4px; font-family:monospace; font-weight:700; color:${sc};">${saldo>0?'+':''}${saldo}h</td>
-                </tr>`;
-            }
+            // Fila saldo arrastre — ahora se pinta al final (ver más abajo)
+            
 
-            rows.forEach(r => {
+            rows.slice().reverse().forEach(r => {
                 const dColor = r.desvio > 0.5 ? '#f59e0b' : r.desvio < -0.5 ? '#3b82f6' : '#10b981';
                 const aColor = r.acum   > 0.5 ? '#f59e0b' : r.acum   < -0.5 ? '#3b82f6' : '#10b981';
                 const dSign  = r.desvio > 0 ? '+' : '';
@@ -446,10 +464,21 @@ markDirty: function() {
                 </tr>`;
             });
 
+            // Saldo arrastre al final (es el punto de partida cronológico)
+            const saldo = emp.saldoInicial || 0;
+            if(saldo !== 0) {
+                const sc = saldo > 0 ? '#f59e0b' : '#3b82f6';
+                html += `<tr style="background:#fefce8; border-top:1px solid #fef08a;">
+                    <td colspan="3" style="padding:5px 4px; font-size:0.72rem; color:#92400e; font-weight:600; font-style:italic;">⟵ Saldo arrastre</td>
+                    <td style="text-align:right; padding:5px 4px; font-family:monospace; font-weight:700; color:${sc};">${saldo>0?'+':''}${saldo}h</td>
+                    <td style="text-align:right; padding:5px 4px; font-family:monospace; font-weight:700; color:${sc};">${saldo>0?'+':''}${saldo}h</td>
+                </tr>`;
+            }
+
             html += `<tr style="background:#f8fafc; border-top:2px solid var(--border); font-weight:700;">
-                <td colspan="3" style="padding:6px 4px; font-size:0.72rem;">TOTAL</td>
-                <td style="text-align:right; padding:6px 4px; font-family:monospace; color:${totalColor};">${totalFinal>0?'+':''}${totalFinal}h</td>
-                <td style="text-align:right; padding:6px 4px; font-family:monospace; color:${totalColor};">${totalFinal>0?'+':''}${totalFinal}h</td>
+                <td colspan="3" style="padding:6px 4px; font-size:0.72rem;">TOTAL SEMANAS</td>
+                <td style="text-align:right; padding:6px 4px; font-family:monospace; color:${baseColor};">${sg(desvioBase)}</td>
+                <td style="text-align:right; padding:6px 4px; font-family:monospace; color:${baseColor};">${sg(desvioBase)}</td>
             </tr>`;
 
             html += `</tbody></table></div>
@@ -627,4 +656,154 @@ renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
         ` : ''}
     </div>`;
 },
+});
+
+// RENDER AJUSTES INSPECTOR
+Object.assign(App.ui, {
+    renderEmpAjustesInspector: function(emp) {
+        const ajustes = (emp.ajustes || []).slice().sort((a, b) => b.fecha.localeCompare(a.fecha));
+        const f = (n) => (n > 0 ? '+' : '') + n.toFixed(2).replace('.00','');
+
+        // Totales
+        const sumaPos = ajustes.filter(a => a.signo === 1).reduce((s, a) => s + a.horas, 0);
+        const sumaNeg = ajustes.filter(a => a.signo === -1).reduce((s, a) => s + a.horas, 0);
+        const neto    = Math.round((sumaPos - sumaNeg) * 100) / 100;
+        const netoColor = neto > 0 ? '#f59e0b' : neto < 0 ? '#3b82f6' : '#10b981';
+
+        // Recoge todos los motivos usados para el datalist
+        const motivosUsados = [...new Set(ajustes.map(a => a.motivo).filter(Boolean))];
+        const datalistId = 'ajuste-motivos-dl';
+
+        // Lista de ajustes
+        let listaHtml = '';
+        if(ajustes.length === 0) {
+            listaHtml = `<div style="padding:16px; text-align:center; color:#94a3b8; font-size:0.75rem; border:1px dashed #e2e8f0; border-radius:8px; margin-bottom:12px;">No hay ajustes registrados.</div>`;
+        } else {
+            listaHtml = `
+            <table style="width:100%; border-collapse:collapse; font-size:0.72rem; margin-bottom:12px;">
+                <thead>
+                    <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
+                        <th style="padding:6px 8px; text-align:left; font-weight:800; color:#64748b; text-transform:uppercase; font-size:0.62rem;">Fecha</th>
+                        <th style="padding:6px 8px; text-align:left; font-weight:800; color:#64748b; text-transform:uppercase; font-size:0.62rem;">Motivo</th>
+                        <th style="padding:6px 4px; text-align:right; font-weight:800; color:#64748b; text-transform:uppercase; font-size:0.62rem;">Horas</th>
+                        <th style="padding:6px 4px; text-align:center; font-weight:800; color:#64748b; text-transform:uppercase; font-size:0.62rem; width:50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${ajustes.map(a => {
+                        const color = a.signo === 1 ? '#f59e0b' : '#3b82f6';
+                        const signoIcon = a.signo === 1 ? '▲' : '▼';
+                        const horaStr = (a.horaInicio && a.horaFin) ? `<br><span style="color:#94a3b8; font-size:0.62rem;">${a.horaInicio}–${a.horaFin}</span>` : '';
+                        const fechaFmt = a.fecha ? a.fecha.slice(8,10)+'/'+a.fecha.slice(5,7)+'/'+a.fecha.slice(2,4) : '—';
+                        return `
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:6px 8px; white-space:nowrap;">${fechaFmt}${horaStr}</td>
+                            <td style="padding:6px 8px; color:#334155; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${a.motivo||''}">${a.motivo || '<span style="color:#cbd5e1;">—</span>'}</td>
+                            <td style="padding:6px 4px; text-align:right; font-family:monospace; font-weight:800; color:${color}; white-space:nowrap;">${signoIcon} ${a.horas}h</td>
+                            <td style="padding:4px; text-align:center; white-space:nowrap;">
+                                <button onclick="App.logic.ajusteEditLoad('${emp.id}','${a.id}')" title="Editar" style="border:none; background:none; cursor:pointer; color:#64748b; font-size:13px; padding:2px 3px;">✏️</button>
+                                <button onclick="App.logic.ajusteDel('${emp.id}','${a.id}')" title="Borrar" style="border:none; background:none; cursor:pointer; color:#ef4444; font-size:13px; padding:2px 3px;">🗑</button>
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+            <div style="display:flex; gap:8px; font-size:0.7rem; font-weight:700; padding:6px 8px; background:#f8fafc; border-radius:6px; margin-bottom:12px; border:1px solid #e2e8f0;">
+                <span style="color:#10b981;">▲ +${sumaPos.toFixed(2).replace('.00','')}h</span>
+                <span style="color:#94a3b8;">·</span>
+                <span style="color:#3b82f6;">▼ −${sumaNeg.toFixed(2).replace('.00','')}h</span>
+                <span style="color:#94a3b8; margin-left:auto;">Neto:</span>
+                <span style="color:${netoColor}; font-family:monospace;">${f(neto)}h</span>
+            </div>`;
+        }
+
+        // Formulario
+        const formHtml = `
+        <div id="ajuste-form" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:12px;">
+            <div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:12px;">Nuevo ajuste</div>
+            <input type="hidden" id="ajuste-edit-id">
+            <datalist id="${datalistId}">
+                ${motivosUsados.map(m => `<option value="${m}">`).join('')}
+            </datalist>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                <div>
+                    <label style="display:block; font-size:10px; font-weight:700; color:#64748b; margin-bottom:3px;">Fecha *</label>
+                    <input type="date" id="ajuste-fecha" style="width:100%; padding:7px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:10px; font-weight:700; color:#64748b; margin-bottom:3px;">Horas *</label>
+                    <input type="number" id="ajuste-horas" min="0.25" step="0.25" placeholder="ej: 1.5"
+                           style="width:100%; padding:7px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; box-sizing:border-box; font-weight:700;">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                <div>
+                    <label style="display:block; font-size:10px; font-weight:700; color:#64748b; margin-bottom:3px;">Hora inicio <span style="color:#cbd5e1;">(opc.)</span></label>
+                    <input type="time" id="ajuste-inicio" oninput="App.logic._ajusteCalcHoras()"
+                           style="width:100%; padding:7px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:10px; font-weight:700; color:#64748b; margin-bottom:3px;">Hora fin <span style="color:#cbd5e1;">(opc.)</span></label>
+                    <input type="time" id="ajuste-fin" oninput="App.logic._ajusteCalcHoras()"
+                           style="width:100%; padding:7px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; box-sizing:border-box;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:8px;">
+                <label style="display:block; font-size:10px; font-weight:700; color:#64748b; margin-bottom:3px;">Motivo <span style="color:#cbd5e1;">(opc.)</span></label>
+                <input type="text" id="ajuste-motivo" list="${datalistId}" placeholder="ej: Curso Teams, Ausencia no justificada..."
+                       style="width:100%; padding:7px 8px; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:10px; font-weight:700; color:#64748b; margin-bottom:6px;">Efecto en el desvío</label>
+                <div style="display:flex; gap:8px;">
+                    <label style="flex:1; display:flex; align-items:center; gap:6px; padding:8px 10px; border:2px solid #fde68a; border-radius:6px; cursor:pointer; background:#fefce8;">
+                        <input type="radio" name="ajuste-signo" value="1" checked style="accent-color:#f59e0b;">
+                        <span style="font-size:11px; font-weight:700; color:#92400e;">▲ Suma horas</span>
+                    </label>
+                    <label style="flex:1; display:flex; align-items:center; gap:6px; padding:8px 10px; border:2px solid #bfdbfe; border-radius:6px; cursor:pointer; background:#eff6ff;">
+                        <input type="radio" name="ajuste-signo" value="-1" style="accent-color:#3b82f6;">
+                        <span style="font-size:11px; font-weight:700; color:#1e40af;">▼ Resta horas</span>
+                    </label>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:8px;">
+                <button onclick="document.getElementById('ajuste-form').style.display='none'; document.getElementById('ajuste-edit-id').value='';"
+                        style="flex:1; padding:9px; border:1px solid #e2e8f0; border-radius:6px; background:white; cursor:pointer; font-size:11px; font-weight:700; color:#64748b;">
+                    Cancelar
+                </button>
+                <button onclick="App.logic.ajusteSave('${emp.id}')"
+                        style="flex:2; padding:9px; border:none; border-radius:6px; background:#2563eb; color:white; cursor:pointer; font-size:11px; font-weight:800;">
+                    💾 Guardar ajuste
+                </button>
+            </div>
+        </div>`;
+
+        return `
+        <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <span style="font-size:11px; font-weight:800; color:#64748b; text-transform:uppercase;">⚙️ Ajustes de horas</span>
+                <button onclick="
+                    const f=document.getElementById('ajuste-form');
+                    const isOpen=f.style.display!=='none';
+                    f.style.display=isOpen?'none':'block';
+                    document.getElementById('ajuste-edit-id').value='';
+                    document.getElementById('ajuste-fecha').value='';
+                    document.getElementById('ajuste-inicio').value='';
+                    document.getElementById('ajuste-fin').value='';
+                    document.getElementById('ajuste-horas').value='';
+                    document.getElementById('ajuste-horas').readOnly=false;
+                    document.getElementById('ajuste-horas').style.background='white';
+                    document.getElementById('ajuste-motivo').value='';
+                    document.querySelector('input[name=ajuste-signo][value=\\'1\\']').checked=true;
+                " style="background:#2563eb; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">+ Nuevo</button>
+            </div>
+            ${formHtml}
+            ${listaHtml}
+        </div>`;
+    }
 });

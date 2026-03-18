@@ -158,6 +158,31 @@ Object.assign(App.ui, {
                             </div>
                             </div>
 
+                        <div style="background:white; padding:25px; border-radius:8px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                            <h3 style="margin:0 0 4px 0; font-size:0.95rem; font-weight:700; color:#1e293b;">🕐 Tramo Valle</h3>
+                            <p style="margin:0 0 16px 0; font-size:0.8rem; color:#64748b;">Franja horaria de baja actividad. El planificador muestra las horas consumidas frente a la bolsa semanal configurada.</p>
+                            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                                <div>
+                                    <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:5px;">Hora inicio</label>
+                                    <input type="time" value="${App.data.config.valleStart || '14:00'}"
+                                           onchange="App.data.config.valleStart=this.value; Safe.save('v40_db',App.data);"
+                                           style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:5px;">Hora fin</label>
+                                    <input type="time" value="${App.data.config.valleEnd || '17:00'}"
+                                           onchange="App.data.config.valleEnd=this.value; Safe.save('v40_db',App.data);"
+                                           style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; box-sizing:border-box;">
+                                </div>
+                                <div>
+                                    <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:5px;">Bolsa semanal (h)</label>
+                                    <input type="number" min="0" step="0.5" value="${App.data.config.valleBolsa || 0}"
+                                           onchange="App.data.config.valleBolsa=parseFloat(this.value)||0; Safe.save('v40_db',App.data);"
+                                           style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; box-sizing:border-box;">
+                                </div>
+                            </div>
+                        </div>
+
                         <div style="background:#fef2f2; border:2px solid #fca5a5; border-radius:8px; padding:25px;">
                             <h3 style="margin:0 0 10px 0; color:#991b1b; display:flex; align-items:center; gap:8px;">
                                 <span style="font-size:1.5rem;">⚠️</span> ZONA DE PELIGRO

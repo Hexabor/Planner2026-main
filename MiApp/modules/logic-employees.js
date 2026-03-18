@@ -260,3 +260,98 @@ Object.assign(App.logic, {
         
         // REQ LOGIC
 });
+
+// AJUSTES DE HORAS — añadido como extensión del namespace App.logic
+Object.assign(App.logic, {
+
+    ajusteSave: function(empId) {
+        const idInput    = document.getElementById('ajuste-edit-id');
+        const fechaInput = document.getElementById('ajuste-fecha');
+        const inicioInput= document.getElementById('ajuste-inicio');
+        const finInput   = document.getElementById('ajuste-fin');
+        const horasInput = document.getElementById('ajuste-horas');
+        const signoInput = document.querySelector('input[name="ajuste-signo"]:checked');
+        const motivoInput= document.getElementById('ajuste-motivo');
+
+        if(!fechaInput || !fechaInput.value) { alert('La fecha es obligatoria.'); return; }
+        const horasVal = parseFloat(horasInput?.value);
+        if(!horasVal || horasVal <= 0) { alert('Indica las horas del ajuste (debe ser mayor que 0).'); return; }
+        if(!signoInput) { alert('Indica si las horas se suman o se restan.'); return; }
+
+        const i = App.data.empleados.findIndex(e => e.id === empId);
+        if(i < 0) return;
+        if(!App.data.empleados[i].ajustes) App.data.empleados[i].ajustes = [];
+
+        const ajuste = {
+            id:         idInput?.value || ('a' + Date.now() + Math.random().toString(36).slice(2,6)),
+            fecha:      fechaInput.value,
+            horaInicio: inicioInput?.value || '',
+            horaFin:    finInput?.value || '',
+            horas:      Math.round(horasVal * 100) / 100,
+            signo:      parseInt(signoInput.value),
+            motivo:     motivoInput?.value.trim() || '',
+            creadoEn:   new Date().toISOString()
+        };
+
+        if(idInput?.value) {
+            const idx = App.data.empleados[i].ajustes.findIndex(a => a.id === idInput.value);
+            if(idx >= 0) App.data.empleados[i].ajustes[idx] = ajuste;
+        } else {
+            App.data.empleados[i].ajustes.push(ajuste);
+        }
+
+        App.data.empleados[i].ajustes.sort((a, b) => b.fecha.localeCompare(a.fecha));
+        Safe.save('v40_db', App.data);
+        App.ui.renderEmpInspector(empId);
+    },
+
+    ajusteDel: function(empId, ajusteId) {
+        if(!confirm('¿Borrar este ajuste?')) return;
+        const i = App.data.empleados.findIndex(e => e.id === empId);
+        if(i < 0) return;
+        App.data.empleados[i].ajustes = (App.data.empleados[i].ajustes || []).filter(a => a.id !== ajusteId);
+        Safe.save('v40_db', App.data);
+        App.ui.renderEmpInspector(empId);
+    },
+
+    ajusteEditLoad: function(empId, ajusteId) {
+        const emp = App.data.empleados.find(e => e.id === empId);
+        if(!emp) return;
+        const ajuste = (emp.ajustes || []).find(a => a.id === ajusteId);
+        if(!ajuste) return;
+        const formDiv = document.getElementById('ajuste-form');
+        if(formDiv) formDiv.style.display = 'block';
+        const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
+        set('ajuste-edit-id', ajuste.id);
+        set('ajuste-fecha',   ajuste.fecha);
+        set('ajuste-inicio',  ajuste.horaInicio);
+        set('ajuste-fin',     ajuste.horaFin);
+        set('ajuste-horas',   ajuste.horas);
+        set('ajuste-motivo',  ajuste.motivo);
+        const radio = document.querySelector('input[name="ajuste-signo"][value="' + ajuste.signo + '"]');
+        if(radio) radio.checked = true;
+        App.logic._ajusteCalcHoras();
+        formDiv?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    },
+
+    _ajusteCalcHoras: function() {
+        const ini = document.getElementById('ajuste-inicio')?.value;
+        const fin = document.getElementById('ajuste-fin')?.value;
+        const horasEl = document.getElementById('ajuste-horas');
+        if(!horasEl) return;
+        if(ini && fin && ini < fin) {
+            const [ih, im] = ini.split(':').map(Number);
+            const [fh, fm] = fin.split(':').map(Number);
+            const mins = (fh * 60 + fm) - (ih * 60 + im);
+            horasEl.value = Math.round(mins / 60 * 100) / 100;
+            horasEl.readOnly = true;
+            horasEl.style.background = '#f1f5f9';
+            horasEl.style.color = '#64748b';
+        } else {
+            horasEl.readOnly = false;
+            horasEl.style.background = 'white';
+            horasEl.style.color = '#334155';
+        }
+    }
+
+});

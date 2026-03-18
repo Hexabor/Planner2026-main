@@ -16,7 +16,8 @@ Object.assign(App.ui, {
 
             // Calcular scale ANTES de generar HTML para aplicarlo inline
             const availableWidth = c.clientWidth;
-            const controlsScale = Math.min(1, (availableWidth - 40) / 985);
+            const valleModuleWidth = (parseFloat(App.data.config.valleBolsa) > 0) ? 112 : 0; // 100px módulo + 12px gap
+            const controlsScale = Math.min(1, (availableWidth - 40) / (985 + valleModuleWidth));
             const gridScale = Math.min(1, (availableWidth - 40) / 1435);
 
             // Calcular scale basado en el ancho disponible
@@ -38,8 +39,36 @@ Object.assign(App.ui, {
                 weekTotal += dayTotal;
             });
 
+            // Calcular horas consumidas en el tramo valle esta semana
+            const valleStart = App.data.config.valleStart || '14:00';
+            const valleEnd   = App.data.config.valleEnd   || '17:00';
+            const valleBolsa = parseFloat(App.data.config.valleBolsa) || 0;
+            const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+            const vS = toMin(valleStart), vE = toMin(valleEnd);
+            let valleConsumed = 0;
+            weekDays.forEach(d => {
+                Object.keys(App.data.schedule[d] || {}).forEach(empId => {
+                    const shift = Utils.getShift(App.data.schedule[d][empId]);
+                    if(shift && shift.start && shift.end && !shift.external) {
+                        const sS = toMin(shift.start), sE = toMin(shift.end);
+                        const overlapStart = Math.max(sS, vS);
+                        const overlapEnd   = Math.min(sE, vE);
+                        // Restar pausa si solapa con el tramo valle
+                        let pauseMins = 0;
+                        if(shift.breakStart && shift.breakEnd) {
+                            const bS = toMin(shift.breakStart), bE = toMin(shift.breakEnd);
+                            const pStart = Math.max(bS, overlapStart);
+                            const pEnd   = Math.min(bE, overlapEnd);
+                            if(pEnd > pStart) pauseMins = pEnd - pStart;
+                        }
+                        if(overlapEnd > overlapStart) valleConsumed += (overlapEnd - overlapStart - pauseMins) / 60;
+                    }
+                });
+            });
+            valleConsumed = Math.round(valleConsumed * 10) / 10;
+
             let html = `<div class="planner-controls-super-wrapper">
-                <div class="planner-controls-super" id="planner-controls-super" style="transform: scale(${controlsScale}); transform-origin: top left;">
+                <div class="planner-controls-super" id="planner-controls-super" style="transform: scale(${controlsScale}); transform-origin: top left; width:${985 + valleModuleWidth}px; min-width:${985 + valleModuleWidth}px;">
                 <div class="planner-controls">
                 <!-- MÓDULO 1: NAVEGADOR -->
                 <div class="planner-module planner-navigator">
@@ -139,7 +168,40 @@ Object.assign(App.ui, {
                         </div>
                     </div>
                 </div>
-                
+
+                <!-- MÓDULO VALLE -->
+                ${valleBolsa > 0 ? (() => {
+                    const restante   = Math.round((valleBolsa - valleConsumed) * 10) / 10;
+                    const pct        = Math.min(valleConsumed / valleBolsa, 1);
+                    const fillColor  = pct < 0.6 ? '#10b981' : pct < 0.9 ? '#f59e0b' : '#ef4444';
+                    const restColor  = restante > 0 ? '#10b981' : restante < 0 ? '#ef4444' : '#94a3b8';
+                    const restSign   = restante > 0 ? '+' : '';
+                    const r = 26, circ = 2 * Math.PI * r;
+                    const dash = Math.round(pct * circ * 10) / 10;
+                    return `<div class="planner-module" style="flex: 0 0 100px; width:100px;">
+                        <div class="planner-module-title">🕐 VALLE</div>
+                        <div class="planner-module-content" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+                            <div style="position:relative; width:68px; height:68px; flex-shrink:0;">
+                                <svg width="68" height="68" viewBox="0 0 68 68">
+                                    <circle cx="34" cy="34" r="${r}" fill="none" stroke="#e2e8f0" stroke-width="7"/>
+                                    <circle cx="34" cy="34" r="${r}" fill="none" stroke="${fillColor}" stroke-width="7"
+                                        stroke-dasharray="${dash} ${circ}"
+                                        stroke-linecap="round"
+                                        transform="rotate(-90 34 34)"/>
+                                </svg>
+                                <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.2;">
+                                    <span style="font-size:0.75rem; font-family:monospace; font-weight:800; color:${restColor};">${restSign}${restante}h</span>
+                                    <span style="font-size:0.52rem; color:#94a3b8; font-weight:600;">restante</span>
+                                </div>
+                            </div>
+                            <div style="text-align:center;">
+                                <div style="font-size:0.6rem; color:#64748b; font-weight:700;">${valleStart}–${valleEnd}</div>
+                                <div style="font-size:0.58rem; color:#94a3b8; margin-top:1px;">${valleConsumed}h / ${valleBolsa}h</div>
+                            </div>
+                        </div>
+                    </div>`;
+                })() : ''}
+
                 <!-- MÓDULO 2: PALETA DE TURNOS (en el centro) -->
                 <div class="planner-module planner-palette-inline">
                     <div class="planner-module-title">🎨 PALETA DE TURNOS</div>
@@ -333,7 +395,8 @@ Object.assign(App.ui, {
                 const shift = shiftId ? Utils.getShift(shiftId) : null;
                 const request = Utils.getRequest(e.id, date);
                 const isDisabled = e.active === false;
-                const computedTag = e.tag || (['MNG','AM','SPV'].includes(e.rol) ? 3 : 1);
+                const rolEnFecha = Utils.getRolEnFecha(e, date);
+                const computedTag = ['MNG','AM','SPV'].includes(rolEnFecha) ? 3 : 1;
                 const tag3Class = (computedTag >= 3) ? 'tag3-highlight' : '';
                 const disabledBg = isDisabled ? 'background:#f1f5f9 !important;' : '';
                 
@@ -342,7 +405,7 @@ Object.assign(App.ui, {
 
                 const tagClass = computedTag === 3 ? 'badge-tag-3' : 'badge-tag-1';
                 const tagContent = `<span class="${tagClass}">T${computedTag}</span>`;
-                const rolContent = `<span class="badge-role">${e.rol}</span>`;
+                const rolContent = `<span class="badge-role">${rolEnFecha}</span>`;
 
                 let hoursContent = '<span style="color:#cbd5e1;">—</span>';
                 let scheduleContent = '<span style="color:#cbd5e1;">—</span>';

@@ -656,6 +656,9 @@ Object.assign(App.ui, {
                                 acum += worked - esperadas;
                         });
                         acum = Math.round(acum * 10) / 10;
+                        // Ajustes manuales de horas
+                        const ajusteTotal = ((emp.ajustes || []).reduce((s, a) => s + a.signo * a.horas, 0));
+                        acum = Math.round((acum + ajusteTotal) * 10) / 10;
                         const sign = acum > 0 ? '+' : '';
                         const color = acum > 0.5 ? '#f59e0b' : acum < -0.5 ? '#3b82f6' : '#10b981';
                         const label = acum > 0.5 ? 'horas de más' : acum < -0.5 ? 'horas de menos' : 'sin desvío';

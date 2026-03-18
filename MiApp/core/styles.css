@@ -235,7 +235,7 @@
         
         /* Paleta: AMPLIADA (323 + 116 = 439px) */
         .planner-palette-inline { 
-            flex: 0 0 313px; 
+            flex: 1 0 313px; 
             width: 313px; 
             border-radius: 8px; 
         }
@@ -303,7 +303,7 @@
         .palette-item-del { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%; background: #ef4444; color: white; font-size: 0.7rem; display: none; align-items: center; justify-content: center; cursor: pointer; border: 2px solid white; font-weight: bold; line-height: 1; z-index: 20; }
         .palette-item:hover .palette-item-del { display: flex; }
         .palette-item-del:hover { background: #dc2626; transform: scale(1.1); }
-        .tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .tools-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
         .tools-column { display: flex; flex-direction: column; gap: 4px; }
         .tools-column-title { font-size: 0.52rem; font-weight: 700; color: var(--text-muted); text-align: center; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px; background: #e2e8f0; border-radius: 4px; margin-bottom: 1px; }
         .tool-btn-unified { padding: 4px 6px; border-radius: 4px; font-weight: 600; font-size: 0.56rem; border: 1px solid #e2e8f0; cursor: pointer; display: flex; gap: 3px; align-items: center; justify-content: center; transition: 0.2s; white-space: nowrap; min-height: 22px; background: white; }

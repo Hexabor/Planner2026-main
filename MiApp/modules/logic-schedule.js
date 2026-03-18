@@ -1454,7 +1454,7 @@ Object.assign(App.logic, {
                         const [bh1, bm1] = shift.breakStart.split(':').map(Number); const [bh2, bm2] = shift.breakEnd.split(':').map(Number);
                         if(minute >= (bh1*60+bm1) && minute < (bh2*60+bm2)) isWorking = false;
                     }
-                    if(isWorking) { total++; if(emp && (['MNG','AM','SPV'].includes(emp.rol) || emp.tag >= 3)) tag3++; }
+                    if(isWorking) { total++; if(emp && (['MNG','AM','SPV'].includes(Utils.getRolEnFecha(emp, date)) )) tag3++; }
                 }
             });
             return { total, tag3 };

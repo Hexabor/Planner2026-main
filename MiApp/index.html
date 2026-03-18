@@ -536,7 +536,8 @@ function scalePlannerControls() {
     const mainView = document.getElementById('main-view');
     if (!mainView) return;
     
-    const baseWidth = 985; // 336 (nav) + 403 (paleta) + 192 (botones) + 24 (gaps) + 30 (padding)
+    // Leer el ancho real del elemento (puede ser 985 o más si hay módulo valle activo)
+    const baseWidth = parseFloat(superModule.style.width) || 985;
     const availableWidth = mainView.clientWidth - 40;  // margen seguro
     const scale = Math.min(1, availableWidth / baseWidth);
     
