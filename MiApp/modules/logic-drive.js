@@ -260,18 +260,24 @@ App.drive = {
                         <strong>${fmt(localTime)}</strong>
                     </div>
                 </div>
-                <div style="display:flex;gap:10px;">
-                    <button id="drive-sync-local" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #e2e8f0;background:white;cursor:pointer;font-size:0.85rem;font-weight:600;color:#475569;">
-                        💻 Usar este equipo
+                <div style="display:flex;gap:8px;">
+                    <button id="drive-sync-ignore" style="padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;background:white;cursor:pointer;font-size:0.82rem;font-weight:600;color:#94a3b8;">
+                        Ignorar
                     </button>
-                    <button id="drive-sync-drive" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2563eb;color:white;cursor:pointer;font-size:0.85rem;font-weight:600;">
-                        ☁️ Cargar desde Drive
+                    <button id="drive-sync-local" style="flex:1;padding:10px;border-radius:8px;border:1.5px solid #e2e8f0;background:white;cursor:pointer;font-size:0.82rem;font-weight:600;color:#475569;">
+                        💻 Este equipo
+                    </button>
+                    <button id="drive-sync-drive" style="flex:1;padding:10px;border-radius:8px;border:none;background:#2563eb;color:white;cursor:pointer;font-size:0.82rem;font-weight:600;">
+                        ☁️ Cargar Drive
                     </button>
                 </div>
             </div>`;
 
         document.body.appendChild(overlay);
 
+        document.getElementById('drive-sync-ignore').onclick = () => {
+            document.body.removeChild(overlay);
+        };
         document.getElementById('drive-sync-local').onclick = () => {
             document.body.removeChild(overlay);
         };
@@ -442,7 +448,12 @@ App.drive = {
                 el.innerHTML = '<div style="color:#94a3b8;font-size:0.78rem;padding:8px 0;">No hay backups en Drive todavía.</div>';
                 return;
             }
-            el.innerHTML = files.map(f => {
+            const shown = files.slice(0, 4);
+            const rest  = files.length - shown.length;
+            const cfg   = this._loadConfig();
+            const folderId = cfg.folderId || '';
+
+            let html = shown.map(f => {
                 const isAuto   = f.name.includes('_Auto_');
                 const typeLabel = isAuto
                     ? '<span style="background:#dbeafe;color:#1e40af;padding:1px 7px;border-radius:8px;font-size:0.68rem;font-weight:700;">Auto</span>'
@@ -459,6 +470,15 @@ App.drive = {
                     </button>
                 </div>`;
             }).join('');
+
+            if (rest > 0) {
+                html += `<button onclick="App.drive.openBackupModal()"
+                    style="width:100%;margin-top:4px;padding:6px;border-radius:6px;border:1px dashed #cbd5e1;background:white;color:#2563eb;font-size:0.72rem;cursor:pointer;font-weight:600;">
+                    + ${rest} más — Explorar todos los backups
+                </button>`;
+            }
+
+            el.innerHTML = html;
         });
     },
 
@@ -500,6 +520,146 @@ App.drive = {
         const el = document.getElementById('drive-folder-name');
         if (el) el.textContent = newName.trim();
         this._showToast(`📁 Carpeta cambiada a "${newName.trim()}". Se usará en el próximo guardado.`);
+    },
+
+
+    // ── Modal de todos los backups con filtros ────────────────────────────
+    openBackupModal: function() {
+        // Crear overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'drive-backup-modal';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        overlay.innerHTML = `
+            <div style="background:white;border-radius:12px;width:90%;max-width:620px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="padding:18px 20px 14px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+                    <h3 style="margin:0;font-size:1rem;">☁️ Backups en Drive</h3>
+                    <button onclick="document.getElementById('drive-backup-modal').remove()"
+                        style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#94a3b8;padding:0 4px;">✕</button>
+                </div>
+                <!-- Filtros -->
+                <div style="padding:12px 20px;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;">
+                    <select id="bm-filter-type" onchange="App.drive._applyBackupFilters()"
+                        style="padding:5px 10px;border-radius:6px;border:1px solid #e2e8f0;font-size:0.78rem;color:#475569;">
+                        <option value="">Todos los tipos</option>
+                        <option value="Manual">Manual</option>
+                        <option value="Auto">Auto</option>
+                    </select>
+                    <select id="bm-filter-period" onchange="App.drive._applyBackupFilters()"
+                        style="padding:5px 10px;border-radius:6px;border:1px solid #e2e8f0;font-size:0.78rem;color:#475569;">
+                        <option value="">Cualquier fecha</option>
+                        <option value="7">Últimos 7 días</option>
+                        <option value="30">Último mes</option>
+                        <option value="90">Últimos 3 meses</option>
+                        <option value="365">Último año</option>
+                    </select>
+                    <span id="bm-count" style="font-size:0.75rem;color:#94a3b8;align-self:center;margin-left:auto;"></span>
+                </div>
+                <!-- Lista -->
+                <div id="bm-list" style="overflow-y:auto;flex:1;padding:10px 20px;">
+                    <div style="color:#94a3b8;font-size:0.82rem;padding:20px 0;text-align:center;">Cargando...</div>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        // Cerrar al clicar fuera
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        // Cargar todos los archivos
+        this.listFiles((files) => {
+            this._backupModalFiles = files;
+            this._applyBackupFilters();
+        });
+    },
+
+    _backupModalFiles: [],
+
+    _applyBackupFilters: function() {
+        const typeEl   = document.getElementById('bm-filter-type');
+        const periodEl = document.getElementById('bm-filter-period');
+        const listEl   = document.getElementById('bm-list');
+        const countEl  = document.getElementById('bm-count');
+        if (!listEl) return;
+
+        const type   = typeEl   ? typeEl.value   : '';
+        const period = periodEl ? parseInt(periodEl.value) : 0;
+        const cutoff = period ? new Date(Date.now() - period * 86400000) : null;
+
+        let files = this._backupModalFiles || [];
+        if (type)   files = files.filter(f => f.name.includes('_' + type + '_'));
+        if (cutoff) files = files.filter(f => new Date(f.createdTime) >= cutoff);
+
+        if (countEl) countEl.textContent = files.length + ' backup' + (files.length !== 1 ? 's' : '');
+
+        if (!files.length) {
+            listEl.innerHTML = '<div style="color:#94a3b8;font-size:0.82rem;padding:20px 0;text-align:center;">No hay backups con estos filtros.</div>';
+            return;
+        }
+
+        listEl.innerHTML = files.map(f => {
+            const isAuto = f.name.includes('_Auto_');
+            const pill = isAuto
+                ? '<span style="background:#dbeafe;color:#1e40af;padding:1px 7px;border-radius:8px;font-size:0.68rem;font-weight:700;flex-shrink:0;">Auto</span>'
+                : '<span style="background:#f3e8ff;color:#7c3aed;padding:1px 7px;border-radius:8px;font-size:0.68rem;font-weight:700;flex-shrink:0;">Manual</span>';
+            const date = new Date(f.createdTime).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'});
+            const shortName = f.name.length > 44 ? f.name.slice(0,44) + '…' : f.name;
+            return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;border:1px solid #f1f5f9;margin-bottom:4px;">
+                ${pill}
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:0.75rem;color:#1e293b;font-weight:600;">${date}</div>
+                    <div style="font-size:0.68rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${f.name}">${shortName}</div>
+                </div>
+                <button onclick="document.getElementById('drive-backup-modal').remove();App.drive.confirmLoadBackup('${f.id}','${f.name.replace(/'/g,'')}')"
+                    style="padding:4px 12px;border-radius:6px;border:1px solid #e2e8f0;background:white;color:#475569;font-size:0.72rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                    Cargar
+                </button>
+            </div>`;
+        }).join('');
+    },
+
+
+    // ── Guardado modular (con selección de módulos) ───────────────────────
+    saveModular: function() {
+        if (!this.isConnected()) {
+            alert('Conecta primero con Google Drive.');
+            return;
+        }
+        Safe.flush('v40_db');
+
+        const exportData = {
+            meta: { ver: App.data.meta.ver, type: 'modular', timestamp: new Date().toISOString() }
+        };
+
+        const get = (id) => { const el = document.getElementById(id); return el ? el.checked : true; };
+        if (get('cb-drv-team'))     exportData.empleados = App.data.empleados;
+        if (get('cb-drv-shifts'))   { exportData.shiftDefs = App.data.shiftDefs; exportData.fixedShifts = App.data.fixedShifts; }
+        if (get('cb-drv-schedule')) { exportData.schedule = App.data.schedule; exportData.requests = App.data.requests; exportData.recurringRequests = App.data.recurringRequests || []; exportData.lockedDays = App.data.lockedDays || {}; }
+        exportData.storeConfig = {};
+        if (get('cb-drv-config'))   { exportData.storeConfig.nombre = App.data.storeConfig.nombre || ''; exportData.storeConfig.base = App.data.storeConfig.base; exportData.config = App.data.config; }
+        if (get('cb-drv-holidays')) exportData.storeConfig.holidays = App.data.storeConfig.holidays;
+        if (get('cb-drv-special'))  exportData.storeConfig.special  = App.data.storeConfig.special;
+
+        const storeName = (App.data.storeConfig?.nombre?.trim() || 'Tienda')
+            .replace(/[^a-zA-Z0-9À-ɏ\s_-]/g, '').replace(/\s+/g, '_');
+        const ts       = App.io.getTimestamp();
+        const filename = `Backup_Manual_${storeName}_${ts}.json`;
+        const content  = JSON.stringify(exportData, null, 2);
+
+        this._updateStatus('saving');
+        this._getOrCreateFolder((folderId) => {
+            this._uploadFile(filename, content, folderId,
+                () => {
+                    this._pendingSync = false;
+                    const now = new Date().toISOString();
+                    this._saveConfig({ lastSave: now, folderId });
+                    this._updateStatus('saved', this._formatTime(new Date()));
+                    this._showToast(`✅ Guardado en Drive: ${filename}`);
+                    App.router.refreshCurrent();
+                },
+                (err) => {
+                    console.error('[Drive] Error al subir:', err);
+                    this._updateStatus('error', 'Error al guardar');
+                    alert('Error al guardar en Drive.');
+                }
+            );
+        });
     },
 
 };

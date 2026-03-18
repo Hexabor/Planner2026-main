@@ -50,6 +50,45 @@
         <button class="btn btn-primary" style="width:100%; padding:12px; font-size:1rem;" onclick="App.io.generateModularExport()">Descargar Archivo .json</button>
     </div>
 </div>
+
+<div class="modal-overlay" id="drive-save-modal">
+    <div class="modal">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0">☁️ Guardar en Drive</h3>
+            <button onclick="document.getElementById('drive-save-modal').classList.remove('open')" style="background:none; border:none; cursor:pointer; font-size:1.2rem;">✕</button>
+        </div>
+        <div style="font-size:0.75rem; color:#64748b; margin-bottom:15px; padding:10px; background:#f8fafc; border-radius:4px; border-left:3px solid #2563eb;">
+            💡 Selecciona qué módulos incluir en este backup de Drive.
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-drv-team" checked style="width:16px; height:16px;"> <span style="font-weight:600;">👥 Equipo (Empleados y contratos)</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-drv-shifts" checked style="width:16px; height:16px;"> <span style="font-weight:600;">🎨 Paleta de Turnos</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-drv-holidays" checked style="width:16px; height:16px;"> <span style="font-weight:600;">🎉 Festivos</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-drv-special" checked style="width:16px; height:16px;"> <span style="font-weight:600;">⚙️ Días Especiales y Cierres</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-drv-schedule" checked style="width:16px; height:16px;"> <span style="font-weight:600;">📅 Planificación (Cuadrante asignado)</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-drv-config" checked style="width:16px; height:16px;"> <span style="font-weight:600;">🏢 Configuración Base de Tienda</span>
+            </label>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%; padding:12px; font-size:1rem;"
+            onclick="App.drive.saveModular(); document.getElementById('drive-save-modal').classList.remove('open')">
+            ☁️ Guardar en Drive
+        </button>
+    </div>
+</div>
+
 <div class="modal-overlay" id="import-staging-modal">
     <div class="modal">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -164,9 +203,7 @@
             <button class="btn-header" id="redo-btn" onclick="App.logic.redo()" title="Rehacer (Ctrl+Y)" style="padding:8px 12px;">
                 ⟳ Rehacer
             </button>
-            <div style="width:1px; height:24px; background:#e2e8f0;"></div>
-            <button class="btn-header" onclick="document.getElementById('export-modal').classList.add('open')">📤 Exportar</button>
-            <button class="btn-header" onclick="document.getElementById('file-input').click()">📥 Importar</button>
+
         </div>
     </header>
 
@@ -198,12 +235,7 @@
         <button class="nav-btn" id="nav-presentacion" onclick="App.router.go('presentacion')" title="Presentación">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
         </button>
-        <button class="nav-btn" id="nav-export" onclick="App.router.go('export')" title="Exportar">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
-        </button>
-        <button class="nav-btn" id="nav-import" onclick="App.router.go('import')" title="Importar">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-        </button>
+
         <div class="nav-separator"></div>
         <button class="nav-btn" id="nav-alerts" onclick="App.router.go('alerts')" title="Alertas">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
@@ -301,6 +333,7 @@ App.io = {
             exportData.storeConfig = {}; 
             
             if(document.getElementById('cb-exp-config').checked) {
+                exportData.storeConfig.nombre = App.data.storeConfig.nombre || '';
                 exportData.storeConfig.base = App.data.storeConfig.base;
                 exportData.config = App.data.config; 
             }

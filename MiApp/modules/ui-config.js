@@ -210,6 +210,27 @@ Object.assign(App.ui, {
 
                     </div>
                 </div>
+
+                <!-- ── Backup local (emergencia) ── -->
+                <div style="margin-top:24px;background:white;padding:20px 24px;border-radius:8px;border:1px solid #e2e8f0;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                        <span style="font-size:1rem;">💾</span>
+                        <span style="font-weight:700;font-size:0.95rem;color:#1e293b;">Backup local</span>
+                        <span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:0.68rem;font-weight:700;">Emergencia</span>
+                    </div>
+                    <p style="font-size:0.78rem;color:#94a3b8;margin:0 0 14px 0;">Usa Drive para el guardado habitual. Estos controles son un respaldo por si Drive no está disponible.</p>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button class="btn" onclick="document.getElementById('export-modal').classList.add('open')"
+                            style="padding:8px 18px;font-size:0.82rem;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;">
+                            📤 Exportar backup local
+                        </button>
+                        <button class="btn" onclick="document.getElementById('file-input').click()"
+                            style="padding:8px 18px;font-size:0.82rem;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;">
+                            📥 Importar backup local
+                        </button>
+                    </div>
+                </div>
+
             </div>`;
         },
 

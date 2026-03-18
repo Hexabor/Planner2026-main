@@ -95,7 +95,7 @@ Object.assign(App.ui, {
                                 <span style="font-size:0.75rem;color:#6b7280;">· guardado: ${lastSave}</span>
                             </div>
                             <div style="display:flex;gap:6px;align-items:center;">
-                                <button onclick="App.drive.save('Manual')"
+                                <button onclick="document.getElementById('drive-save-modal').classList.add('open')"
                                     style="padding:5px 14px;border-radius:16px;border:1.5px solid #10b981;background:white;color:#059669;font-size:0.75rem;font-weight:700;cursor:pointer;">
                                     ☁️ Guardar ahora
                                 </button>
@@ -368,8 +368,8 @@ Object.assign(App.ui, {
                         'right'
                     )}
                     ${group('Datos',
-                        tile('export', 'upload', 'Exportar', 'Crear Backup o Excel', false, '#059669', 'right') +
-                        tile('import', 'download', 'Importar', 'Restaurar datos', false, '#0891b2', 'right'),
+                        tile('export', 'upload', 'Exportar', 'Excel y Calendar', false, '#059669', 'right') +
+                        tile('config', 'download', 'Backup local', 'Respaldo de emergencia', false, '#94a3b8', 'right'),
                         'right'
                     )}
                 </div>
@@ -426,7 +426,7 @@ Object.assign(App.ui, {
                                 <span style="font-size:0.75rem;color:#6b7280;">· guardado: ${lastSave}</span>
                             </div>
                             <div style="display:flex;gap:6px;align-items:center;">
-                                <button onclick="App.drive.save('Manual')"
+                                <button onclick="document.getElementById('drive-save-modal').classList.add('open')"
                                     style="padding:5px 14px;border-radius:16px;border:1.5px solid #10b981;background:white;color:#059669;font-size:0.75rem;font-weight:700;cursor:pointer;">
                                     ☁️ Guardar ahora
                                 </button>
