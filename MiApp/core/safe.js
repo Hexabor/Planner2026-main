@@ -12,6 +12,7 @@ const Safe = {
         this._timers[k] = setTimeout(() => {
             this.saveImmediate(k, this._latest[k]);
             this._timers[k] = null;
+            if (window.App && App.drive && App.drive.markPending) App.drive.markPending();
         }, this._debounceMs);
     },
     flush: function(k) {

@@ -6,6 +6,13 @@
     <title>Planificador v41.92 - Fix tabs Calendario + Home tile actualizado</title>
     <link rel="stylesheet" href="core/styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+@keyframes drive-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+</style>
 </head>
 <body>
 
@@ -146,7 +153,10 @@
 
 <div class="app-layout">
     <header class="header">
-        <div class="app-title">Planificador 2026 <span style="font-size:0.68rem;font-weight:600;color:#94a3b8;letter-spacing:0.05em;padding:1px 6px;border:1px solid #e2e8f0;border-radius:4px;line-height:1.6;">v0.9 β</span> <span id="storage-warning">⚠️ Sin Memoria</span></div>
+        <div class="app-title">Planificador 2026 <span style="font-size:0.68rem;font-weight:600;color:#94a3b8;letter-spacing:0.05em;padding:1px 6px;border:1px solid #e2e8f0;border-radius:4px;line-height:1.6;">v0.9 β</span> <span id="drive-status" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:#f8fafc;border:1px solid #e2e8f0;cursor:pointer;margin-right:8px;"
+    onclick="App.drive.isConnected() ? App.router.go('home') : App.drive.connect()"
+    title="Google Drive"></span>
+<span id="storage-warning">⚠️ Sin Memoria</span></div>
         <div style="display:flex; gap:8px; align-items:center;">
             <button class="btn-header" id="undo-btn" onclick="App.logic.undo()" title="Deshacer (Ctrl+Z)" style="padding:8px 12px;">
                 ⟲ Deshacer
@@ -228,6 +238,7 @@
 <script src="modules/logic-store.js"></script>
 <script src="modules/logic-export.js"></script>
 <script src="modules/logic-import.js"></script>
+<script src="modules/logic-drive.js"></script>
 <script src="modules/ui-planner.js"></script>
 <script src="modules/ui-presentacion.js"></script>
 <script src="modules/ui-home.js"></script>

@@ -35,7 +35,9 @@ Object.assign(App.ui, {
                     'bar-chart-2': '<line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>',
                     'printer': '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>',
                     'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
-                    'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>'
+                    'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+                    'cloud-upload': '<polyline points="16 16 12 12 8 16"/><line x1="12" x2="12" y1="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
+                    'cloud-off': '<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>'
                 };
                 return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${paths[name]||''}</svg>`;
             };
@@ -60,7 +62,77 @@ Object.assign(App.ui, {
             // Lógica inline para editar la tienda al hacer clic
             const editStoreLogic = `const n = prompt('Nombre de la tienda:', '${storeNombre}'); if(n && n.trim() !== ''){ if(!App.data.storeConfig) App.data.storeConfig={base:{},special:[],holidays:[]}; App.data.storeConfig.nombre=n.trim(); Safe.save('v40_db',App.data); App.router.refreshCurrent(); }`;
 
-            c.innerHTML = `
+            // ── Panel Google Drive ────────────────────────────────────────────
+            const driveConnected = App.drive.isConnected();
+            const driveCfg = (() => { try { return JSON.parse(localStorage.getItem('v40_drive') || '{}'); } catch(e) { return {}; } })();
+            const driveClientOk = typeof DRIVE_CLIENT_ID !== 'undefined' && DRIVE_CLIENT_ID !== 'TU_CLIENT_ID_AQUI.apps.googleusercontent.com';
+
+            let drivePanel = '';
+            if (!driveClientOk) {
+                drivePanel = ''; // Sin CLIENT_ID no mostramos nada
+            } else if (!driveConnected) {
+                drivePanel = `
+                    <div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:14px 20px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;max-width:520px;margin:0 auto;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            ${icon('cloud-off', 18, 1.5)}
+                            <span style="font-size:0.83rem;color:#64748b;font-weight:500;">Google Drive no conectado — tus datos solo están en este equipo</span>
+                        </div>
+                        <button onclick="App.drive.connect()"
+                            style="padding:7px 16px;border-radius:20px;border:1.5px solid #2563eb;background:white;color:#2563eb;font-size:0.78rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                            ☁️ Conectar Drive
+                        </button>
+                    </div>`;
+            } else {
+                const lastSave = driveCfg.lastSave ? new Date(driveCfg.lastSave).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'}) : 'nunca';
+                const folderName = driveCfg.folderName || App.drive.FOLDER_NAME;
+                drivePanel = `
+                    <div id="drive-panel" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;max-width:620px;margin:0 auto;overflow:hidden;">
+                        <!-- Cabecera siempre visible -->
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;flex-wrap:wrap;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="width:8px;height:8px;border-radius:50%;background:#10b981;flex-shrink:0;"></span>
+                                <span style="font-size:0.82rem;color:#166534;font-weight:600;">Drive conectado</span>
+                                <span style="font-size:0.75rem;color:#6b7280;">· guardado: ${lastSave}</span>
+                            </div>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <button onclick="App.drive.save('Manual')"
+                                    style="padding:5px 14px;border-radius:16px;border:1.5px solid #10b981;background:white;color:#059669;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                                    ☁️ Guardar ahora
+                                </button>
+                                <button onclick="App.drive.togglePanel()"
+                                    id="drive-panel-toggle"
+                                    style="padding:5px 10px;border-radius:16px;border:1px solid #bbf7d0;background:white;color:#166534;font-size:0.75rem;cursor:pointer;font-weight:600;">
+                                    ▼ Ver backups
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Panel expandible -->
+                        <div id="drive-panel-body" style="display:none;border-top:1px solid #bbf7d0;padding:14px 16px;background:white;">
+                            <!-- Carpeta -->
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                                <span style="font-size:0.78rem;color:#64748b;">📁 Carpeta:</span>
+                                <span id="drive-folder-name" style="font-size:0.78rem;font-weight:600;color:#1e293b;">${folderName}</span>
+                                <button onclick="App.drive.promptChangeFolder()"
+                                    style="padding:2px 10px;border-radius:10px;border:1px solid #e2e8f0;background:white;color:#64748b;font-size:0.7rem;cursor:pointer;">
+                                    Cambiar
+                                </button>
+                            </div>
+                            <!-- Lista de backups -->
+                            <div style="font-size:0.78rem;font-weight:600;color:#64748b;margin-bottom:8px;">Backups en Drive</div>
+                            <div id="drive-file-list" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;">
+                                <div style="color:#94a3b8;font-size:0.78rem;padding:10px 0;">Cargando...</div>
+                            </div>
+                            <div style="margin-top:12px;text-align:right;">
+                                <button onclick="App.drive.disconnect()"
+                                    style="padding:4px 12px;border-radius:10px;border:1px solid #e2e8f0;background:white;color:#94a3b8;font-size:0.72rem;cursor:pointer;">
+                                    Desconectar Drive
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+                        c.innerHTML = `
             <style>
                 .home-wrap {
                     display: grid;
@@ -302,6 +374,10 @@ Object.assign(App.ui, {
                     )}
                 </div>
 
+                <div class="home-drive-row" style="grid-column:1/-1;">
+                    ${drivePanel}
+                </div>
+
                 <div class="home-alerts-row">
                     <div class="home-alerts-bar" onclick="${alertCount > 0 ? "App.router.go('alerts')" : ""}">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${alertCount>0?'#ea580c':'#cbd5e1'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
@@ -317,7 +393,77 @@ Object.assign(App.ui, {
         // --- ALERTS ---
         renderAlerts: function(c) {
             const alerts = App.logic.getAlerts();
-            c.innerHTML = `<h2>Panel de Alertas</h2><p style="color:#64748b">Conflictos detectados en la planificación.</p>`;
+            // ── Panel Google Drive ────────────────────────────────────────────
+            const driveConnected = App.drive.isConnected();
+            const driveCfg = (() => { try { return JSON.parse(localStorage.getItem('v40_drive') || '{}'); } catch(e) { return {}; } })();
+            const driveClientOk = typeof DRIVE_CLIENT_ID !== 'undefined' && DRIVE_CLIENT_ID !== 'TU_CLIENT_ID_AQUI.apps.googleusercontent.com';
+
+            let drivePanel = '';
+            if (!driveClientOk) {
+                drivePanel = ''; // Sin CLIENT_ID no mostramos nada
+            } else if (!driveConnected) {
+                drivePanel = `
+                    <div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:14px 20px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;max-width:520px;margin:0 auto;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            ${icon('cloud-off', 18, 1.5)}
+                            <span style="font-size:0.83rem;color:#64748b;font-weight:500;">Google Drive no conectado — tus datos solo están en este equipo</span>
+                        </div>
+                        <button onclick="App.drive.connect()"
+                            style="padding:7px 16px;border-radius:20px;border:1.5px solid #2563eb;background:white;color:#2563eb;font-size:0.78rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                            ☁️ Conectar Drive
+                        </button>
+                    </div>`;
+            } else {
+                const lastSave = driveCfg.lastSave ? new Date(driveCfg.lastSave).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'}) : 'nunca';
+                const folderName = driveCfg.folderName || App.drive.FOLDER_NAME;
+                drivePanel = `
+                    <div id="drive-panel" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;max-width:620px;margin:0 auto;overflow:hidden;">
+                        <!-- Cabecera siempre visible -->
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;flex-wrap:wrap;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="width:8px;height:8px;border-radius:50%;background:#10b981;flex-shrink:0;"></span>
+                                <span style="font-size:0.82rem;color:#166534;font-weight:600;">Drive conectado</span>
+                                <span style="font-size:0.75rem;color:#6b7280;">· guardado: ${lastSave}</span>
+                            </div>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <button onclick="App.drive.save('Manual')"
+                                    style="padding:5px 14px;border-radius:16px;border:1.5px solid #10b981;background:white;color:#059669;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                                    ☁️ Guardar ahora
+                                </button>
+                                <button onclick="App.drive.togglePanel()"
+                                    id="drive-panel-toggle"
+                                    style="padding:5px 10px;border-radius:16px;border:1px solid #bbf7d0;background:white;color:#166534;font-size:0.75rem;cursor:pointer;font-weight:600;">
+                                    ▼ Ver backups
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Panel expandible -->
+                        <div id="drive-panel-body" style="display:none;border-top:1px solid #bbf7d0;padding:14px 16px;background:white;">
+                            <!-- Carpeta -->
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                                <span style="font-size:0.78rem;color:#64748b;">📁 Carpeta:</span>
+                                <span id="drive-folder-name" style="font-size:0.78rem;font-weight:600;color:#1e293b;">${folderName}</span>
+                                <button onclick="App.drive.promptChangeFolder()"
+                                    style="padding:2px 10px;border-radius:10px;border:1px solid #e2e8f0;background:white;color:#64748b;font-size:0.7rem;cursor:pointer;">
+                                    Cambiar
+                                </button>
+                            </div>
+                            <!-- Lista de backups -->
+                            <div style="font-size:0.78rem;font-weight:600;color:#64748b;margin-bottom:8px;">Backups en Drive</div>
+                            <div id="drive-file-list" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;">
+                                <div style="color:#94a3b8;font-size:0.78rem;padding:10px 0;">Cargando...</div>
+                            </div>
+                            <div style="margin-top:12px;text-align:right;">
+                                <button onclick="App.drive.disconnect()"
+                                    style="padding:4px 12px;border-radius:10px;border:1px solid #e2e8f0;background:white;color:#94a3b8;font-size:0.72rem;cursor:pointer;">
+                                    Desconectar Drive
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+
+                        c.innerHTML = `<h2>Panel de Alertas</h2><p style="color:#64748b">Conflictos detectados en la planificación.</p>`;
             if(alerts.length === 0) {
                 c.innerHTML += `<div style="text-align:center; padding:40px; border:2px dashed #e2e8f0; border-radius:8px; color:#10b981">✨ Todo limpio. No hay alertas.</div>`;
             } else {

@@ -79,7 +79,9 @@ const App = {
         history: [], // Array de snapshots
         historyIndex: -1, // Índice actual en el historial
         maxHistory: 20, // Máximo de snapshots a mantener
-        isRestoringHistory: false // Bloquea snapshots durante undo/redo
+        isRestoringHistory: false, // Bloquea snapshots durante undo/redo
+        // IMPORTACIÓN
+        importState: { step: 'upload' }
     },
 
     init: function() {
@@ -145,6 +147,7 @@ const App = {
         // Inicializar historial con estado actual
         App.logic.saveSnapshot('Estado inicial');
         
+        App.drive.init();
         App.router.go('home');
         
         
@@ -160,3 +163,4 @@ const App = {
 App.ui = {};
 App.logic = {};
 App.io = {};
+App.drive = {};
