@@ -81,7 +81,7 @@ const App = {
         maxHistory: 20, // Máximo de snapshots a mantener
         isRestoringHistory: false, // Bloquea snapshots durante undo/redo
         // IMPORTACIÓN
-        importState: { step: 'upload' }
+        importState: { step: 'paste' }
     },
 
     init: function() {
