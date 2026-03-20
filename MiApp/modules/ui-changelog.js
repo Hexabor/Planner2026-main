@@ -1,0 +1,126 @@
+// ============================================================
+// UI: Changelog — Historial de novedades
+// ============================================================
+
+Object.assign(App.ui, {
+    renderChangelog: function(c) {
+        const CHANGELOG = [
+            {
+                fecha: '20/03/2026 (noche)', version: 'v41.99',
+                items: [
+                    '✨ Pantalla de Novedades — historial de versiones accesible desde el header',
+                    '✨ Botón "✦ Novedades" en la barra superior junto al número de versión',
+                    '✨ Versión actualizada a v1.0',
+                    '🔧 Sombreado de filas alternas en impresión/PDF (print-color-adjust)',
+                    '🔧 Fix: modo monocromo fallaba al cambiar vista en la cuadrícula individual',
+                ]
+            },
+            {
+                fecha: '20/03/2026 (tarde)', version: 'v41.99',
+                items: [
+                    '✨ Distintivo visual en el header del grid para el tramo horario valle (colores configurables)',
+                    '✨ Eventos extra — cursos, mentorías, visitas: CRUD en Peticiones, overlay rojo en el grid, badge en presentación',
+                    '✨ Inspector planificador — 6ª pestaña Eventos con filtros por tipo y empleado, formulario desplegable',
+                    '✨ Pestañas del inspector con iconos SVG minimalistas y labels (sin emojis)',
+                    '✨ Configuración rediseñada en 5 pestañas horizontales: General, Valle, Facturación, Backups, Peligro',
+                    '✨ Botón Configuración movido junto al resto del nav',
+                    '🔧 Modo monocromo ahora afecta también a turnos custom y a la vista individual',
+                    '🔧 Calendario date picker usa position:fixed — ya no queda cortado por contenedores con overflow:hidden',
+                    '🔧 Tooltips ℹ️ en columnas Desvío y Festivos con position:fixed',
+                ]
+            },
+            {
+                fecha: '20/03/2026', version: 'v41.98',
+                items: [
+                    '✨ Backups preventivos en Drive antes de 6 acciones destructivas (reset, vaciar, replicar, borrar empleado, importar, cargar)',
+                    '✨ Módulo VISTA en el planificador — Grupo/Individual, Junto/Separado, Color/Monocromo',
+                    '✨ Indicadores en columna Festivos: ↩ Rs disponibles sin asignar, ● compensados sin Factorial',
+                    '✨ Tabla de empleados centrada y acotada, auto-guardado sin botón GUARDAR',
+                    '🔧 Semanas cerradas protegen la edición en paint, editSchedule y shiftDrop',
+                    '🔧 festivoTrackUpd preserva el estado de los detalles abiertos al re-renderizar',
+                    '🔧 nav-export y nav-import restaurados; importState.step corregido a paste',
+                ]
+            },
+            {
+                fecha: '19/03/2026', version: 'v41.97',
+                items: [
+                    '✨ Registro de ajustes manuales de horas — nueva pestaña AJUSTES en inspector de empleado',
+                    '✨ Módulo VALLE en el planificador — círculo SVG con consumo semanal de horas valle',
+                    '✨ Configuración de tramo valle (hora inicio/fin, bolsa semanal)',
+                    '🔧 Rol y TAG basados en contrato vigente (getRolEnFecha) en todo el planificador',
+                    '🔧 Desvío inspector: orden reciente→antiguo, desglose semanas+ajustes en cabecera',
+                ]
+            },
+            {
+                fecha: '18/03/2026', version: 'v41.96',
+                items: [
+                    '✨ Integración Google Drive — backup automático, preventivo y manual',
+                    '✨ Auto-guardado en Drive cada 30 min cuando hay cambios pendientes',
+                    '✨ Modal de sincronización al arrancar si Drive tiene datos más recientes',
+                    '✨ Panel Drive en pantalla de inicio con estado de conexión',
+                    '🔧 Export/import local movidos a Configuración como sección de emergencia',
+                ]
+            },
+            {
+                fecha: '07/03/2026', version: 'v41.95',
+                items: [
+                    '✨ Vista previa de importación rediseñada — layout 2 columnas, lista de días + detalle sticky',
+                    '✨ Mapeador de empleados rediseñado con pills de acción (Crear/Renombrar/Mapear/Ignorar)',
+                    '🔧 Bug: empleados renombrados desaparecían silenciosamente al importar',
+                    '🔧 Bug: todos los empleados "crear" salían con primer nombre',
+                ]
+            },
+            {
+                fecha: '05/03/2026', version: 'v41.94',
+                items: [
+                    '✨ Replicador de semanas — modal con vista previa, conflictos navegables y doble confirmación',
+                    '✨ Grid individual — nuevas columnas Festivo, Horario y REQ',
+                    '🔧 CSS global rompía el modal del replicador — reglas scoped',
+                ]
+            },
+            {
+                fecha: '04/03/2026', version: 'v41.93',
+                items: [
+                    '✨ Vista individual del planificador — tabla por días con timeline, copiar/pegar semana',
+                    '✨ Panel Domingos y Festivos — 5ª pestaña del inspector',
+                    '✨ Panel Rotación Fines de Semana mejorado — 12 semanas, columna Σ con umbrales',
+                    '🔧 Festivos durante vacaciones se contabilizan como disfrutados',
+                    '🔧 Tooltip desvío usa rango real por empleado',
+                    '🔧 fechaInicio/fechaFin no se sincronizaba al añadir/borrar contratos',
+                ]
+            },
+        ];
+
+        const rows = CHANGELOG.map((entry, idx) => {
+            const isFirst = idx === 0;
+            const items = entry.items.map(item => {
+                const isFeature = item.startsWith('✨');
+                const color  = isFeature ? '#1e40af' : '#475569';
+                const bg     = isFeature ? '#eff6ff'  : '#f8fafc';
+                const border = isFeature ? '#bfdbfe'  : '#e2e8f0';
+                return `<li style="display:flex;gap:8px;align-items:flex-start;background:${bg};border:1px solid ${border};border-radius:6px;padding:7px 10px;">
+                    <span style="flex-shrink:0;font-size:0.85rem;">${item.slice(0,2)}</span>
+                    <span style="font-size:0.82rem;color:${color};line-height:1.45;">${item.slice(2).trim()}</span>
+                </li>`;
+            }).join('');
+
+            return `<div style="margin-bottom:28px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid ${isFirst ? '#2563eb' : '#e2e8f0'};">
+                    <span style="font-size:0.95rem;font-weight:800;color:#1e293b;">${entry.fecha}</span>
+                    <span style="background:${isFirst ? '#eff6ff' : '#f1f5f9'};color:${isFirst ? '#2563eb' : '#64748b'};border:1px solid ${isFirst ? '#bfdbfe' : '#e2e8f0'};border-radius:10px;padding:2px 10px;font-size:0.7rem;font-weight:700;">${entry.version}</span>
+                    ${isFirst ? '<span style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:10px;padding:2px 8px;font-size:0.65rem;font-weight:700;">ÚLTIMA</span>' : ''}
+                </div>
+                <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px;">${items}</ul>
+            </div>`;
+        }).join('');
+
+        c.innerHTML = `<div style="max-width:680px; margin:0 auto; padding:24px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
+                <h2 style="margin:0;font-size:1.2rem;font-weight:800;color:#0f172a;">Novedades</h2>
+                <span style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:10px;padding:2px 10px;font-size:0.75rem;font-weight:700;">v1.0</span>
+            </div>
+            <p style="margin:0 0 24px;font-size:0.82rem;color:#94a3b8;">Historial de cambios y mejoras, del más reciente al más antiguo.</p>
+            ${rows}
+        </div>`;
+    }
+});

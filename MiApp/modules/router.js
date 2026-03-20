@@ -64,7 +64,7 @@ App.router = {
             App.uiState.selectedId = null; App.ui.inspectorEmpty();
             
             // Ocultar inspector en vistas que no lo necesitan
-            const hideInspector = ['home', 'tienda', 'config', 'alerts', 'export', 'import', 'analisis', 'presentacion', 'calendario'].includes(v);
+            const hideInspector = ['home', 'tienda', 'config', 'alerts', 'export', 'import', 'analisis', 'presentacion', 'calendario', 'changelog'].includes(v);
             inspector.style.display = hideInspector ? 'none' : 'flex';
             main.style.gridColumn = hideInspector ? '2 / span 2' : '2';
             if(!hideInspector) setTimeout(scaleInspector, 20);
@@ -86,6 +86,7 @@ App.router = {
                 else if(v === 'analisis') App.ui.renderAnalisis(div);
                 else if(v === 'presentacion') App.ui.renderPresentacion(div);
                 else if(v === 'calendario') App.ui.renderCalendario(div);
+                else if(v === 'changelog')  App.ui.renderChangelog(div);
             }
             App.logic.checkAlerts();
             App.logic.updateUndoRedoButtons();
