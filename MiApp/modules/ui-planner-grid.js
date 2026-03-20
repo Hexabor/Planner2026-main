@@ -304,17 +304,27 @@ Object.assign(App.ui, {
                     <div class="th-req">REQ</div>
                     <div class="th-right">`;
             // Empezar en 9:30 (26 slots de 30min desde 9:30 hasta 22:00 inclusive)
+            const vS = toMin(App.data.config.valleStart || '14:00');
+            const vE = toMin(App.data.config.valleEnd   || '17:00');
+            const headerBg      = App.data.config.headerBgColor      || '#dde3ed';
+            const valleHeaderBg = App.data.config.valleHeaderBgColor || '#bfdbfe';
             // Primera fila: HORAS
             for(let i=0;i<26;i++){ 
                 const totalMin = 570 + (i * 30); // 9:30 = 570 minutos
-                const h = Math.floor(totalMin / 60); 
-                html+=`<div class="th-cell" style="font-size:0.85rem; font-weight:700; color:#475569;">${String(h).padStart(2,'0')}</div>`; 
+                const h = Math.floor(totalMin / 60);
+                const isValle = valleBolsa > 0 && totalMin >= vS && totalMin < vE;
+                const bg = isValle ? `background:${valleHeaderBg};` : `background:${headerBg};`;
+                const col = isValle ? 'color:#1e40af;' : 'color:#475569;';
+                html+=`<div class="th-cell" style="font-size:0.85rem; font-weight:700; ${col}${bg}">${String(h).padStart(2,'0')}</div>`; 
             }
             // Segunda fila: MINUTOS
             for(let i=0;i<26;i++){ 
                 const totalMin = 570 + (i * 30);
-                const m = totalMin % 60; 
-                html+=`<div class="th-cell" style="font-size:0.7rem; color:#94a3b8;">${m===0?'00':'30'}</div>`; 
+                const m = totalMin % 60;
+                const isValle = valleBolsa > 0 && totalMin >= vS && totalMin < vE;
+                const bg = isValle ? `background:${valleHeaderBg};` : `background:${headerBg};`;
+                const col = isValle ? 'color:#3b82f6;' : 'color:#94a3b8;';
+                html+=`<div class="th-cell" style="font-size:0.7rem; ${col}${bg}">${m===0?'00':'30'}</div>`; 
             }
             html += `</div></div><div class="planner-grid">`;
             
@@ -471,9 +481,9 @@ Object.assign(App.ui, {
                 const scheduleClick = isEditable ? `onclick="event.stopPropagation(); App.logic.editSchedule('${e.id}', '${date}')"` : '';
                 const finalScheduleStyle = isDisabled ? disabledBg : `cursor:${isEditable?'pointer':'default'};${scheduleColor}`;
 
-                // Monocromo: sobreescribir color del shift para el timeline
+                // Monocromo: sobreescribir color del shift para el timeline (incluye turnos custom sin color propio)
                 const shiftForTimeline = (isMoono && shift && shift.start && shift.end)
-                    ? { ...shift, color: monoColor }
+                    ? { ...shift, color: monoColor, barColor: monoColor }
                     : shift;
 
                 // --- 4. SALIDA HTML ---
@@ -484,7 +494,7 @@ Object.assign(App.ui, {
                     <div class="pg-hours" style="${disabledBg}">${hoursContent}</div>
                     <div class="pg-schedule" ${scheduleClick} style="${finalScheduleStyle}" id="schedule-${e.id}">${scheduleContent}</div>
                     <div class="pg-req ${reqClass}" style="${disabledBg}">${reqIcon}</div>
-                    <div class="pg-right ${absenceClass}" style="${disabledBg}" ondragover="App.logic.shiftDragOver(event)" ondrop="App.logic.shiftDrop(event, '${e.id}', '${date}')" ondragleave="event.currentTarget.classList.remove('drag-over-active')">${Utils.renderPlannerTimeline(shiftForTimeline, finalConfig, e.id, date)}</div>
+                    <div class="pg-right ${absenceClass}" style="${disabledBg};position:relative;" ondragover="App.logic.shiftDragOver(event)" ondrop="App.logic.shiftDrop(event, '${e.id}', '${date}')" ondragleave="event.currentTarget.classList.remove('drag-over-active')">${Utils.renderPlannerTimeline(shiftForTimeline, finalConfig, e.id, date)}${Utils.renderEventosOverlay(e.id, date, finalConfig)}</div>
                 </div>`;
             }; // fin renderEmpRow
 
@@ -574,6 +584,8 @@ Object.assign(App.ui, {
         _renderIndividualGrid: function(weekDays, monday, todayConfig, gridScale) {
             const empId = App.uiState.individualEmpId;
             const emp = empId ? App.data.empleados.find(e => e.id === empId) : null;
+            const isMoono   = !!App.uiState.gridMonocromo;
+            const monoColor = App.data.config.gridMonoColor || '#1e3a5f';
             
             // Si no hay empleado seleccionado, seleccionar el primero activo
             if(!emp) {
@@ -710,7 +722,10 @@ Object.assign(App.ui, {
                 const lockIcon = isLocked ? ' 🔒' : '';
 
                 // Timeline
-                const timeline = Utils.renderPlannerTimeline(shift, rowConfig, empId, d);
+                const shiftForTimelineInd = (isMoono && shift && shift.start && shift.end)
+                    ? { ...shift, color: monoColor, barColor: monoColor }
+                    : shift;
+                const timeline = Utils.renderPlannerTimeline(shiftForTimelineInd, rowConfig, empId, d);
 
                 html += `<tr class="${absenceClass}" ${clickHandler} style="${rowCursor}">
                     <td style="text-align:center; ${activeDayStyle}">
@@ -720,7 +735,7 @@ Object.assign(App.ui, {
                     <td style="text-align:center; padding:2px;">${festivoCell}</td>
                     <td style="text-align:center; ${scheduleColor}">${scheduleContent}</td>
                     <td class="${reqClass}" style="text-align:center;">${reqIcon}</td>
-                    <td style="padding:4px 8px;" ondragover="App.logic.shiftDragOver(event)" ondrop="App.logic.shiftDrop(event, '${empId}', '${d}')" ondragleave="event.currentTarget.classList.remove('drag-over-active')">${timeline}</td>
+                    <td style="padding:4px 8px;position:relative;" ondragover="App.logic.shiftDragOver(event)" ondrop="App.logic.shiftDrop(event, '${empId}', '${d}')" ondragleave="event.currentTarget.classList.remove('drag-over-active')">${timeline}${Utils.renderEventosOverlay(empId, d, rowConfig)}</td>
                     <td style="text-align:center; font-weight:700;">${hours > 0 ? hours + 'h' : ''}</td>
                 </tr>`;
             });

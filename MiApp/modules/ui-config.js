@@ -6,325 +6,279 @@ Object.assign(App.ui, {
         renderConfig: function(c) {
             const configOnChange = "App.data.config.weekStart=this.dataset.isoValue; Safe.save('v40_db',App.data); App.router.go('config');";
             
-            // 1. FUNCIONES PARA LA FACTURACIÓN
+            // Funciones para la facturación
             window.mostrarEditorFacturacion = function() {
                 document.getElementById('vista-facturacion').style.display = 'none';
                 document.getElementById('editor-facturacion').style.display = 'block';
             };
-
             window.cancelarEditorFacturacion = function() {
                 document.getElementById('editor-facturacion').style.display = 'none';
                 document.getElementById('vista-facturacion').style.display = 'block';
             };
-
             window.guardarFacturacion = function() {
                 let texto = document.getElementById('input-facturacion').value;
                 let arrayNumeros = texto.split('\n')
-                    .map(linea => linea.trim())
-                    .filter(linea => linea !== '')
-                    .map(linea => {
-                        let sinPuntos = linea.replace(/\./g, '');
-                        let formatoJS = sinPuntos.replace(/,/g, '.');
-                        let numLimpio = formatoJS.replace(/[^\d.-]/g, '');
-                        return parseFloat(numLimpio);
-                    })
+                    .map(linea => linea.trim()).filter(linea => linea !== '')
+                    .map(linea => { let sinPuntos = linea.replace(/\./g, ''); let formatoJS = sinPuntos.replace(/,/g, '.'); let numLimpio = formatoJS.replace(/[^\d.-]/g, ''); return parseFloat(numLimpio); })
                     .filter(num => !isNaN(num));
-                
                 App.data.config.facturacion = arrayNumeros;
                 Safe.save('v40_db', App.data);
                 App.router.go('config');
             };
 
-            // 2. GENERAR GRÁFICA, EJE X Y LISTA SÓLIDA
-            let listaHtml = '<div style="color:#64748b; font-size:0.9rem; padding: 20px 0;">No hay datos de facturación cargados.</div>';
-            let chartHtml = '';
-            let textoParaEditor = "";
+            if(!App.uiState.configTab) App.uiState.configTab = 'general';
+            const tab = App.uiState.configTab;
+            const setTab = t => `App.uiState.configTab='${t}'; App.ui.renderConfig(document.querySelector('.main-scroll'))`;
 
-            if (App.data.config.facturacion && App.data.config.facturacion.length > 0) {
-                textoParaEditor = App.data.config.facturacion.join('\n');
-                
-                listaHtml = '<div style="max-height: 250px; overflow-y: auto; background: white; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">';
-                
-                let maxFacturacion = Math.max(...App.data.config.facturacion);
-                let barrasGrafica = '';
-                let etiquetasMeses = '';
-                
-                // Lógica para fechas reales y cálculo de meses
-                let startDateStr = App.data.config.weekStart || "2025-12-29";
-                let parts = startDateStr.split('-');
-                let baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
-                let previousMonth = -1;
-                let usePaleColor = false;
-                const nombresMeses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+            const tabs = [
+                { id: 'general',     icon: '⚙️',  label: 'General' },
+                { id: 'valle',       icon: '🕐',  label: 'Valle' },
+                { id: 'facturacion', icon: '📊',  label: 'Facturación' },
+                { id: 'backups',     icon: '🛡',  label: 'Backups' },
+                { id: 'peligro',     icon: '⚠️',  label: 'Peligro' },
+            ];
 
-                App.data.config.facturacion.forEach((num, index) => {
-                    let currentWeek = 9 + index;
-                    let currentYear = 2026;
-                    if (currentWeek > 52) { currentWeek -= 52; currentYear++; }
-                    let labelSemana = `${currentYear}WK${currentWeek.toString().padStart(2, '0')}`;
-                    let numBonito = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(num);
-                    
-                    let diasOffset = ((8 + index) * 7) + 3;
-                    let thursday = new Date(baseDate.getTime());
-                    thursday.setDate(thursday.getDate() + diasOffset);
-                    let currentMonth = thursday.getMonth();
-                    
-                    let monthLabel = "";
-                    if (currentMonth !== previousMonth) {
-                        monthLabel = nombresMeses[currentMonth];
-                        previousMonth = currentMonth;
-                        if (index > 0) usePaleColor = !usePaleColor;
-                    }
+            const tabBar = `<div style="display:flex; gap:2px; margin-bottom:24px; background:#f1f5f9; padding:3px; border-radius:10px;">
+                ${tabs.map(t => `<button onclick="${setTab(t.id)}"
+                    style="flex:1; padding:9px 6px; border:none; border-radius:8px; font-size:0.78rem; font-weight:700; cursor:pointer; transition:all 0.15s; white-space:nowrap;
+                           background:${tab===t.id?'white':'transparent'}; color:${tab===t.id?'#1e293b':'#64748b'};
+                           box-shadow:${tab===t.id?'0 1px 3px rgba(0,0,0,0.1)':'none'};">${t.icon} ${t.label}</button>`).join('')}
+            </div>`;
 
-                    const baseColor = usePaleColor ? '#93c5fd' : '#3b82f6';
-                    const hoverColor = usePaleColor ? '#60a5fa' : '#1e3a8a';
+            // ── CONTENIDO POR PESTAÑA ─────────────────────────────────────
 
-                    listaHtml += `
-                        <div style="background: #f8fafc; padding: 8px 12px; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; gap: 15px;">
-                            <strong style="color: #3b82f6; white-space: nowrap;">${labelSemana}</strong> 
-                            <span style="font-weight: 600; color: #334155; white-space: nowrap;">${numBonito}</span>
-                        </div>`;
+            let content = '';
 
-                    let alturaBarra = maxFacturacion > 0 ? (num / maxFacturacion) * 100 : 0;
-                    barrasGrafica += `
-                        <div title="${labelSemana} \n ${numBonito}" 
-                             style="flex: 1; background-color: ${baseColor}; height: ${alturaBarra}%; min-width: 4px; border-radius: 2px 2px 0 0; cursor: crosshair; transition: background 0.2s;" 
-                             onmouseover="this.style.backgroundColor='${hoverColor}'" 
-                             onmouseout="this.style.backgroundColor='${baseColor}'">
-                        </div>`;
-
-                    etiquetasMeses += `
-                        <div style="flex: 1; text-align: center; position: relative; min-width: 4px;">
-                            ${monthLabel ? `<span style="font-size: 0.6rem; color: #475569; font-weight: 700; position: absolute; left: 50%; transform: translateX(-50%); top: 4px;">${monthLabel}</span>` : ''}
-                        </div>`;
-                });
-                listaHtml += '</div>';
-
-                chartHtml = `
-                    <div style="margin-bottom: 25px;">
-                        <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 5px;">Evolución de ventas (Eje Y: Euros, Eje X: Meses)</div>
-                        <div style="height: 150px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 2px solid #94a3b8; border-left: 2px solid #94a3b8; padding-bottom: 1px; padding-left: 4px; background: repeating-linear-gradient(0deg, transparent, transparent 24px, #f1f5f9 25px);">
-                            ${barrasGrafica}
+            if(tab === 'general') {
+                content = `
+                <div style="display:flex; flex-direction:column; gap:20px; max-width:560px;">
+                    <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <h3 style="margin:0 0 16px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">📅 Año fiscal</h3>
+                        <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px;">Fecha inicio WK01</label>
+                        ${Utils.getDateInputHTML('config-week-start', App.data.config.weekStart, configOnChange)}
+                        <p style="margin:8px 0 0; font-size:0.78rem; color:#94a3b8; line-height:1.5;">Este lunes marca el inicio de la Semana 1 del año fiscal. Ej: 29/12/2025 → <strong>2026WK01</strong>.</p>
+                    </div>
+                    <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <h3 style="margin:0 0 16px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">📋 Convenio y contratos</h3>
+                        <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px;">Horas convenio (anuales)</label>
+                        <input type="number" value="${App.data.config.stdHours}" onchange="App.data.config.stdHours=this.value; Safe.save('v40_db',App.data)"
+                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; box-sizing:border-box; margin-bottom:16px;">
+                        <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px;">Opciones de contrato (h/semana)</label>
+                        <input type="text"
+                               value="${App.data.config.opcionesContrato ? App.data.config.opcionesContrato.join(', ') : '40, 35, 30, 25, 20, 15'}"
+                               onchange="App.data.config.opcionesContrato = this.value.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n)); Safe.save('v40_db',App.data)"
+                               placeholder="Ej: 40, 30, 20"
+                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; box-sizing:border-box;">
+                        <p style="margin:8px 0 0; font-size:0.78rem; color:#94a3b8;">Valores separados por comas. Aparecen en el desplegable al editar contratos.</p>
+                    </div>
+                    <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <h3 style="margin:0 0 16px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">🎨 Visualización del planificador</h3>
+                        <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Color modo monocromo</label>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <input type="color" value="${App.data.config.gridMonoColor || '#1e3a5f'}"
+                                   onchange="App.data.config.gridMonoColor=this.value; Safe.save('v40_db',App.data);"
+                                   style="width:44px; height:36px; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; padding:2px;">
+                            <span style="font-size:0.82rem; color:#64748b;">Azul marino por defecto</span>
                         </div>
-                        <div style="height: 20px; display: flex; align-items: flex-start; gap: 2px; padding-left: 6px; border-left: 2px solid transparent;">
-                            ${etiquetasMeses}
-                        </div>
-                    </div>`;
+                    </div>
+                </div>`;
             }
 
-            // 3. PINTAR EL HTML
-            c.innerHTML = `
-            <div style="max-width:1200px; margin:0 auto; padding: 20px;">
-                <div style="margin-bottom: 25px;">
-                    <h2 style="margin:0; font-size: 1.8rem; color: #0f172a;">Configuración Global</h2>
-                    <p style="color:#64748b; margin-top: 5px;">Ajustes del sistema, calendario y motor financiero.</p>
-                </div>
-
-                <div style="display: flex; flex-wrap: wrap; gap: 30px; align-items: flex-start;">
-                    
-                    <div style="flex: 1 1 350px; display: flex; flex-direction: column; gap: 25px;">
-                        <div style="background:white; padding:25px; border-radius:8px; border:1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                            <div class="form-group">
-                                <label style="font-weight: 600; color: #1e293b;">Fecha Inicio del Año Fiscal (WK01)</label>
-                                <div style="margin-top: 8px;">
-                                    ${Utils.getDateInputHTML('config-week-start', App.data.config.weekStart, configOnChange)}
-                                </div>
-                                <div class="hint" style="margin-top:8px; font-size:0.8rem; color:#64748b; line-height: 1.4;">
-                                    Este lunes marca el inicio de la Semana 1 del año fiscal siguiente.<br>
-                                    <strong>Ejemplo:</strong> 29/12/2025 será el inicio de <strong>2026WK01</strong>.
-                                </div>
+            else if(tab === 'valle') {
+                content = `
+                <div style="max-width:480px;">
+                    <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <h3 style="margin:0 0 6px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">🕐 Tramo Valle</h3>
+                        <p style="margin:0 0 20px 0; font-size:0.82rem; color:#64748b;">Franja horaria de baja actividad. El planificador muestra las horas consumidas frente a la bolsa semanal y marca ese rango en el header del grid.</p>
+                        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;">
+                            <div>
+                                <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px;">Hora inicio</label>
+                                <input type="time" value="${App.data.config.valleStart || '14:00'}"
+                                       onchange="App.data.config.valleStart=this.value; Safe.save('v40_db',App.data);"
+                                       style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; box-sizing:border-box;">
                             </div>
-                            
-                            <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;">
-                            
-                            <div class="form-group">
-                                <label style="font-weight: 600; color: #1e293b;">Horas Convenio (Anuales/Periodo)</label>
-                                <input type="number" style="margin-top: 8px; width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;" value="${App.data.config.stdHours}" onchange="App.data.config.stdHours=this.value; Safe.save('v40_db',App.data)">
-                                <div class="hint" style="margin-top:8px; font-size:0.8rem; color:#64748b;">Referencia para cálculos de productividad (Ej: 1792h).</div>
+                            <div>
+                                <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px;">Hora fin</label>
+                                <input type="time" value="${App.data.config.valleEnd || '17:00'}"
+                                       onchange="App.data.config.valleEnd=this.value; Safe.save('v40_db',App.data);"
+                                       style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; box-sizing:border-box;">
                             </div>
-
-                            <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;">
-                            
-                            <div class="form-group">
-                                <label style="font-weight: 600; color: #1e293b;">Opciones de Contratos (Horas/Semana)</label>
-                                <input type="text" 
-                                       style="margin-top: 8px; width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px;" 
-                                       value="${App.data.config.opcionesContrato ? App.data.config.opcionesContrato.join(', ') : '40, 35, 30, 25, 20, 15'}" 
-                                       onchange="App.data.config.opcionesContrato = this.value.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n)); Safe.save('v40_db',App.data)"
-                                       placeholder="Ej: 40, 30, 20">
-                                <div class="hint" style="margin-top:8px; font-size:0.8rem; color:#64748b;">
-                                    Valores separados por comas. Saldrán en el desplegable al crear/editar el contrato de un empleado.
-                                </div>
-                            </div>
-                            </div>
-
-                        <div style="background:white; padding:25px; border-radius:8px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-                            <h3 style="margin:0 0 4px 0; font-size:0.95rem; font-weight:700; color:#1e293b;">🕐 Tramo Valle</h3>
-                            <p style="margin:0 0 16px 0; font-size:0.8rem; color:#64748b;">Franja horaria de baja actividad. El planificador muestra las horas consumidas frente a la bolsa semanal configurada.</p>
-                            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
-                                <div>
-                                    <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:5px;">Hora inicio</label>
-                                    <input type="time" value="${App.data.config.valleStart || '14:00'}"
-                                           onchange="App.data.config.valleStart=this.value; Safe.save('v40_db',App.data);"
-                                           style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; box-sizing:border-box;">
-                                </div>
-                                <div>
-                                    <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:5px;">Hora fin</label>
-                                    <input type="time" value="${App.data.config.valleEnd || '17:00'}"
-                                           onchange="App.data.config.valleEnd=this.value; Safe.save('v40_db',App.data);"
-                                           style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; box-sizing:border-box;">
-                                </div>
-                                <div>
-                                    <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:5px;">Bolsa semanal (h)</label>
-                                    <input type="number" min="0" step="0.5" value="${App.data.config.valleBolsa || 0}"
-                                           onchange="App.data.config.valleBolsa=parseFloat(this.value)||0; Safe.save('v40_db',App.data);"
-                                           style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; box-sizing:border-box;">
-                                </div>
+                            <div>
+                                <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px;">Bolsa semanal (h)</label>
+                                <input type="number" min="0" step="0.5" value="${App.data.config.valleBolsa || 0}"
+                                       onchange="App.data.config.valleBolsa=parseFloat(this.value)||0; Safe.save('v40_db',App.data);"
+                                       style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; box-sizing:border-box;">
                             </div>
                         </div>
-
-                        <div style="background:white; padding:25px; border-radius:8px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-                            <h3 style="margin:0 0 4px 0; font-size:0.95rem; font-weight:700; color:#1e293b;">🎨 Visualización del planificador</h3>
-                            <p style="margin:0 0 16px 0; font-size:0.8rem; color:#64748b;">Color de las barras en modo monocromo.</p>
-                            <div style="display:flex; align-items:center; gap:12px;">
-                                <input type="color" value="${App.data.config.gridMonoColor || '#1e3a5f'}"
-                                       onchange="App.data.config.gridMonoColor=this.value; Safe.save('v40_db',App.data);"
-                                       style="width:44px; height:36px; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; padding:2px;">
-                                <span style="font-size:0.82rem; color:#334155; font-weight:600;">Color modo monocromo</span>
-                                <span style="font-size:0.75rem; color:#94a3b8;">(por defecto azul marino)</span>
+                        <p style="margin:14px 0 0; font-size:0.78rem; color:#94a3b8;">Si la bolsa es 0, el módulo Valle no aparece en el planificador.</p>
+                    </div>
+                    <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0; margin-top:16px;">
+                        <h3 style="margin:0 0 6px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">🎨 Colores del header del grid</h3>
+                        <p style="margin:0 0 16px 0; font-size:0.82rem; color:#64748b;">Fondo de la fila de horas en el planificador.</p>
+                        <div style="display:flex; gap:24px; flex-wrap:wrap;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <input type="color" value="${App.data.config.headerBgColor || '#dde3ed'}"
+                                       onchange="App.data.config.headerBgColor=this.value; Safe.save('v40_db',App.data);"
+                                       style="width:40px; height:34px; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; padding:2px;">
+                                <span style="font-size:0.82rem; color:#334155; font-weight:600;">Horas normales</span>
                             </div>
-                        </div>
-
-                        <div style="background:#fef2f2; border:2px solid #fca5a5; border-radius:8px; padding:25px;">
-                            <h3 style="margin:0 0 10px 0; color:#991b1b; display:flex; align-items:center; gap:8px;">
-                                <span style="font-size:1.5rem;">⚠️</span> ZONA DE PELIGRO
-                            </h3>
-                            <p style="color:#7f1d1d; font-size:0.9rem; margin-bottom:20px;">Acciones destructivas e irreversibles.</p>
-                            
-                            <div style="display:flex; flex-direction:column; gap:12px;">
-                                <button class="btn" style="width:100%; background:#7f1d1d; color:#fef2f2; border:2px solid #991b1b; font-weight:700; padding:12px; cursor: pointer; border-radius: 4px;" 
-                                        onclick="App.logic.massClearAll()" title="Borrar solo las semanas planificadas">
-                                    🧹 VACIAR SOLO EL PLANIFICADOR
-                                </button>
-                                <button class="btn" style="width:100%; background:black; color:white; border:2px solid #ef4444; font-weight:700; padding:12px; cursor: pointer; border-radius: 4px;" 
-                                        onclick="App.logic.factoryReset()" title="PELIGRO EXTREMO: Borrado total de fábrica">
-                                    💣 RESTABLECIMIENTO DE FÁBRICA
-                                </button>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <input type="color" value="${App.data.config.valleHeaderBgColor || '#bfdbfe'}"
+                                       onchange="App.data.config.valleHeaderBgColor=this.value; Safe.save('v40_db',App.data);"
+                                       style="width:40px; height:34px; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; padding:2px;">
+                                <span style="font-size:0.82rem; color:#334155; font-weight:600;">Horas valle</span>
                             </div>
                         </div>
                     </div>
+                </div>`;
+            }
 
-                    <div style="flex: 2 1 500px; background:white; padding:25px; border-radius:8px; border:1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                        
+            else if(tab === 'facturacion') {
+                // Generar gráfica y lista
+                let listaHtml = '<p style="color:#94a3b8; font-size:0.85rem; padding:20px 0;">No hay datos de facturación cargados.</p>';
+                let chartHtml = '';
+                let textoParaEditor = '';
+                if(App.data.config.facturacion && App.data.config.facturacion.length > 0) {
+                    textoParaEditor = App.data.config.facturacion.join('\n');
+                    listaHtml = '<div style="max-height:200px; overflow-y:auto; background:white; border:1px solid #cbd5e1; border-radius:6px; padding:10px; display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px;">';
+                    let maxFact = Math.max(...App.data.config.facturacion);
+                    let barras = '', labels = '';
+                    let startDateStr = App.data.config.weekStart || '2025-12-29';
+                    let parts = startDateStr.split('-');
+                    let baseDate = new Date(parts[0], parts[1]-1, parts[2]);
+                    let prevMonth = -1, usePale = false;
+                    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+                    App.data.config.facturacion.forEach((num, index) => {
+                        let weekDate = new Date(baseDate); weekDate.setDate(weekDate.getDate() + index * 7);
+                        let month = weekDate.getMonth();
+                        if(month !== prevMonth) { usePale = !usePale; prevMonth = month; }
+                        let pct = maxFact > 0 ? (num / maxFact) * 100 : 0;
+                        let color = usePale ? '#93c5fd' : '#3b82f6';
+                        barras += `<div style="flex:1; background:${color}; height:${pct}%; min-height:2px;" title="WK${index+1}: ${num.toLocaleString('es-ES')}€"></div>`;
+                        labels += `<div style="flex:1; font-size:0.45rem; color:#94a3b8; text-align:center; overflow:hidden;">${month !== (index>0?new Date(baseDate.getTime()+(index-1)*7*86400000).getMonth():-1)?meses[month]:''}</div>`;
+                        listaHtml += `<div style="font-size:0.75rem; color:#475569; padding:3px 6px; background:#f8fafc; border-radius:4px; border:1px solid #e2e8f0;">WK${index+1} · ${num.toLocaleString('es-ES')} €</div>`;
+                    });
+                    listaHtml += '</div>';
+                    chartHtml = `<div style="margin-bottom:16px;">
+                        <div style="height:120px; display:flex; align-items:flex-end; gap:1px; border-bottom:2px solid #94a3b8; border-left:2px solid #94a3b8; padding:0 4px 1px 4px; background:repeating-linear-gradient(0deg,transparent,transparent 23px,#f1f5f9 24px);">${barras}</div>
+                        <div style="height:16px; display:flex; gap:1px; padding:0 4px;">${labels}</div>
+                    </div>`;
+                }
+                content = `
+                <div style="max-width:700px;">
+                    <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
                         <div id="vista-facturacion">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                                 <div>
-                                    <h3 style="margin: 0; color: #0f172a; display: flex; align-items: center; gap: 8px;">📊 Previsión de Facturación Anual</h3>
-                                    <div style="font-size:0.85rem; color:#64748b; margin-top: 4px;">Base para calcular la plantilla ideal semanal.</div>
+                                    <h3 style="margin:0 0 2px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">📊 Previsión de Facturación Anual</h3>
+                                    <p style="margin:0; font-size:0.78rem; color:#64748b;">Base para calcular la plantilla ideal semanal.</p>
                                 </div>
-                                <button class="btn" style="padding: 8px 16px; font-size: 0.9rem; background: #f8fafc; color: #3b82f6; border: 1px solid #3b82f6; border-radius: 6px; cursor: pointer; font-weight: 600;" onclick="window.mostrarEditorFacturacion()">✎ Modificar Datos</button>
+                                <button class="btn" style="padding:7px 14px; font-size:0.82rem; background:#f8fafc; color:#2563eb; border:1px solid #3b82f6;" onclick="window.mostrarEditorFacturacion()">✎ Modificar</button>
                             </div>
-                            
                             ${chartHtml}
                             ${listaHtml}
                         </div>
-
-                        <div id="editor-facturacion" style="display: none;">
-                            <h3 style="margin: 0 0 15px 0; color: #0f172a;">Editar Datos de Facturación</h3>
-                            <label style="display: block; margin-bottom: 10px; color: #475569;"><strong>Pega la columna del Excel (Z2:Z54)</strong></label>
-                            <textarea 
-                                id="input-facturacion"
-                                rows="12" 
-                                style="width: 100%; resize: vertical; padding: 12px; font-family: monospace; font-size: 0.95rem; border: 2px solid #3b82f6; border-radius: 6px; background: #f8fafc;" 
-                                placeholder="Ejemplo:\n1.500.000,50\n45.000\n..."
-                            >${textoParaEditor}</textarea>
-                            
-                            <div style="display: flex; gap: 15px; margin-top: 20px;">
-                                <button class="btn" style="flex: 2; background: #10b981; color: white; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem;" onclick="window.guardarFacturacion()">💾 Guardar y Generar Gráfica</button>
-                                <button class="btn" style="flex: 1; background: #e2e8f0; color: #475569; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;" onclick="window.cancelarEditorFacturacion()">Cancelar</button>
+                        <div id="editor-facturacion" style="display:none;">
+                            <h3 style="margin:0 0 12px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">Editar datos de facturación</h3>
+                            <label style="display:block; margin-bottom:8px; font-size:0.82rem; color:#475569;"><strong>Pega la columna del Excel (Z2:Z54)</strong></label>
+                            <textarea id="input-facturacion" rows="12"
+                                style="width:100%; resize:vertical; padding:12px; font-family:monospace; font-size:0.9rem; border:2px solid #3b82f6; border-radius:6px; background:#f8fafc; box-sizing:border-box;"
+                                placeholder="Ejemplo:\n1.500.000,50\n45.000\n...">${textoParaEditor}</textarea>
+                            <div style="display:flex; gap:12px; margin-top:16px;">
+                                <button class="btn" style="flex:2; background:#10b981; color:white; padding:10px; border:none; border-radius:6px; font-weight:700;" onclick="window.guardarFacturacion()">💾 Guardar</button>
+                                <button class="btn" style="flex:1; background:#e2e8f0; color:#475569; padding:10px; border:none; border-radius:6px;" onclick="window.cancelarEditorFacturacion()">Cancelar</button>
                             </div>
                         </div>
-
                     </div>
-                </div>
+                </div>`;
+            }
 
-                <!-- ── Backups ── -->
-                <div style="margin-top:24px; background:white; padding:24px; border-radius:8px; border:1px solid #e2e8f0;">
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                        <span style="font-size:1rem;">🛡</span>
-                        <span style="font-weight:700; font-size:0.95rem; color:#1e293b;">Backups</span>
+            else if(tab === 'backups') {
+                const prevItems = [
+                    { key: 'reset',          label: 'Antes de restablecer a valores de fábrica' },
+                    { key: 'vaciarPlanner',  label: 'Antes de vaciar el planificador' },
+                    { key: 'replica',        label: 'Antes de replicar turnos a semanas futuras' },
+                    { key: 'borrarEmpleado', label: 'Antes de borrar un empleado' },
+                    { key: 'importarRota',   label: 'Antes de aplicar una importación ROTA' },
+                    { key: 'cargarDrive',    label: 'Antes de cargar un backup desde Drive' },
+                ];
+                content = `
+                <div style="display:flex; flex-direction:column; gap:20px; max-width:620px;">
+                    <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <h3 style="margin:0 0 16px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">☁️ Auto-guardado en Drive</h3>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <label style="font-size:0.85rem; color:#334155; white-space:nowrap;">Intervalo</label>
+                            <input type="number" min="5" max="120" step="5"
+                                value="${App.data.config.backups?.autoIntervalMin ?? 30}"
+                                onchange="if(!App.data.config.backups) App.data.config.backups={}; App.data.config.backups.autoIntervalMin=parseInt(this.value)||30; Safe.save('v40_db',App.data); App.drive._startAutoSave();"
+                                style="width:70px; padding:7px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:700; text-align:right;">
+                            <span style="font-size:0.85rem; color:#64748b;">minutos</span>
+                        </div>
                     </div>
-                    <p style="font-size:0.78rem; color:#94a3b8; margin:0 0 18px 0;">Configuración del auto-guardado y de los backups preventivos en Drive.</p>
+                    <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <h3 style="margin:0 0 4px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">🛡 Backups preventivos</h3>
+                        <p style="margin:0 0 16px 0; font-size:0.78rem; color:#64748b;">Se guardan automáticamente en Drive antes de cada acción. Solo activos si Drive está conectado.</p>
+                        ${prevItems.map(item => {
+                            const checked = App.data.config.backups?.preventivo?.[item.key] !== false;
+                            return `<label style="display:flex; align-items:center; gap:10px; padding:8px 4px; cursor:pointer; border-bottom:1px solid #f1f5f9;">
+                                <input type="checkbox" ${checked ? 'checked' : ''}
+                                    onchange="if(!App.data.config.backups) App.data.config.backups={}; if(!App.data.config.backups.preventivo) App.data.config.backups.preventivo={}; App.data.config.backups.preventivo['${item.key}']=this.checked; Safe.save('v40_db',App.data);"
+                                    style="width:15px; height:15px; cursor:pointer; accent-color:#2563eb; flex-shrink:0;">
+                                <span style="font-size:0.83rem; color:#334155;">${item.label}</span>
+                            </label>`;
+                        }).join('')}
+                    </div>
+                    <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                            <h3 style="margin:0; font-size:0.9rem; font-weight:700; color:#1e293b;">💾 Backup local</h3>
+                            <span style="background:#fef3c7; color:#92400e; padding:1px 8px; border-radius:8px; font-size:0.68rem; font-weight:700;">Emergencia</span>
+                        </div>
+                        <p style="margin:0 0 14px 0; font-size:0.78rem; color:#94a3b8;">Usa Drive para el guardado habitual. Esto es un respaldo si Drive no está disponible.</p>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <button class="btn" onclick="document.getElementById('export-modal').classList.add('open')"
+                                style="padding:8px 18px; font-size:0.82rem; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;">
+                                📤 Exportar backup local
+                            </button>
+                            <button class="btn" onclick="document.getElementById('file-input').click()"
+                                style="padding:8px 18px; font-size:0.82rem; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;">
+                                📥 Importar backup local
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+            }
 
-                    <div style="display:flex; flex-wrap:wrap; gap:24px; align-items:flex-start;">
-
-                        <!-- Auto-guardado -->
-                        <div style="flex:1 1 220px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px;">
-                            <div style="font-size:0.78rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:12px;">☁️ Auto-guardado Drive</div>
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <label style="font-size:0.82rem; color:#334155; white-space:nowrap;">Intervalo</label>
-                                <input type="number" min="5" max="120" step="5"
-                                    value="${App.data.config.backups?.autoIntervalMin ?? 30}"
-                                    onchange="
-                                        if(!App.data.config.backups) App.data.config.backups = {};
-                                        App.data.config.backups.autoIntervalMin = parseInt(this.value) || 30;
-                                        Safe.save('v40_db', App.data);
-                                        App.drive._startAutoSave();
-                                    "
-                                    style="width:70px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:700; text-align:right;">
-                                <span style="font-size:0.82rem; color:#64748b;">minutos</span>
+            else if(tab === 'peligro') {
+                content = `
+                <div style="max-width:480px;">
+                    <div style="background:#fef2f2; border:2px solid #fca5a5; border-radius:8px; padding:24px;">
+                        <h3 style="margin:0 0 8px 0; color:#991b1b; display:flex; align-items:center; gap:8px; font-size:0.95rem;">
+                            <span style="font-size:1.4rem;">⚠️</span> Zona de peligro
+                        </h3>
+                        <p style="color:#7f1d1d; font-size:0.82rem; margin:0 0 20px 0;">Acciones destructivas e irreversibles. Los backups preventivos de Drive se dispararán automáticamente si están activados.</p>
+                        <div style="display:flex; flex-direction:column; gap:12px;">
+                            <div>
+                                <p style="margin:0 0 6px 0; font-size:0.82rem; font-weight:600; color:#7f1d1d;">🧹 Vaciar planificador</p>
+                                <p style="margin:0 0 8px 0; font-size:0.75rem; color:#991b1b; opacity:0.8;">Elimina todas las semanas planificadas. No afecta a empleados, turnos ni configuración.</p>
+                                <button class="btn" style="background:#7f1d1d; color:#fef2f2; border:2px solid #991b1b; font-weight:700; padding:10px 18px; cursor:pointer; border-radius:6px; font-size:0.82rem;"
+                                        onclick="App.logic.massClearAll()">🧹 Vaciar solo el planificador</button>
+                            </div>
+                            <hr style="border:none; border-top:1px solid #fca5a5; margin:4px 0;">
+                            <div>
+                                <p style="margin:0 0 6px 0; font-size:0.82rem; font-weight:600; color:#7f1d1d;">💣 Restablecimiento de fábrica</p>
+                                <p style="margin:0 0 8px 0; font-size:0.75rem; color:#991b1b; opacity:0.8;">Borra absolutamente todo: empleados, turnos, configuración, solicitudes y planificación.</p>
+                                <button class="btn" style="background:black; color:white; border:2px solid #ef4444; font-weight:700; padding:10px 18px; cursor:pointer; border-radius:6px; font-size:0.82rem;"
+                                        onclick="App.logic.factoryReset()">💣 Restablecimiento de fábrica</button>
                             </div>
                         </div>
-
-                        <!-- Preventivos -->
-                        <div style="flex:2 1 320px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px;">
-                            <div style="font-size:0.78rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:4px;">🛡 Backups preventivos</div>
-                            <p style="font-size:0.72rem; color:#94a3b8; margin:0 0 12px 0;">Se guardan automáticamente en Drive justo antes de cada acción. Solo activos si Drive está conectado.</p>
-                            ${[
-                                { key: 'reset',          label: 'Antes de restablecer a valores de fábrica' },
-                                { key: 'vaciarPlanner',  label: 'Antes de vaciar el planificador' },
-                                { key: 'replica',        label: 'Antes de replicar turnos a semanas futuras' },
-                                { key: 'borrarEmpleado', label: 'Antes de borrar un empleado' },
-                                { key: 'importarRota',   label: 'Antes de aplicar una importación ROTA' },
-                                { key: 'cargarDrive',    label: 'Antes de cargar un backup desde Drive' },
-                            ].map(item => {
-                                const checked = App.data.config.backups?.preventivo?.[item.key] !== false;
-                                return `<label style="display:flex; align-items:center; gap:10px; padding:6px 4px; cursor:pointer; border-bottom:1px solid #e2e8f0;">
-                                    <input type="checkbox" ${checked ? 'checked' : ''}
-                                        onchange="
-                                            if(!App.data.config.backups) App.data.config.backups={};
-                                            if(!App.data.config.backups.preventivo) App.data.config.backups.preventivo={};
-                                            App.data.config.backups.preventivo['${item.key}']=this.checked;
-                                            Safe.save('v40_db',App.data);
-                                        "
-                                        style="width:15px; height:15px; cursor:pointer; accent-color:#2563eb;">
-                                    <span style="font-size:0.82rem; color:#334155;">${item.label}</span>
-                                </label>`;
-                            }).join('')}
-                        </div>
                     </div>
-                </div>
+                </div>`;
+            }
 
-                <!-- ── Backup local (emergencia) ── -->
-                <div style="margin-top:24px;background:white;padding:20px 24px;border-radius:8px;border:1px solid #e2e8f0;">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                        <span style="font-size:1rem;">💾</span>
-                        <span style="font-weight:700;font-size:0.95rem;color:#1e293b;">Backup local</span>
-                        <span style="background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:8px;font-size:0.68rem;font-weight:700;">Emergencia</span>
-                    </div>
-                    <p style="font-size:0.78rem;color:#94a3b8;margin:0 0 14px 0;">Usa Drive para el guardado habitual. Estos controles son un respaldo por si Drive no está disponible.</p>
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                        <button class="btn" onclick="document.getElementById('export-modal').classList.add('open')"
-                            style="padding:8px 18px;font-size:0.82rem;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;">
-                            📤 Exportar backup local
-                        </button>
-                        <button class="btn" onclick="document.getElementById('file-input').click()"
-                            style="padding:8px 18px;font-size:0.82rem;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;">
-                            📥 Importar backup local
-                        </button>
-                    </div>
-                </div>
-
+            c.innerHTML = `<div style="max-width:800px; margin:0 auto; padding:20px;">
+                <h2 style="margin:0 0 20px 0; font-size:1.2rem; font-weight:800; color:#0f172a;">Configuración</h2>
+                ${tabBar}
+                ${content}
             </div>`;
         },
 

@@ -18,19 +18,20 @@ Object.assign(App.ui, {
         //   - {id: 'stats', icon: '📈', title: 'Estadísticas'} → renderModuleStats()
         
         renderPlannerInspector: function(c) {
+            const _ic = (path, vb) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb||'0 0 24 24'}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
             const tabs = [
-                {id: 'charts', icon: '📊', title: 'Gráficos'},
-                {id: 'findes', icon: '📅', title: 'Rotación Fines de Semana'},
-                {id: 'festdom', icon: '🐷', title: 'Domingos y Festivos'},
-                {id: 'balance', icon: '📋', title: 'Balance Semanal'},
-                {id: 'equilibrio', icon: '⚖️', title: 'Equilibrio de Turnos'}
-                // Add more modules here as needed
+                { id: 'charts',    label: 'Gráficos',  icon: _ic('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>') },
+                { id: 'balance',   label: 'Balance',   icon: _ic('<line x1="3" y1="12" x2="21" y2="12"/><path d="M3 6h18M3 18h18"/>') },
+                { id: 'eventos',   label: 'Eventos',   icon: _ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/>') },
+                { id: 'findes',    label: 'Fines',     icon: _ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M8 18h.01M12 18h.01"/>') },
+                { id: 'festdom',   label: 'Festivos',  icon: _ic('<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>') },
+                { id: 'equilibrio',label: 'Equilibrio',icon: _ic('<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>') },
             ];
             
             let html = `<div class="monitor-tabs">`;
             tabs.forEach(t => {
                 const active = App.uiState.monitorTab === t.id ? 'active' : '';
-                html += `<div class="monitor-tab ${active}" title="${t.title}" onclick="App.uiState.monitorTab='${t.id}'; App.ui.renderPlannerInspector(document.getElementById('inspector-content'))">${t.icon}</div>`;
+                html += `<div class="monitor-tab ${active}" title="${t.label}" onclick="App.uiState.monitorTab='${t.id}'; App.ui.renderPlannerInspector(document.getElementById('inspector-content'))">${t.icon}<span class="monitor-tab-label">${t.label}</span></div>`;
             });
             html += `</div><div style="padding:0">`;
 
@@ -50,6 +51,8 @@ Object.assign(App.ui, {
                 html += `</div>`;
             } else if(App.uiState.monitorTab === 'equilibrio') {
                 html += App.ui.renderMonitorEquilibrio();
+            } else if(App.uiState.monitorTab === 'eventos') {
+                html += App.ui.renderMonitorEventos();
             }
             // Add more module renderers here as they're created
             
@@ -1167,6 +1170,142 @@ Object.assign(App.ui, {
             html += `</tbody></table></div>`;
             
             return html;
+        },
+
+        renderMonitorEventos: function() {
+            const today = new Date().toISOString().slice(0, 10);
+            const tipoFilter = App.uiState.eventoTipoFilter || 'todos';
+            const empFilter  = App.uiState.eventoEmpFilter  || 'todos';
+            const TIPOS = [
+                { id: 'todos',    label: 'Todos' },
+                { id: 'curso',    label: 'Cursos' },
+                { id: 'mentoria', label: 'Mentorías' },
+                { id: 'visita',   label: 'Visitas' },
+                { id: 'otro',     label: 'Otros' },
+            ];
+            const TIPO_LABEL = { curso:'Curso', mentoria:'Mentoría', visita:'Visita', otro:'Otro' };
+            const TIPO_COLOR = { curso:'#2563eb', mentoria:'#7c3aed', visita:'#0891b2', otro:'#64748b' };
+
+            const pill = (value, label, stateKey, current) => {
+                const active = current === value;
+                return `<button onclick="App.uiState.${stateKey}='${value}'; App.ui.renderPlannerInspector(document.getElementById('inspector-content'))"
+                    style="padding:3px 10px;border-radius:10px;border:1px solid ${active?'#2563eb':'#e2e8f0'};
+                           background:${active?'#2563eb':'white'};color:${active?'white':'#64748b'};
+                           font-size:0.7rem;font-weight:700;cursor:pointer;white-space:nowrap;">${label}</button>`;
+            };
+
+            // Empleados que tienen al menos un evento futuro
+            const empsConEventos = [...new Set((App.data.eventos||[]).filter(ev => ev.fechaFin >= today).map(ev => ev.empId))];
+            const empsOrdenados = App.data.empleados.filter(e => empsConEventos.includes(e.id)).sort((a,b) => a.customOrder - b.customOrder);
+
+            const filterBar = `
+                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+                    ${TIPOS.map(t => pill(t.id, t.label, 'eventoTipoFilter', tipoFilter)).join('')}
+                </div>
+                ${empsOrdenados.length > 1 ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;">
+                    ${pill('todos', 'Todos', 'eventoEmpFilter', empFilter)}
+                    ${empsOrdenados.map(e => pill(e.id, e.nombre.split(' ')[0], 'eventoEmpFilter', empFilter)).join('')}
+                </div>` : '<div style="margin-bottom:12px;"></div>'}`;
+
+            // Filtrar y ordenar eventos futuros (desde hoy)
+            const eventos = (App.data.eventos || [])
+                .filter(ev => ev.fechaFin >= today)
+                .filter(ev => tipoFilter === 'todos' || ev.tipo === tipoFilter)
+                .filter(ev => empFilter  === 'todos' || ev.empId === empFilter)
+                .sort((a, b) => a.fechaInicio.localeCompare(b.fechaInicio));
+
+            const empName = id => {
+                const e = App.data.empleados.find(e => e.id === id);
+                return e ? e.nombre : '—';
+            };
+            const fmtDate = d => {
+                if(!d) return '';
+                const [y,m,dd] = d.split('-');
+                return `${dd}/${m}/${y}`;
+            };
+
+            if(!eventos.length) {
+                return `<div style="padding:12px;">
+                    ${filterBar}
+                    <div style="text-align:center;padding:24px 8px;color:#94a3b8;font-size:0.78rem;">
+                        Sin eventos próximos${tipoFilter !== 'todos' || empFilter !== 'todos' ? ' con esos filtros' : ''}.
+                    </div>
+                </div>`;
+            }
+
+            const rows = eventos.map(ev => {
+                const color = TIPO_COLOR[ev.tipo] || '#64748b';
+                const label = TIPO_LABEL[ev.tipo] || 'Otro';
+                const esMismaFecha = ev.fechaFin === ev.fechaInicio;
+                const fechaStr = esMismaFecha
+                    ? fmtDate(ev.fechaInicio)
+                    : `${fmtDate(ev.fechaInicio)} → ${fmtDate(ev.fechaFin)}`;
+                const isHoy = ev.fechaInicio <= today && ev.fechaFin >= today;
+                return `<div style="padding:8px 0;border-bottom:1px solid #f1f5f9;display:flex;flex-direction:column;gap:3px;">
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                        <span style="font-weight:700;font-size:0.8rem;color:#1e293b;">${empName(ev.empId)}</span>
+                        <span style="background:${color}18;color:${color};border:1px solid ${color}40;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">${label}</span>
+                        ${isHoy ? `<span style="background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;font-size:0.65rem;font-weight:700;">HOY</span>` : ''}
+                    </div>
+                    <div style="font-size:0.73rem;color:#475569;">${fechaStr} · ${ev.horaInicio}–${ev.horaFin}</div>
+                    ${ev.desc ? `<div style="font-size:0.7rem;color:#94a3b8;font-style:italic;">${ev.desc}</div>` : ''}
+                </div>`;
+            }).join('');
+
+            return `<div style="padding:12px;overflow-y:auto;">
+                ${filterBar}
+                <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #e2e8f0;">
+                    ${App.uiState.inspEvFormOpen ? `
+                    <div style="font-size:0.65rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Nuevo evento</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+                        <div>
+                            <label style="display:block;font-size:0.62rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:3px;">Empleado</label>
+                            <select id="insp-ev-empId" style="width:100%;padding:5px 6px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.75rem;">
+                                ${App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder).map(e=>`<option value="${e.id}">${e.nombre.split(' ')[0]}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:0.62rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:3px;">Tipo</label>
+                            <select id="insp-ev-tipo" style="width:100%;padding:5px 6px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.75rem;">
+                                <option value="curso">Curso</option>
+                                <option value="mentoria">Mentoría</option>
+                                <option value="visita">Visita</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:6px;">
+                        <label style="display:block;font-size:0.62rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:3px;">Fecha</label>
+                        <input type="date" id="insp-ev-fecha" style="display:none;">
+                        ${Utils.getDateInputHTML('insp-ev-fecha-picker', '', "document.getElementById('insp-ev-fecha').value=this.dataset.isoValue;")}
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+                        <div>
+                            <label style="display:block;font-size:0.62rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:3px;">Hora inicio</label>
+                            <select id="insp-ev-hi" style="width:100%;padding:5px 6px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.75rem;">${Utils.getTimeOptions('09:00', false, 9)}</select>
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:0.62rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:3px;">Hora fin</label>
+                            <select id="insp-ev-hf" style="width:100%;padding:5px 6px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.75rem;">${Utils.getTimeOptions('10:00', false, 9)}</select>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:8px;">
+                        <label style="display:block;font-size:0.62rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:3px;">Descripción</label>
+                        <input type="text" id="insp-ev-desc" placeholder="Opcional" style="width:100%;padding:5px 6px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.75rem;box-sizing:border-box;">
+                    </div>
+                    <div style="display:flex;gap:6px;">
+                        <button onclick="const f=document.getElementById('insp-ev-fecha').value; App.logic.eventoSave({empId:document.getElementById('insp-ev-empId').value,tipo:document.getElementById('insp-ev-tipo').value,desc:document.getElementById('insp-ev-desc').value,fechaInicio:f,fechaFin:f,horaInicio:document.getElementById('insp-ev-hi').value,horaFin:document.getElementById('insp-ev-hf').value}); App.uiState.inspEvFormOpen=false; App.ui.renderPlannerInspector(document.getElementById('inspector-content'));"
+                            style="flex:1;padding:7px;background:#2563eb;color:white;border:none;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;">💾 Guardar</button>
+                        <button onclick="App.uiState.inspEvFormOpen=false; App.ui.renderPlannerInspector(document.getElementById('inspector-content'));"
+                            style="padding:7px 12px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;font-size:0.75rem;cursor:pointer;">✕</button>
+                    </div>` : `
+                    <button onclick="App.uiState.inspEvFormOpen=true; App.ui.renderPlannerInspector(document.getElementById('inspector-content'));"
+                        style="width:100%;padding:7px;background:white;color:#2563eb;border:1px dashed #93c5fd;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;">
+                        + Añadir evento
+                    </button>`}
+                </div>
+                ${rows}
+            </div>`;
         },
 
         // --- PRESENTACIÓN / PDF ---

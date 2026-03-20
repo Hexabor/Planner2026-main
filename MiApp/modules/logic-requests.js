@@ -471,4 +471,26 @@ Object.assign(App.logic, {
         },
 
         // STORE LOGIC
+
+        // ── EVENTOS EXTRA ────────────────────────────────────────────────
+        eventoSave: function(formData) {
+            if(!App.data.eventos) App.data.eventos = [];
+            const { id, empId, tipo, desc, fechaInicio, fechaFin, horaInicio, horaFin } = formData;
+            if(!empId || !fechaInicio || !horaInicio || !horaFin) return alert('Faltan datos obligatorios.');
+            if(id) {
+                const i = App.data.eventos.findIndex(e => e.id === id);
+                if(i >= 0) App.data.eventos[i] = { id, empId, tipo, desc, fechaInicio, fechaFin: fechaFin||fechaInicio, horaInicio, horaFin, creadoEn: App.data.eventos[i].creadoEn };
+            } else {
+                App.data.eventos.push({ id: 'ev_' + Date.now(), empId, tipo: tipo||'otro', desc: desc||'', fechaInicio, fechaFin: fechaFin||fechaInicio, horaInicio, horaFin, creadoEn: new Date().toISOString() });
+            }
+            Safe.save('v40_db', App.data);
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        eventoDel: function(id) {
+            if(!confirm('¿Borrar este evento?')) return;
+            App.data.eventos = (App.data.eventos || []).filter(e => e.id !== id);
+            Safe.save('v40_db', App.data);
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
 });

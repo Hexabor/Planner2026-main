@@ -16,7 +16,7 @@ const Utils = {
         festivosVsDiasEspeciales: `<span class="tip-title">Festivos vs Días especiales</span><span style="color:#fbbf24;font-style:italic;">⏳ Descripción pendiente</span>`,
     },
 
-    getTimeOptions: function(sel, empty=false) { let o=empty?`<option value="" ${sel===""?'selected':''}>--</option>`:''; for(let h=0;h<24;h++) for(let m=0;m<60;m+=30) { let v=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; o+=`<option value="${v}" ${v===sel?'selected':''}>${v}</option>`; } return o; },
+    getTimeOptions: function(sel, empty=false, startHour=0) { let o=empty?`<option value="" ${sel===""?'selected':''}>--</option>`:''; for(let h=startHour;h<24;h++) for(let m=0;m<60;m+=30) { let v=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; o+=`<option value="${v}" ${v===sel?'selected':''}>${v}</option>`; } return o; },
     formatDateES: function(iso) { if(!iso) return ""; const p=iso.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; },
     parseDateES: function(ddmmyyyy) {
         // Convierte DD/MM/AAAA a AAAA-MM-DD
@@ -150,37 +150,50 @@ const Utils = {
         // Mostrar/ocultar
         calendar.classList.toggle('open');
         
-        // Reposicionar si se sale de la ventana
+        // Posicionar con fixed para escapar overflow:hidden de contenedores padre
         if(calendar.classList.contains('open')) {
-            calendar.style.left = '0'; calendar.style.right = 'auto';
+            const inputRect = input.getBoundingClientRect();
+            calendar.style.position = 'fixed';
+            calendar.style.zIndex = '9999';
+            calendar.style.top = (inputRect.bottom + 4) + 'px';
+            calendar.style.left = inputRect.left + 'px';
+            calendar.style.right = 'auto';
+            calendar.style.bottom = 'auto';
+            calendar.style.marginTop = '0';
+            calendar.style.marginBottom = '0';
             requestAnimationFrame(() => {
                 const rect = calendar.getBoundingClientRect();
                 if(rect.right > window.innerWidth - 4) {
                     calendar.style.left = 'auto';
-                    calendar.style.right = '0';
+                    calendar.style.right = '4px';
                 }
                 if(rect.bottom > window.innerHeight - 4) {
-                    calendar.style.top = 'auto';
-                    calendar.style.bottom = '100%';
-                    calendar.style.marginTop = '0';
-                    calendar.style.marginBottom = '4px';
+                    calendar.style.top = (inputRect.top - rect.height - 4) + 'px';
                 }
             });
         } else {
+            calendar.style.position = '';
+            calendar.style.zIndex = '';
             calendar.style.left = ''; calendar.style.right = '';
             calendar.style.top = ''; calendar.style.bottom = '';
             calendar.style.marginTop = ''; calendar.style.marginBottom = '';
         }
         
-        // Cerrar al hacer clic fuera
+        // Cerrar al hacer clic fuera — capture:true para no ser bloqueado por stopPropagation
         if(calendar.classList.contains('open')) {
             setTimeout(() => {
-                document.addEventListener('click', function closeCalendar(e) {
+                const closeCalendar = (e) => {
                     if(!calendar.contains(e.target) && e.target !== input && !e.target.classList.contains('custom-date-btn')) {
                         calendar.classList.remove('open');
-                        document.removeEventListener('click', closeCalendar);
+                        calendar.style.position = '';
+                        calendar.style.zIndex = '';
+                        calendar.style.left = ''; calendar.style.right = '';
+                        calendar.style.top = ''; calendar.style.bottom = '';
+                        calendar.style.marginTop = ''; calendar.style.marginBottom = '';
+                        document.removeEventListener('click', closeCalendar, true);
                     }
-                });
+                };
+                document.addEventListener('click', closeCalendar, true);
             }, 0);
         }
     },
@@ -558,7 +571,7 @@ const Utils = {
                 const getPct=(min)=>{let rel=min-rangeStart; let pct=(rel/rangeTotal)*100; return Math.max(0,Math.min(100,pct));};
                 
                 // Determinar color: gris para CUSTOM, color de paleta para normales
-                const barColor = Utils.isCustomShift(s) ? '#9ca3af' : s.color;
+                const barColor = Utils.isCustomShift(s) && (s.color === '#6b7280' || s.color === '#9ca3af' || !s.color) ? '#9ca3af' : s.color;
                 
                 // Hacer barra(s) editables si tenemos empId y date
                 const canEdit = (empId && date);
@@ -619,14 +632,46 @@ const Utils = {
     },
     
     isLightColor: function(hex) {
-        // Convertir hex a RGB
         const rgb = parseInt(hex.replace('#', ''), 16);
         const r = (rgb >> 16) & 0xff;
         const g = (rgb >> 8) & 0xff;
         const b = (rgb >> 0) & 0xff;
-        // Calcular luminancia relativa (fórmula estándar)
         const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-        // Si la luminancia es mayor a 0.6, es un color claro
         return luminance > 0.6;
+    },
+
+    // Devuelve los eventos extra de un empleado en una fecha concreta
+    getEventosDelDia: function(empId, date) {
+        if(!App.data.eventos) return [];
+        return App.data.eventos.filter(ev => {
+            if(ev.empId !== empId) return false;
+            return date >= ev.fechaInicio && date <= ev.fechaFin;
+        });
+    },
+
+    // Renderiza el overlay de eventos extra sobre el timeline (position:absolute dentro del pg-right)
+    renderEventosOverlay: function(empId, date, dayConfig) {
+        const evs = Utils.getEventosDelDia(empId, date);
+        if(!evs.length) return '';
+        const toMin = t => { const [h,m] = (t||'00:00').split(':').map(Number); return h*60+m; };
+        // Mismos valores que renderPlannerTimeline
+        const rangeStart = 570; // 9:30
+        const rangeTotal = 780; // 9:30 a 22:30
+        const getPct = min => Math.max(0, Math.min(100, ((min - rangeStart) / rangeTotal) * 100));
+        const TIPO_LABEL = { curso:'CURSO', mentoria:'MENTOR', visita:'VISITA', otro:'EXTRA' };
+        return evs.map(ev => {
+            const sMin = toMin(ev.horaInicio);
+            const eMin = toMin(ev.horaFin);
+            const left  = getPct(sMin);
+            const width = getPct(eMin) - left;
+            const label = TIPO_LABEL[ev.tipo] || 'EXTRA';
+            const tip   = `${label}: ${ev.desc || ''} (${ev.horaInicio}–${ev.horaFin})`.trim();
+            return `<div title="${tip}" style="position:absolute;left:${left}%;width:${width}%;top:50%;transform:translateY(-50%);height:26px;
+                        border:2.5px solid #ef4444;background:rgba(239,68,68,0.07);border-radius:3px;
+                        pointer-events:none;z-index:5;box-sizing:border-box;
+                        display:flex;align-items:center;justify-content:center;">
+                <span style="font-size:0.48rem;font-weight:800;color:#ef4444;letter-spacing:0.03em;pointer-events:none;">${label}</span>
+            </div>`;
+        }).join('');
     }
 };

@@ -115,9 +115,12 @@ Object.assign(App.ui, {
                                         const shiftId = App.data.schedule[d]?.[emp.id];
                                         const raw = shiftId ? Utils.getShift(shiftId) : null;
                                         const s = fmtShift(raw);
+                                        const evs = Utils.getEventosDelDia(emp.id, d);
+                                        const TIPO_SHORT = { curso:'CURSO', mentoria:'MENTOR', visita:'VISITA', otro:'EXTRA' };
+                                        const evBadges = evs.map(ev => `<span title="${TIPO_SHORT[ev.tipo]||'EXTRA'}: ${ev.desc||''} (${ev.horaInicio}–${ev.horaFin})" style="display:inline-flex;flex-direction:column;align-items:center;border:1.5px solid #ef4444;background:rgba(239,68,68,0.07);border-radius:3px;font-weight:800;color:#ef4444;padding:1px 3px;margin-left:3px;white-space:nowrap;line-height:1.2;"><span style="font-size:0.52rem;">${TIPO_SHORT[ev.tipo]||'EXTRA'}</span><span style="font-size:0.48rem;opacity:0.85;">${ev.horaInicio}</span></span>`).join('');
                                         const cellStyle = 'height:56px;border:1px solid #e2e8f0;';
-                                        if(!s) return `<td class="pres-cell" style="${cellStyle}"></td>`;
-                                        if(s.libre) return `<td class="pres-cell" style="${cellStyle}"><div class="pres-cell-inner"><span style="font-size:0.72rem;font-weight:700;color:${s.color};">${s.label}</span></div></td>`;
+                                        if(!s) return `<td class="pres-cell" style="${cellStyle}">${evBadges ? `<div style="display:flex;align-items:center;justify-content:center;height:100%;padding:2px;">${evBadges}</div>` : ''}</td>`;
+                                        if(s.libre) return `<td class="pres-cell" style="${cellStyle}"><div class="pres-cell-inner" style="display:flex;align-items:center;gap:2px;justify-content:center;"><span style="font-size:0.72rem;font-weight:700;color:${s.color};">${s.label}</span>${evBadges}</div></td>`;
                                         return `<td class="pres-cell" style="${cellStyle}">
                                             <div style="position:relative;height:100%;padding:4px 5px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:0px;line-height:1.3;">
                                                 ${s.hasBreak
@@ -126,6 +129,7 @@ Object.assign(App.ui, {
                                                     : `<span class="pres-turno-line">${s.t1}</span>`
                                                 }
                                                 <span style="position:absolute;bottom:3px;right:5px;font-size:0.62rem;color:#3b82f6;font-weight:700;">${s.total}</span>
+                                                ${evBadges ? `<div style="position:absolute;top:3px;right:3px;display:flex;gap:2px;">${evBadges}</div>` : ''}
                                             </div>
                                         </td>`;
                                     }).join('')}
