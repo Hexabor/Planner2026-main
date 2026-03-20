@@ -507,7 +507,7 @@ Object.assign(App.ui, {
             <table class="balance-table">
                 <thead><tr>
                     <th style="text-align:left">Emp</th>
-                    <th>Cntr</th>
+                    <th style="white-space:nowrap;">Cntr<span class="diff-tooltip-wrap" style="cursor:help;font-size:9px;vertical-align:super;margin-left:1px;">ℹ️<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Desvío acumulado sobre semanas cerradas 🔒.<br>Solo se incluyen las semanas bloqueadas con el switch del planificador.</div></span></th>
                     <th>Asig</th>
                     <th>Dif</th>
                     <th>SEG</th>

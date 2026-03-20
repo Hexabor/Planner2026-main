@@ -16,8 +16,9 @@ Object.assign(App.ui, {
 
             // Calcular scale ANTES de generar HTML para aplicarlo inline
             const availableWidth = c.clientWidth;
-            const valleModuleWidth = (parseFloat(App.data.config.valleBolsa) > 0) ? 112 : 0; // 100px módulo + 12px gap
-            const controlsScale = Math.min(1, (availableWidth - 40) / (985 + valleModuleWidth));
+            const valleModuleWidth = (parseFloat(App.data.config.valleBolsa) > 0) ? 112 : 0; // 100px + 12px gap
+            const vistaModuleWidth = 102; // 90px + 12px gap — siempre visible
+            const controlsScale = Math.min(1, (availableWidth - 40) / (985 + valleModuleWidth + vistaModuleWidth));
             const gridScale = Math.min(1, (availableWidth - 40) / 1435);
 
             // Calcular scale basado en el ancho disponible
@@ -67,8 +68,69 @@ Object.assign(App.ui, {
             });
             valleConsumed = Math.round(valleConsumed * 10) / 10;
 
+            // Declarar antes de usarlos en los módulos HTML
+            const isIndividual = App.uiState.plannerViewMode === 'individual';
+
+            // Módulo VALLE — solo círculo de bolsa (toggles van en módulo VISTA)
+            let _valleCircle = '';
+            if(valleBolsa > 0) {
+                const _res  = Math.round((valleBolsa - valleConsumed) * 10) / 10;
+                const _pct  = Math.min(valleConsumed / valleBolsa, 1);
+                const _fill = _pct < 0.6 ? '#10b981' : _pct < 0.9 ? '#f59e0b' : '#ef4444';
+                const _rc   = _res > 0 ? '#10b981' : _res < 0 ? '#ef4444' : '#94a3b8';
+                const _rs   = _res > 0 ? '+' : '';
+                const _r = 26, _circ = 2 * Math.PI * _r;
+                const _dash = Math.round(_pct * _circ * 10) / 10;
+                _valleCircle = `
+                    <div style="position:relative; width:68px; height:68px; flex-shrink:0;">
+                        <svg width="68" height="68" viewBox="0 0 68 68">
+                            <circle cx="34" cy="34" r="${_r}" fill="none" stroke="#e2e8f0" stroke-width="7"/>
+                            <circle cx="34" cy="34" r="${_r}" fill="none" stroke="${_fill}" stroke-width="7"
+                                stroke-dasharray="${_dash} ${_circ}" stroke-linecap="round" transform="rotate(-90 34 34)"/>
+                        </svg>
+                        <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.2;">
+                            <span style="font-size:0.75rem; font-family:monospace; font-weight:800; color:${_rc};">${_rs}${_res}h</span>
+                            <span style="font-size:0.52rem; color:#94a3b8; font-weight:600;">restante</span>
+                        </div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:0.6rem; color:#64748b; font-weight:700;">${valleStart}–${valleEnd}</div>
+                        <div style="font-size:0.58rem; color:#94a3b8; margin-top:1px;">${valleConsumed}h / ${valleBolsa}h</div>
+                    </div>`;
+            }
+            const valleModuleHtml = valleBolsa > 0 ? `<div class="planner-module" style="flex:0 0 100px; width:100px;">
+                <div class="planner-module-title">🕐 VALLE</div>
+                <div class="planner-module-content" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+                    ${_valleCircle}
+                </div>
+            </div>` : '';
+
+            // Módulo VISTA — tres switches de visualización
+            const _isMoono = !!App.uiState.gridMonocromo;
+            const _isDivid = !!App.uiState.gridDividido;
+            const _bS = (active) => 'padding:4px 8px; border:none; border-radius:10px; font-size:0.65rem; font-weight:700; cursor:pointer; transition:all 0.15s; background:' + (active?'#2563eb':'transparent') + '; color:' + (active?'white':'#64748b') + ';';
+            const _row = (labelA, titleA, onA, activeA, labelB, titleB, onB, activeB, disabled) => {
+                const disStyle = disabled ? 'opacity:0.35; filter:grayscale(1); pointer-events:none;' : '';
+                return '<div style="font-size:0.52rem; font-weight:700; color:#64748b; text-align:center; margin-bottom:1px;">' + (activeA ? titleA : titleB) + '</div>' +
+                '<div style="display:flex; justify-content:center; background:#f1f5f9; border-radius:10px; padding:2px; gap:1px; ' + disStyle + '">' +
+                '<button onclick="' + onA + '" title="' + titleA + '" style="' + _bS(activeA) + '">' + labelA + '</button>' +
+                '<button onclick="' + onB + '" title="' + titleB + '" style="' + _bS(activeB) + '">' + labelB + '</button>' +
+                '</div>';
+            };
+            const vistaModuleHtml = `<div class="planner-module" style="flex:0 0 90px; width:90px;">
+                <div class="planner-module-title">👁 VISTA</div>
+                <div class="planner-module-content" style="display:flex; flex-direction:column; gap:4px; padding:5px 6px; justify-content:center;">
+                    ${_row('👥','Grupo',"App.uiState.plannerViewMode='group'; App.ui.renderPlanner(document.getElementById('main-view'));",!isIndividual,
+                           '👤','Individual',"if(!App.uiState.individualEmpId){const first=App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder)[0]; if(first)App.uiState.individualEmpId=first.id;} App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));",isIndividual,false)}
+                    ${_row('📋','Junto',"App.uiState.gridDividido=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isDivid,
+                           '➗','Separado',"App.uiState.gridDividido=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isDivid,isIndividual)}
+                    ${_row('🎨','Color',"App.uiState.gridMonocromo=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isMoono,
+                           '⬛','Monocromo',"App.uiState.gridMonocromo=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isMoono,isIndividual)}
+                </div>
+            </div>`;
+
             let html = `<div class="planner-controls-super-wrapper">
-                <div class="planner-controls-super" id="planner-controls-super" style="transform: scale(${controlsScale}); transform-origin: top left; width:${985 + valleModuleWidth}px; min-width:${985 + valleModuleWidth}px;">
+                <div class="planner-controls-super" id="planner-controls-super" style="transform: scale(${controlsScale}); transform-origin: top left; width:${985 + valleModuleWidth + vistaModuleWidth}px; min-width:${985 + valleModuleWidth + vistaModuleWidth}px;">
                 <div class="planner-controls">
                 <!-- MÓDULO 1: NAVEGADOR -->
                 <div class="planner-module planner-navigator">
@@ -149,58 +211,13 @@ Object.assign(App.ui, {
             
             html += `</div>`; // Cierre de compact-indicators-row
             html += `</div>`; // Cierre de compact-days-wrapper
-            
-            const isIndividual = App.uiState.plannerViewMode === 'individual';
-            html += `<div style="margin-top:6px; display:flex; align-items:center; justify-content:space-between; font-size:0.65rem; color:var(--text-muted); padding:0 4px;">
-                            <div style="display:flex; background:#e2e8f0; border-radius:16px; padding:2px; gap:0; margin-left:6px;">
-                                <button onclick="App.uiState.plannerViewMode='group'; App.ui.renderPlanner(document.getElementById('main-view'));"
-                                    style="display:flex; align-items:center; gap:4px; padding:3px 14px; border:none; border-radius:14px; font-size:0.68rem; font-weight:700; cursor:pointer; transition:all 0.15s; min-width:80px; justify-content:center;
-                                           background:${!isIndividual ? '#2563eb' : 'transparent'};
-                                           color:${!isIndividual ? 'white' : '#64748b'};">👥 Grupo</button>
-                                <button onclick="if(!App.uiState.individualEmpId){const first=App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder)[0]; if(first)App.uiState.individualEmpId=first.id;} App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));"
-                                    style="display:flex; align-items:center; gap:4px; padding:3px 14px; border:none; border-radius:14px; font-size:0.68rem; font-weight:700; cursor:pointer; transition:all 0.15s; min-width:80px; justify-content:center;
-                                           background:${isIndividual ? '#2563eb' : 'transparent'};
-                                           color:${isIndividual ? 'white' : '#64748b'};">👤 Individual</button>
-                            </div>
+            html += `<div style="margin-top:6px; display:flex; align-items:center; justify-content:flex-end; font-size:0.65rem; color:var(--text-muted); padding:0 4px;">
                             <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                                 ${App.logic._weekStateRowHTML(monday)}
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- MÓDULO VALLE -->
-                ${valleBolsa > 0 ? (() => {
-                    const restante   = Math.round((valleBolsa - valleConsumed) * 10) / 10;
-                    const pct        = Math.min(valleConsumed / valleBolsa, 1);
-                    const fillColor  = pct < 0.6 ? '#10b981' : pct < 0.9 ? '#f59e0b' : '#ef4444';
-                    const restColor  = restante > 0 ? '#10b981' : restante < 0 ? '#ef4444' : '#94a3b8';
-                    const restSign   = restante > 0 ? '+' : '';
-                    const r = 26, circ = 2 * Math.PI * r;
-                    const dash = Math.round(pct * circ * 10) / 10;
-                    return `<div class="planner-module" style="flex: 0 0 100px; width:100px;">
-                        <div class="planner-module-title">🕐 VALLE</div>
-                        <div class="planner-module-content" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
-                            <div style="position:relative; width:68px; height:68px; flex-shrink:0;">
-                                <svg width="68" height="68" viewBox="0 0 68 68">
-                                    <circle cx="34" cy="34" r="${r}" fill="none" stroke="#e2e8f0" stroke-width="7"/>
-                                    <circle cx="34" cy="34" r="${r}" fill="none" stroke="${fillColor}" stroke-width="7"
-                                        stroke-dasharray="${dash} ${circ}"
-                                        stroke-linecap="round"
-                                        transform="rotate(-90 34 34)"/>
-                                </svg>
-                                <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.2;">
-                                    <span style="font-size:0.75rem; font-family:monospace; font-weight:800; color:${restColor};">${restSign}${restante}h</span>
-                                    <span style="font-size:0.52rem; color:#94a3b8; font-weight:600;">restante</span>
-                                </div>
-                            </div>
-                            <div style="text-align:center;">
-                                <div style="font-size:0.6rem; color:#64748b; font-weight:700;">${valleStart}–${valleEnd}</div>
-                                <div style="font-size:0.58rem; color:#94a3b8; margin-top:1px;">${valleConsumed}h / ${valleBolsa}h</div>
-                            </div>
-                        </div>
-                    </div>`;
-                })() : ''}
 
                 <!-- MÓDULO 2: PALETA DE TURNOS (en el centro) -->
                 <div class="planner-module planner-palette-inline">
@@ -265,6 +282,8 @@ Object.assign(App.ui, {
                         </div>
                     </div>
                 </div>
+                ${valleModuleHtml}
+                ${vistaModuleHtml}
             </div>
             </div>
             </div>`;
@@ -320,8 +339,16 @@ Object.assign(App.ui, {
                 }
                 return (a[sk]||'').localeCompare(b[sk]||'');
             });
-            
-            empList.forEach(e => {
+
+            // Modos de visualización
+            const monoColor = App.data.config.gridMonoColor || '#1e3a5f';
+            const isMoono   = !!App.uiState.gridMonocromo;
+            const isDivid   = !!App.uiState.gridDividido;
+            const isWorking = e => { const sid = (App.data.schedule[date]||{})[e.id]; const sh = sid ? Utils.getShift(sid) : null; return sh && sh.start && sh.end; };
+            const trabajanHoy = isDivid ? empList.filter(isWorking)  : empList;
+            const noTrabajan  = isDivid ? empList.filter(e => !isWorking(e)) : [];
+
+            const renderEmpRow = (e) => {
                 // --- 1. CÁLCULO DE DEUDA REAL (HISTORIAL + CURSOS ANTERIORES) ---
                 let adeudadosTotal = 0;
                 let compensadosTotal = 0;
@@ -444,6 +471,11 @@ Object.assign(App.ui, {
                 const scheduleClick = isEditable ? `onclick="event.stopPropagation(); App.logic.editSchedule('${e.id}', '${date}')"` : '';
                 const finalScheduleStyle = isDisabled ? disabledBg : `cursor:${isEditable?'pointer':'default'};${scheduleColor}`;
 
+                // Monocromo: sobreescribir color del shift para el timeline
+                const shiftForTimeline = (isMoono && shift && shift.start && shift.end)
+                    ? { ...shift, color: monoColor }
+                    : shift;
+
                 // --- 4. SALIDA HTML ---
                 html += `<div class="pg-row" onclick="App.logic.paint('${e.id}')">
                     <div class="pg-name ${tag3Class}" style="${disabledBg}; cursor:pointer;" title="${txtTooltip}" onclick="event.stopPropagation(); App.uiState.individualEmpId='${e.id}'; App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));">${nameContent}</div>
@@ -452,12 +484,28 @@ Object.assign(App.ui, {
                     <div class="pg-hours" style="${disabledBg}">${hoursContent}</div>
                     <div class="pg-schedule" ${scheduleClick} style="${finalScheduleStyle}" id="schedule-${e.id}">${scheduleContent}</div>
                     <div class="pg-req ${reqClass}" style="${disabledBg}">${reqIcon}</div>
-                    <div class="pg-right ${absenceClass}" style="${disabledBg}" ondragover="App.logic.shiftDragOver(event)" ondrop="App.logic.shiftDrop(event, '${e.id}', '${date}')" ondragleave="event.currentTarget.classList.remove('drag-over-active')">${Utils.renderPlannerTimeline(shift, finalConfig, e.id, date)}</div>
+                    <div class="pg-right ${absenceClass}" style="${disabledBg}" ondragover="App.logic.shiftDragOver(event)" ondrop="App.logic.shiftDrop(event, '${e.id}', '${date}')" ondragleave="event.currentTarget.classList.remove('drag-over-active')">${Utils.renderPlannerTimeline(shiftForTimeline, finalConfig, e.id, date)}</div>
                 </div>`;
-            });;;;;
-            
-            // Cerrar planner-grid
+            }; // fin renderEmpRow
+
+            // Render trabajanHoy (siempre con contadores)
+            trabajanHoy.forEach(e => renderEmpRow(e));
+
+            // Cerrar planner-grid del bloque superior
             html += `</div>`;
+
+            // Divisor y bloque no-trabajan (solo en modo dividido)
+            if(isDivid && noTrabajan.length > 0) {
+                html += `<div style="display:flex; align-items:center; gap:8px; margin:4px 0 2px; color:#94a3b8; font-size:0.62rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">
+                    <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+                    <span>🏠 No trabajan hoy (${noTrabajan.length})</span>
+                    <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+                </div>`;
+                // Nuevo grid para el bloque inferior (sin cabecera, mismas columnas)
+                html += `<div class="planner-grid">`;
+                noTrabajan.forEach(e => renderEmpRow(e));
+                html += `</div>`;
+            }
             
             // HUD INTEGRADO - Alineado con las columnas de la rejilla
             const rangeStart = 570; // 9:30 en minutos

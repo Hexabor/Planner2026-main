@@ -952,6 +952,8 @@ Object.assign(App.logic, {
         },
 
         importApply: function() {
+            // Backup preventivo
+            if (App.data.config?.backups?.preventivo?.importarRota !== false) App.drive.savePreventivo('IMPORT');
             // GUARDAR SNAPSHOT ANTES DE IMPORTAR
             this.saveSnapshot('Importar planificación Excel');
             

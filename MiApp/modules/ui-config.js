@@ -183,6 +183,18 @@ Object.assign(App.ui, {
                             </div>
                         </div>
 
+                        <div style="background:white; padding:25px; border-radius:8px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                            <h3 style="margin:0 0 4px 0; font-size:0.95rem; font-weight:700; color:#1e293b;">🎨 Visualización del planificador</h3>
+                            <p style="margin:0 0 16px 0; font-size:0.8rem; color:#64748b;">Color de las barras en modo monocromo.</p>
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <input type="color" value="${App.data.config.gridMonoColor || '#1e3a5f'}"
+                                       onchange="App.data.config.gridMonoColor=this.value; Safe.save('v40_db',App.data);"
+                                       style="width:44px; height:36px; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; padding:2px;">
+                                <span style="font-size:0.82rem; color:#334155; font-weight:600;">Color modo monocromo</span>
+                                <span style="font-size:0.75rem; color:#94a3b8;">(por defecto azul marino)</span>
+                            </div>
+                        </div>
+
                         <div style="background:#fef2f2; border:2px solid #fca5a5; border-radius:8px; padding:25px;">
                             <h3 style="margin:0 0 10px 0; color:#991b1b; display:flex; align-items:center; gap:8px;">
                                 <span style="font-size:1.5rem;">⚠️</span> ZONA DE PELIGRO
@@ -233,6 +245,63 @@ Object.assign(App.ui, {
                             </div>
                         </div>
 
+                    </div>
+                </div>
+
+                <!-- ── Backups ── -->
+                <div style="margin-top:24px; background:white; padding:24px; border-radius:8px; border:1px solid #e2e8f0;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <span style="font-size:1rem;">🛡</span>
+                        <span style="font-weight:700; font-size:0.95rem; color:#1e293b;">Backups</span>
+                    </div>
+                    <p style="font-size:0.78rem; color:#94a3b8; margin:0 0 18px 0;">Configuración del auto-guardado y de los backups preventivos en Drive.</p>
+
+                    <div style="display:flex; flex-wrap:wrap; gap:24px; align-items:flex-start;">
+
+                        <!-- Auto-guardado -->
+                        <div style="flex:1 1 220px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px;">
+                            <div style="font-size:0.78rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:12px;">☁️ Auto-guardado Drive</div>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <label style="font-size:0.82rem; color:#334155; white-space:nowrap;">Intervalo</label>
+                                <input type="number" min="5" max="120" step="5"
+                                    value="${App.data.config.backups?.autoIntervalMin ?? 30}"
+                                    onchange="
+                                        if(!App.data.config.backups) App.data.config.backups = {};
+                                        App.data.config.backups.autoIntervalMin = parseInt(this.value) || 30;
+                                        Safe.save('v40_db', App.data);
+                                        App.drive._startAutoSave();
+                                    "
+                                    style="width:70px; padding:6px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:700; text-align:right;">
+                                <span style="font-size:0.82rem; color:#64748b;">minutos</span>
+                            </div>
+                        </div>
+
+                        <!-- Preventivos -->
+                        <div style="flex:2 1 320px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:16px;">
+                            <div style="font-size:0.78rem; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:4px;">🛡 Backups preventivos</div>
+                            <p style="font-size:0.72rem; color:#94a3b8; margin:0 0 12px 0;">Se guardan automáticamente en Drive justo antes de cada acción. Solo activos si Drive está conectado.</p>
+                            ${[
+                                { key: 'reset',          label: 'Antes de restablecer a valores de fábrica' },
+                                { key: 'vaciarPlanner',  label: 'Antes de vaciar el planificador' },
+                                { key: 'replica',        label: 'Antes de replicar turnos a semanas futuras' },
+                                { key: 'borrarEmpleado', label: 'Antes de borrar un empleado' },
+                                { key: 'importarRota',   label: 'Antes de aplicar una importación ROTA' },
+                                { key: 'cargarDrive',    label: 'Antes de cargar un backup desde Drive' },
+                            ].map(item => {
+                                const checked = App.data.config.backups?.preventivo?.[item.key] !== false;
+                                return `<label style="display:flex; align-items:center; gap:10px; padding:6px 4px; cursor:pointer; border-bottom:1px solid #e2e8f0;">
+                                    <input type="checkbox" ${checked ? 'checked' : ''}
+                                        onchange="
+                                            if(!App.data.config.backups) App.data.config.backups={};
+                                            if(!App.data.config.backups.preventivo) App.data.config.backups.preventivo={};
+                                            App.data.config.backups.preventivo['${item.key}']=this.checked;
+                                            Safe.save('v40_db',App.data);
+                                        "
+                                        style="width:15px; height:15px; cursor:pointer; accent-color:#2563eb;">
+                                    <span style="font-size:0.82rem; color:#334155;">${item.label}</span>
+                                </label>`;
+                            }).join('')}
+                        </div>
                     </div>
                 </div>
 

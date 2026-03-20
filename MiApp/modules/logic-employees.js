@@ -225,11 +225,25 @@ Object.assign(App.logic, {
             const t = App.data.empleados[i].festivoTracking[hDate];
             if(!t.rDate && !t.factorialDate) delete App.data.empleados[i].festivoTracking[hDate];
             Safe.save('v40_db', App.data);
+            App.ui.renderEmp(document.querySelector('.main-scroll'));
+            // Preservar estado abierto de <details> antes de re-renderizar
+            const inspector = document.getElementById('inspector-content');
+            const openDetails = inspector ? Array.from(inspector.querySelectorAll('details[open]')).map(d => d.querySelector('summary')?.textContent?.trim()) : [];
             App.ui.renderEmpInspector(empId);
+            // Restaurar los <details> que estaban abiertos
+            if(openDetails.length && inspector) {
+                inspector.querySelectorAll('details').forEach(d => {
+                    const sumText = d.querySelector('summary')?.textContent?.trim();
+                    if(openDetails.includes(sumText)) d.open = true;
+                });
+            }
         },
         empDel: function(id) { 
             if(confirm("Estás a punto de borrar definitivamente este empleado. Esta acción eliminará también sus asignaciones del planificador y no se puede deshacer.\n\nSi la persona ha dejado tu equipo pero quieres conservar los datos de sus turnos en el historial, deshabilítalo, no la borres.\n\n¿Deseas continuar?")) { 
                 
+                // Backup preventivo
+                if (App.data.config?.backups?.preventivo?.borrarEmpleado !== false) App.drive.savePreventivo('DEL-EMP');
+
                 // Limpieza de schedule (hard delete real)
                 let assignRemoved = 0;
                 let datesTouched = 0;
@@ -302,6 +316,7 @@ Object.assign(App.logic, {
 
         App.data.empleados[i].ajustes.sort((a, b) => b.fecha.localeCompare(a.fecha));
         Safe.save('v40_db', App.data);
+        App.ui.renderEmp(document.querySelector('.main-scroll'));
         App.ui.renderEmpInspector(empId);
     },
 
@@ -311,6 +326,7 @@ Object.assign(App.logic, {
         if(i < 0) return;
         App.data.empleados[i].ajustes = (App.data.empleados[i].ajustes || []).filter(a => a.id !== ajusteId);
         Safe.save('v40_db', App.data);
+        App.ui.renderEmp(document.querySelector('.main-scroll'));
         App.ui.renderEmpInspector(empId);
     },
 

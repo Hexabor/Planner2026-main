@@ -81,7 +81,10 @@ const App = {
         maxHistory: 20, // Máximo de snapshots a mantener
         isRestoringHistory: false, // Bloquea snapshots durante undo/redo
         // IMPORTACIÓN
-        importState: { step: 'paste' }
+        importState: { step: 'paste' },
+        // MODOS DE VISUALIZACIÓN DEL GRID
+        gridMonocromo: false,  // barras todas del mismo color
+        gridDividido:  false   // separar trabajadores / no trabajadores
     },
 
     init: function() {
@@ -95,6 +98,19 @@ const App = {
         if(!App.data.config.valleStart) App.data.config.valleStart = '14:00';
         if(!App.data.config.valleEnd)   App.data.config.valleEnd   = '17:00';
         if(App.data.config.valleBolsa === undefined) App.data.config.valleBolsa = 0;
+        if(!App.data.config.backups) App.data.config.backups = {
+            autoIntervalMin: 30,
+            preventivo: {
+                reset: true, replica: true, borrarEmpleado: true,
+                importarRota: true, vaciarPlanner: true, cargarDrive: true
+            }
+        };
+        if(App.data.config.backups.autoIntervalMin === undefined) App.data.config.backups.autoIntervalMin = 30;
+        if(!App.data.config.backups.preventivo) App.data.config.backups.preventivo = {
+            reset: true, replica: true, borrarEmpleado: true,
+            importarRota: true, vaciarPlanner: true, cargarDrive: true
+        };
+        if(!App.data.config.gridMonoColor) App.data.config.gridMonoColor = '#1e3a5f';
         
         // Ensure fixedShifts always exist (these are NOT saved in backup, always from code)
         App.data.fixedShifts = [

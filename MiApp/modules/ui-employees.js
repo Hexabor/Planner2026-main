@@ -70,6 +70,20 @@ Object.assign(App.ui, {
             return pendientes;
         },
 
+        // Helper: Rs en el schedule no asignadas a ningún festivo
+        _calcRsDisponibles: function(emp) {
+            if(!emp) return 0;
+            const tracking = emp.festivoTracking || {};
+            const assignedRDates = new Set(Object.values(tracking).map(t => t.rDate).filter(Boolean));
+            let libres = 0;
+            Object.keys(App.data.schedule || {}).forEach(iso => {
+                const sid = App.data.schedule[iso]?.[emp.id];
+                const sh = sid ? Utils.getShift(sid) : null;
+                if(sh && sh.fixed && sh.code === 'R' && !assignedRDates.has(iso)) libres++;
+            });
+            return libres;
+        },
+
         renderEmp: function(c) {
             const isPrefs = App.uiState.empViewMode === 'prefs';
             const _svgTable = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>`;
@@ -97,11 +111,12 @@ Object.assign(App.ui, {
             else {
                 const getSortHeader = (key, label, width) => {
                     let arrow = ''; if(App.uiState.sortKey === key) arrow = App.uiState.sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc';
-                    return `<th class="${arrow}" style="width:${width}" onclick="App.logic.sortEmp('${key}')">${label}</th>`;
+                    const align = key === 'nombre' ? 'left' : 'center';
+                    return `<th class="${arrow}" style="width:${width}; text-align:${align};" onclick="App.logic.sortEmp('${key}')">${label}</th>`;
                 };
-                html+=`<table class="data-table" style="table-layout:fixed; width:100%;"><thead><tr><th style="width:30px" onclick="App.logic.sortEmp('custom')">☰</th>`;
-                html+= getSortHeader('nombre', 'Nombre', '80px');
-                if(!isPrefs) { html+= getSortHeader('rol', 'Puesto', '80px') + getSortHeader('tag', 'Tag', '80px') + getSortHeader('contrato', 'Horas', '80px') + `<th style="width:80px; text-align:center; white-space:nowrap;" title="Desvío acumulado en semanas cerradas">Desvío 🔒</th><th style="width:80px; text-align:center; white-space:nowrap;" title="Festivos pendientes en semanas cerradas">Festivos 🔒</th>`; } 
+                html+=`<table class="data-table" style="table-layout:auto; width:100%;"><thead><tr><th style="width:30px" onclick="App.logic.sortEmp('custom')">☰</th>`;
+                html+= getSortHeader('nombre', 'Nombre', '200px');
+                if(!isPrefs) { html+= getSortHeader('rol', 'Puesto', '') + getSortHeader('tag', 'Tag', '') + getSortHeader('contrato', 'Horas', '') + `<th style="text-align:center; white-space:nowrap;">Desvío 🔒<span style="cursor:help;font-size:9px;vertical-align:super;margin-left:2px;" onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById('desvio-info-tip');t.style.left=r.left+'px';t.style.top=(r.bottom+4)+'px';t.style.display='block';" onmouseleave="document.getElementById('desvio-info-tip').style.display='none';">ℹ️</span></th><th style="text-align:center; white-space:nowrap;">Festivos 🔒<span style="cursor:help;font-size:9px;vertical-align:super;margin-left:2px;" onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById('festivos-info-tip');t.style.left=r.left+'px';t.style.top=(r.bottom+4)+'px';t.style.display='block';" onmouseleave="document.getElementById('festivos-info-tip').style.display='none';">ℹ️</span></th>`; } 
                 else { html+=`<th>Domingos</th><th>Libranza 1</th><th>Libranza 2</th><th>Turno</th><th>Partidos</th>`; }
                 html+=`</tr></thead><tbody>`;
                 const showInactive = App.uiState.showInactive || false;
@@ -134,7 +149,31 @@ Object.assign(App.ui, {
                         const dSign = desvioAcum > 0 ? '+' : '';
                         const festivosPend = App.ui._calcFestivosPend(e);
                         const fColor = festivosPend > 0 ? '#ef4444' : '#10b981';
-                        html+=`<td style="text-align:center;"><span class="badge badge-role">${rolHoy}</span></td><td style="text-align:center;"><span class="badge badge-tag">T${tag}</span></td><td style="text-align:center;"><div class="contract-chart" style="background:${bg}; display:inline-block;"></div>${contratoActual}h${tieneHistorial?'<sup style="font-size:0.55rem;color:#94a3b8;margin-left:2px;">📋</sup>':''}</td><td style="text-align:center; font-family:monospace; font-weight:700; color:${dColor};">${dSign}${desvioAcum}h</td><td style="text-align:center; font-weight:700; color:${fColor};">${festivosPend > 0 ? festivosPend + ' ⚠' : '✓'}</td>`;
+                        const rsDisp = festivosPend > 0 ? App.ui._calcRsDisponibles(e) : 0;
+                        // Compensados pero sin pedir en Factorial:
+                        // solo festivos reales del calendario que tengan rDate válida pero no factorialDate
+                        const tracking = e.festivoTracking || {};
+                        const allRsInSchedule = new Set(Object.keys(App.data.schedule || {}).filter(iso => {
+                            const sid = App.data.schedule[iso]?.[e.id];
+                            const sh = sid ? Utils.getShift(sid) : null;
+                            return sh && sh.fixed && sh.code === 'R';
+                        }));
+                        const holidayDates = new Set((App.data.storeConfig.holidays || []).map(h => h.date));
+                        const sinFactorial = Object.entries(tracking).filter(([hDate, t]) => {
+                            if(!holidayDates.has(hDate)) return false;
+                            if(!t.rDate || !allRsInSchedule.has(t.rDate) || t.factorialDate) return false;
+                            // Solo festivos realmente trabajados (turno con horas), no "coincide"
+                            const sid = App.data.schedule[hDate]?.[e.id];
+                            const sh = sid ? Utils.getShift(sid) : null;
+                            return sh && sh.start && sh.end;
+                        }).length;
+                        const dots = sinFactorial > 0 ? ' ' + Array.from({length: sinFactorial}).map(() =>
+                            `<span title="Compensado pero sin pedir en Factorial" style="color:#ef4444; font-size:0.6rem; cursor:help;">●</span>`
+                        ).join('') : '';
+                        const festivosCell = festivosPend > 0
+                            ? `${festivosPend} ⚠${rsDisp > 0 ? ` <span title="Hay ${rsDisp} recuperación${rsDisp>1?'es':''} disponible${rsDisp>1?'s':''} sin asignar" style="color:#f59e0b; font-size:0.7rem; cursor:help;">↩</span>` : ''}${dots}`
+                            : `✓${dots}`;
+                        html+=`<td style="text-align:center;"><span class="badge badge-role">${rolHoy}</span></td><td style="text-align:center;"><span class="badge badge-tag">T${tag}</span></td><td style="text-align:center;"><div class="contract-chart" style="background:${bg}; display:inline-block;"></div>${contratoActual}h${tieneHistorial?'<sup style="font-size:0.55rem;color:#94a3b8;margin-left:2px;">📋</sup>':''}</td><td style="text-align:center; font-family:monospace; font-weight:700; color:${dColor};">${dSign}${desvioAcum}h</td><td style="text-align:center; font-weight:700; color:${fColor};">${festivosCell}</td>`;
                     } else { html+=`<td>${App.ui.getPrefSelect(e.id, 'sunday', e.prefs?.sunday, {'indif':'Indif.','like':'Sí','hate':'No'})}</td><td>${App.ui.getPrefSelect(e.id, 'off1', e.prefs?.off1, {'any':'Indif.','L':'Lun','M':'Mar','X':'Mié','J':'Jue','V':'Vie','S':'Sáb'})}</td><td>${App.ui.getPrefSelect(e.id, 'off2', e.prefs?.off2, {'any':'Indif.','L':'Lun','M':'Mar','X':'Mié','J':'Jue','V':'Vie','S':'Sáb'})}</td><td>${App.ui.getPrefShiftSelect(e.id, e.prefs?.shift)}</td><td>${App.ui.getPrefSelect(e.id, 'split', e.prefs?.split, {'ok':'OK','no':'No','help':'Ayuda'})}</td>`; }
                     html+=`</tr>`;
                 });
@@ -146,7 +185,7 @@ Object.assign(App.ui, {
                     </div>`;
                 }
             }
-            c.innerHTML=html;
+            c.innerHTML = `<div style="max-width:900px; margin:0 auto; padding:20px;">${html}</div>`;
         },
         getPrefSelect: function(empId, field, val, options) {
             let optsHtml = ''; 
@@ -210,7 +249,7 @@ Object.assign(App.ui, {
         content = `
             <div style="margin-bottom:15px;">
                 <label style="display:block; font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; margin-bottom:5px;">Nombre del Empleado</label>
-                <input id="ie-nom" type="text" value="${e.nombre || ''}" oninput="App.ui.markDirty()" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:6px; font-size:14px; font-weight:600;">
+                <input id="ie-nom" type="text" value="${e.nombre || ''}" onblur="App.logic.empSave('${id||''}')" style="width:100%; padding:10px; border:1px solid #e2e8f0; border-radius:6px; font-size:14px; font-weight:600;">
             </div>
             
             <div style="display:grid; grid-template-columns: 1fr 100px; gap:12px; margin-bottom:20px;">
@@ -228,7 +267,7 @@ Object.assign(App.ui, {
             <div style="background:#fff; border:1px solid #2563eb; border-radius:10px; padding:12px; margin-bottom:20px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <span style="font-weight:800; font-size:11px; color:#2563eb; text-transform:uppercase;">📜 Historial Contratos</span>
-                    <button type="button" onclick="App.logic.addContrato('${id||''}'); App.ui.renderEmpInspector('${id||''}'); App.ui.markDirty();" style="background:#2563eb; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:10px; font-weight:800; cursor:pointer;">+ AÑADIR</button>
+                    <button type="button" onclick="App.logic.addContrato('${id||''}'); App.ui.renderEmpInspector('${id||''}');" style="background:#2563eb; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:10px; font-weight:800; cursor:pointer;">+ AÑADIR</button>
                 </div>
                 <div id="contratos-container">
                     ${(function(){
@@ -239,19 +278,19 @@ Object.assign(App.ui, {
                         return `
                         <div style="background:#f8fafc; padding:6px 8px; border-radius:6px; border:1px solid #e2e8f0; margin-bottom:6px;">
                             <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:6px; align-items:start; margin-bottom:5px;">
-                                <div>${Utils.getDateInputHTML('contrato-desde-' + i, t.desde, 'App.logic.updateContrato(\'' + id + '\', ' + i + ', \'desde\', this.dataset.isoValue); App.ui.markDirty();')}</div>
-                                <div>${Utils.getDateInputHTML('contrato-hasta-' + i, t.hasta || '', 'App.logic.updateContrato(\'' + id + '\', ' + i + ', \'hasta\', this.dataset.isoValue); App.ui.markDirty();')}</div>
-                                <button type="button" onclick="App.logic.removeContrato('${id}', ${i}); App.ui.markDirty();" style="border:none; background:none; color:#ef4444; font-size:16px; cursor:pointer; line-height:1; padding:4px 2px; margin-top:1px;" title="Eliminar tramo">&times;</button>
+                                <div>${Utils.getDateInputHTML('contrato-desde-' + i, t.desde, 'App.logic.updateContrato(\'' + id + '\', ' + i + ', \'desde\', this.dataset.isoValue);')}</div>
+                                <div>${Utils.getDateInputHTML('contrato-hasta-' + i, t.hasta || '', 'App.logic.updateContrato(\'' + id + '\', ' + i + ', \'hasta\', this.dataset.isoValue);')}</div>
+                                <button type="button" onclick="App.logic.removeContrato('${id}', ${i});" style="border:none; background:none; color:#ef4444; font-size:16px; cursor:pointer; line-height:1; padding:4px 2px; margin-top:1px;" title="Eliminar tramo">&times;</button>
                             </div>
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-                                <select onchange="App.logic.updateContrato('${id}', ${i}, 'rol', this.value); App.ui.markDirty();" style="width:100%; font-size:11px; font-weight:700; color:#334155; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; background:white;">
+                                <select onchange="App.logic.updateContrato('${id}', ${i}, 'rol', this.value);" style="width:100%; font-size:11px; font-weight:700; color:#334155; border:1px solid #cbd5e1; border-radius:4px; padding:4px 6px; background:white;">
                                     <option value="MNG" ${tRol==='MNG'?'selected':''}>Manager</option>
                                     <option value="AM" ${tRol==='AM'?'selected':''}>Asst. Manager</option>
                                     <option value="SPV" ${tRol==='SPV'?'selected':''}>Supervisor</option>
                                     <option value="STF" ${tRol==='STF'?'selected':''}>Staff</option>
                                 </select>
                                 <div style="display:flex; align-items:center; gap:4px;">
-                                    <input type="number" step="0.01" value="${toDec(t.horas)}" onchange="App.logic.updateContrato('${id}', ${i}, 'horas', this.value); App.ui.markDirty();" style="width:100%; text-align:right; font-weight:800; font-size:12px; color:#2563eb; border:1px solid #2563eb; border-radius:4px; padding:4px 6px;">
+                                    <input type="number" step="0.01" value="${toDec(t.horas)}" onchange="App.logic.updateContrato('${id}', ${i}, 'horas', this.value);" style="width:100%; text-align:right; font-weight:800; font-size:12px; color:#2563eb; border:1px solid #2563eb; border-radius:4px; padding:4px 6px;">
                                     <span style="font-size:10px; color:#94a3b8; white-space:nowrap;">h/sem</span>
                                 </div>
                             </div>
@@ -270,17 +309,17 @@ Object.assign(App.ui, {
                 <div style="padding:12px; display:flex; flex-direction:column; gap:10px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <label style="font-size:11px; font-weight:700; color:#64748b; white-space:nowrap;">Saldo horas arrastre</label>
-                        <input type="number" step="0.1" id="ie-saldo" value="${e.saldoInicial || 0}" onchange="App.ui.markDirty();"
+                        <input type="number" step="0.1" id="ie-saldo" value="${e.saldoInicial || 0}" onchange="App.logic.empSave('${id||''}')"
                                style="width:90px; text-align:right; font-weight:700; font-size:12px; color:#f59e0b; border:1px solid #fde68a; border-radius:4px; padding:4px 6px; background:#fefce8;">
                     </div>
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <label style="font-size:11px; font-weight:700; color:#64748b; white-space:nowrap;">Recuperaciones pendientes</label>
-                        <input type="number" step="1" min="0" id="ie-rec" value="${e.recPendientes || 0}" onchange="App.ui.markDirty();"
+                        <input type="number" step="1" min="0" id="ie-rec" value="${e.recPendientes || 0}" onchange="App.logic.empSave('${id||''}')"
                                style="width:90px; text-align:right; font-weight:700; font-size:12px; color:#6366f1; border:1px solid #c7d2fe; border-radius:4px; padding:4px 6px; background:#eef2ff;">
                     </div>
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <label style="font-size:11px; font-weight:700; color:#64748b; white-space:nowrap;">Vacaciones pendientes</label>
-                        <input type="number" step="1" min="0" id="ie-vac" value="${e.vacPendientes || 0}" onchange="App.ui.markDirty();"
+                        <input type="number" step="1" min="0" id="ie-vac" value="${e.vacPendientes || 0}" onchange="App.logic.empSave('${id||''}')"
                                style="width:90px; text-align:right; font-weight:700; font-size:12px; color:#10b981; border:1px solid #a7f3d0; border-radius:4px; padding:4px 6px; background:#ecfdf5;">
                     </div>
                     <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Valores heredados de periodos anteriores al inicio del sistema.</div>
@@ -289,15 +328,12 @@ Object.assign(App.ui, {
             
             <div style="background:#fefce8; border:1px solid #fef08a; padding:12px; border-radius:10px; margin-bottom:15px; display:flex; gap:10px; align-items:center;">
                 <label style="flex:1; cursor:pointer; display:flex; align-items:center; gap:10px; background:white; padding:10px; border-radius:8px; border:2px solid ${isActive?'#10b981':'#cbd5e1'};">
-                    <input type="checkbox" id="ie-active" ${isActive?'checked':''} onchange="App.ui.markDirty();" style="width:18px; height:18px; cursor:pointer;">
+                    <input type="checkbox" id="ie-active" ${isActive?'checked':''} onchange="App.logic.empSave('${id||''}')" style="width:18px; height:18px; cursor:pointer;">
                     <span style="font-size:11px; font-weight:800; color:${isActive?'#059669':'#64748b'}; text-transform:uppercase;">${isActive?'HABILITADO':'DESHABILITADO'}</span>
                 </label>
                 <button type="button" onclick="App.logic.empClearOutsideVigencia('${id}')" style="padding:10px; background:#fff; border:2px solid #ef4444; border-radius:8px; cursor:pointer; color:#ef4444; font-weight:800; font-size:10px; flex:1;">🧹 LIMPIAR TURNOS</button>
             </div>
             
-            <button type="button" id="btn-save-emp" onclick="App.logic.empSave('${id||''}')" style="width:100%; background:#2563eb; color:white; border:none; padding:14px; border-radius:8px; font-weight:800; cursor:pointer; margin-top:10px;">
-                <span id="save-text">💾 GUARDAR CAMBIOS</span>
-            </button>
             ${id ? `
             <details style="margin-top:8px; border:1px solid #fecaca; border-radius:8px; overflow:hidden;">
                 <summary style="padding:8px 12px; cursor:pointer; font-size:11px; font-weight:800; color:#ef4444; text-transform:uppercase; background:#fff5f5; list-style:none; display:flex; justify-content:space-between; align-items:center; user-select:none;">
@@ -406,7 +442,10 @@ markDirty: function() {
             let html = `<div style="padding:10px 12px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; margin-bottom:10px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:${ajusteTotal !== 0 ? '8px' : '0'};">
                     <div>
-                        <div style="font-size:0.65rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:2px;">🔒 Semanas cerradas</div>
+                        <div style="font-size:0.65rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:2px;">
+                            🔒 Semanas cerradas
+                            <span class="diff-tooltip-wrap" style="cursor:help; font-size:10px; vertical-align:middle; margin-left:3px;">ℹ️<div class="diff-tooltip" style="min-width:220px; white-space:normal; line-height:1.6; font-weight:400; text-transform:none;"><strong>¿Qué son las semanas cerradas?</strong><br>El desvío se calcula solo sobre semanas cerradas (🔒). Una semana se cierra con el switch del planificador.<br><br>Las semanas abiertas no cuentan aún en el acumulado.</div></span>
+                        </div>
                         <div style="font-size:0.72rem; color:var(--text-main); font-family:monospace;">${rangeLabel} · ${weeks.length} sem.</div>
                     </div>
                     <div style="font-size:1.2rem; font-weight:800; color:${totalColor};">${sg(totalFinal)}</div>
@@ -599,8 +638,6 @@ markDirty: function() {
         </details>`;
     }
 
-    html += `<button type="button" onclick="App.logic.empSave('${emp.id}')" style="width:100%; background:#2563eb; color:white; border:none; padding:14px; border-radius:8px; font-weight:800; cursor:pointer; margin-top:14px;">💾 GUARDAR CAMBIOS</button>`;
-
     return html;
 },
 
@@ -651,6 +688,7 @@ renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span style="font-size:0.65rem; color:var(--text-muted); width:50px;">Fact.:</span>
                     <div style="flex:1;">${Utils.getDateInputHTML(`fact-${h.date}`, tr.factorialDate || '', `App.logic.festivoTrackUpd('${emp.id}','${h.date}','factorialDate',this.dataset.isoValue)`)}</div>
+                    ${tr.factorialDate ? `<button onclick="App.logic.festivoTrackUpd('${emp.id}','${h.date}','factorialDate',null)" title="Borrar fecha Factorial" style="border:none; background:none; color:#94a3b8; cursor:pointer; font-size:14px; line-height:1; padding:2px; flex-shrink:0;">✕</button>` : ''}
                 </div>` : ''}
             </div>
         ` : ''}

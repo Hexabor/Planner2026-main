@@ -310,11 +310,12 @@ App.drive = {
     // ── Auto-guardado ─────────────────────────────────────────────────────
     _startAutoSave: function() {
         if (this._autoTimer) clearInterval(this._autoTimer);
+        const mins = parseFloat(App.data.config?.backups?.autoIntervalMin) || 30;
         this._autoTimer = setInterval(() => {
             if (this._pendingSync && this.isConnected()) {
                 this.save('Auto');
             }
-        }, this.AUTO_SAVE_MS);
+        }, mins * 60 * 1000);
     },
 
     // Llamar esto cada vez que se modifiquen datos (hook desde Safe.save)
@@ -323,6 +324,24 @@ App.drive = {
         const now = new Date().toISOString();
         this._saveConfig({ lastLocal: now });
         this._updateStatus('pending');
+    },
+
+    // ── Backup preventivo ─────────────────────────────────────────────────
+    savePreventivo: function(etiqueta) {
+        if (!this.isConnected()) return;
+        Safe.flush('v40_db');
+        const storeName = (App.data.storeConfig?.nombre?.trim() || 'Tienda')
+            .replace(/[^a-zA-Z0-9À-ɏ\s_-]/g, '').replace(/\s+/g, '_');
+        const ts = App.io.getTimestamp();
+        const type = 'PRE-' + etiqueta.toUpperCase();
+        const filename = `Backup_${type}_${storeName}_${ts}.json`;
+        const content = JSON.stringify(App.data, null, 2);
+        this._getOrCreateFolder((folderId) => {
+            this._uploadFile(filename, content, folderId,
+                () => { this._showToast(`🛡 Backup preventivo guardado en Drive`); },
+                () => { console.warn('[Drive] Error en backup preventivo:', etiqueta); }
+            );
+        });
     },
 
     // ── Upload multipart ──────────────────────────────────────────────────
@@ -485,6 +504,7 @@ App.drive = {
     // ── Confirmar y cargar backup ─────────────────────────────────────────
     confirmLoadBackup: function(fileId, fileName) {
         if (!confirm(`¿Cargar el backup "${fileName}"?\n\nSe reemplazarán los datos actuales. Esta acción se puede deshacer con Ctrl+Z.`)) return;
+        if (App.data.config?.backups?.preventivo?.cargarDrive !== false) App.drive.savePreventivo('CARGA');
         this._updateStatus('saving');
         this.loadFile(fileId,
             (data) => {

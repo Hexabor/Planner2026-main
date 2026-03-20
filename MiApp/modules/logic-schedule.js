@@ -157,7 +157,14 @@ Object.assign(App.logic, {
             const sid = App.uiState.paintShiftId; 
             const date = App.uiState.currentDate;
             
-            if(sid === null) return; 
+            if(sid === null) return;
+
+            // Semana cerrada — no permitir edición
+            if(App.logic.isDayLocked(date)) {
+                alert('🔒 Esta semana está cerrada.\n\nPara editar los turnos, ábrela primero con el switch del planificador.');
+                return;
+            }
+
             if(!App.data.schedule[date]) App.data.schedule[date] = {};
             
             const req = Utils.getRequest(empId, date);
@@ -306,6 +313,12 @@ Object.assign(App.logic, {
         
         // EDICIÓN INLINE DE HORARIOS
         editSchedule: function(empId, date) {
+            // Semana cerrada — no permitir edición
+            if(App.logic.isDayLocked(date)) {
+                alert('🔒 Esta semana está cerrada.\n\nPara editar los turnos, ábrela primero con el switch del planificador.');
+                return;
+            }
+
             const shiftData = App.data.schedule[date] ? App.data.schedule[date][empId] : null;
             if(!shiftData) return;
             
@@ -1118,6 +1131,12 @@ Object.assign(App.logic, {
                 alert('⚠️ Solo puedes intercambiar turnos dentro del mismo día');
                 return;
             }
+
+            // Semana cerrada — no permitir edición
+            if(App.logic.isDayLocked(targetDate)) {
+                alert('🔒 Esta semana está cerrada.\n\nPara editar los turnos, ábrela primero con el switch del planificador.');
+                return;
+            }
             
             // Obtener turnos actuales
             const sourceShiftId = App.data.schedule[sourceDate] ? App.data.schedule[sourceDate][sourceEmpId] : null;
@@ -1412,6 +1431,9 @@ Object.assign(App.logic, {
             
             const totalDays = Object.keys(App.data.schedule).length;
             
+            // Backup preventivo
+            if (App.data.config?.backups?.preventivo?.vaciarPlanner !== false) App.drive.savePreventivo('VACIAR');
+
             // Borrar todo el schedule
             App.data.schedule = {};
             
@@ -1426,6 +1448,9 @@ Object.assign(App.logic, {
             if(!confirm("⚠️ RESTABLECIMIENTO DE FÁBRICA ⚠️\n\nEsto borrará ABSOLUTAMENTE TODO:\n- Empleados\n- Turnos\n- Configuración y Festivos\n- Solicitudes\n- Cuadrante de turnos\n\nLa app quedará como recién instalada. ¿Estás completamente seguro?")) return;
             
             if(!confirm("🛑 ÚLTIMA CONFIRMACIÓN\n\nSi no has exportado un backup, perderás todos los datos para siempre.\n\n¿Proceder con el borrado total?")) return;
+
+            // Backup preventivo (síncrono en lo posible — se lanza antes del borrado)
+            if (App.data.config?.backups?.preventivo?.reset !== false) App.drive.savePreventivo('RESET');
             
             // Limpiar el caché en memoria de Safe ANTES de borrar localStorage,
             // para que el listener de beforeunload no restaure los datos al hacer flush.
@@ -1889,6 +1914,9 @@ Object.assign(App.logic, {
                 if(input !== null) alert('Operación cancelada. Debes escribir REPLICAR exactamente.');
                 return;
             }
+
+            // Backup preventivo
+            if (App.data.config?.backups?.preventivo?.replica !== false) App.drive.savePreventivo('REPLICA');
 
             // Origen: turnos de la semana actual
             const originShifts = weekDays.map(d => (App.data.schedule[d] || {})[empId] || null);

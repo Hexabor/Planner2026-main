@@ -304,7 +304,10 @@ App.logic = {
                  + ' onclick="App.logic.toggleWeekLock(this.dataset.monday)"'
                  + ' title="' + title + '">'
                  + '<div class="week-lock-thumb"></div></button>'
-                 + '<span class="week-lock-label ' + lblCls + '">' + lblTxt + '</span>';
+                 + '<span class="week-lock-label ' + lblCls + '">' + lblTxt + '</span>'
+                 + '<span style="cursor:help;font-size:11px;color:#94a3b8;margin-left:3px;position:relative;" onclick="event.stopPropagation()"'
+                 + ' onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById(\'wk-info-tip\');t.style.left=r.left+\'px\';t.style.top=(r.bottom+4)+\'px\';t.style.display=\'block\';"'
+                 + ' onmouseleave="document.getElementById(\'wk-info-tip\').style.display=\'none\';">ℹ️</span>';
         },
 
         // ── BLOQUEO DE DÍAS ──────────────────────────────────────────────────

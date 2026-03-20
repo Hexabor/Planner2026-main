@@ -708,5 +708,25 @@ window.addEventListener('beforeunload', function(){ try { Safe.flush('v40_db'); 
     }
   };
 </script>
+<!-- Tooltip fijo para switch de semana (escapa overflow:hidden del wrapper) -->
+<div id="wk-info-tip" style="display:none; position:fixed; z-index:9999; background:#1e293b; color:#e2e8f0; padding:10px 14px; border-radius:8px; font-size:0.75rem; line-height:1.6; max-width:260px; box-shadow:0 4px 20px rgba(0,0,0,0.3); pointer-events:none;">
+    <strong>Semana cerrada</strong><br>
+    🔒 Los turnos quedan bloqueados y no se pueden modificar.<br>
+    📊 El desvío de esa semana queda fijo y cuenta en el acumulado.<br>
+    ✅ Cierra la semana cuando ya no vayas a hacer cambios en ella.
+</div>
+<!-- Tooltip fijo para columna Desvío en tabla de empleados -->
+<div id="desvio-info-tip" style="display:none; position:fixed; z-index:9999; background:#1e293b; color:#e2e8f0; padding:10px 14px; border-radius:8px; font-size:0.75rem; line-height:1.6; max-width:240px; box-shadow:0 4px 20px rgba(0,0,0,0.3); pointer-events:none;">
+    <strong>Desvío acumulado</strong><br>
+    Solo se calculan las semanas cerradas 🔒.<br>
+    Las semanas abiertas no cuentan aún en el acumulado.
+</div>
+<!-- Tooltip fijo para columna Festivos en tabla de empleados -->
+<div id="festivos-info-tip" style="display:none; position:fixed; z-index:9999; background:#1e293b; color:#e2e8f0; padding:10px 14px; border-radius:8px; font-size:0.75rem; line-height:1.7; max-width:270px; box-shadow:0 4px 20px rgba(0,0,0,0.3); pointer-events:none;">
+    <strong>Festivos pendientes</strong><br>
+    El número indica festivos trabajados o coincidentes sin fecha de recuperación asignada.<br><br>
+    <span style="color:#f59e0b;">↩</span> Hay recuperaciones disponibles en el planificador sin asignar a ningún festivo.<br><br>
+    <span style="color:#ef4444;">●</span> Festivo compensado (con R asignada) pero aún no pedido en Factorial.
+</div>
 </body>
 </html>
