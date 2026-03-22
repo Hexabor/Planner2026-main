@@ -37,7 +37,8 @@ Object.assign(App.ui, {
                     'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
                     'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
                     'cloud-upload': '<polyline points="16 16 12 12 8 16"/><line x1="12" x2="12" y1="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
-                    'cloud-off': '<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>'
+                    'cloud-off': '<path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/>',
+                    'settings': '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'
                 };
                 return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${paths[name]||''}</svg>`;
             };
@@ -264,43 +265,50 @@ Object.assign(App.ui, {
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    gap: 12px;
+                    gap: 14px;
                     width: 100%;
-                    aspect-ratio: 1;
-                    background: linear-gradient(145deg, #1e293b, #0f172a);
-                    border: 1px solid rgba(255,255,255,0.1);
-                    border-radius: 24px;
+                    padding: 24px 20px;
+                    background: transparent;
+                    border: none;
+                    border-radius: 16px;
                     cursor: pointer;
-                    color: white;
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+                    color: #1e293b;
+                    transition: all 0.18s ease;
                     position: relative;
-                    overflow: hidden;
-                }
-                .home-planner-btn::before {
-                    content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-                    background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.3), transparent 60%);
-                    opacity: 0; transition: opacity 0.3s;
+                    text-align: center;
                 }
                 .home-planner-btn:hover {
-                    box-shadow: 0 25px 50px rgba(37, 99, 235, 0.3);
-                    transform: translateY(-4px);
-                    border-color: rgba(59, 130, 246, 0.4);
+                    background: white;
+                    border: none;
+                    box-shadow: 0 8px 24px rgba(37,99,235,0.13);
+                    transform: translateY(-2px);
                 }
-                .home-planner-btn:hover::before { opacity: 1; }
-                
-                .home-planner-btn svg { stroke: white; position: relative; z-index: 1; }
+                .home-planner-btn:hover .home-planner-icon { background: #47556928; }
+                .home-planner-btn:hover .home-planner-arrow { color: #2563eb; opacity: 1; }
+                .home-planner-icon {
+                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 240px;
+                    height: 240px;
+                    background: #47556918;
+                    border-radius: 32px;
+                    color: #334155;
+                    transition: background 0.18s;
+                }
                 .home-planner-label {
-                    font-size: 1.1rem;
+                    font-size: 1.15rem;
                     font-weight: 700;
-                    letter-spacing: 0.05em;
-                    position: relative; z-index: 1;
+                    color: #0f172a;
+                    letter-spacing: 0.01em;
+                    line-height: 1.2;
+                    margin-bottom: 4px;
                 }
                 .home-planner-sub {
-                    font-size: 0.75rem;
-                    color: #94a3b8;
+                    font-size: 0.78rem;
+                    color: #64748b;
                     font-weight: 500;
-                    position: relative; z-index: 1;
                 }
 
                 /* Alertas Estilo Toast */
@@ -353,11 +361,14 @@ Object.assign(App.ui, {
 
                 <div class="home-col-mid">
                     <button class="home-planner-btn" onclick="App.router.go('planificador')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>
-                        <div>
-                            <div class="home-planner-label">PLANIFICADOR</div>
-                            <div class="home-planner-sub">Abrir cuadrante</div>
+                        <div class="home-planner-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="172" height="172" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/></svg>
                         </div>
+                        <div>
+                            <div class="home-planner-label">Planificador</div>
+                            <div class="home-planner-sub">Abrir cuadrante semanal</div>
+                        </div>
+
                     </button>
                 </div>
 
@@ -369,13 +380,21 @@ Object.assign(App.ui, {
                     )}
                     ${group('Datos',
                         tile('export', 'upload', 'Exportar', 'Excel y Calendar', false, '#059669', 'right') +
-                        tile('config', 'download', 'Backup local', 'Respaldo de emergencia', false, '#94a3b8', 'right'),
+                        tile('import', 'download', 'Importar', 'Desde el eficiente', false, '#94a3b8', 'right'),
                         'right'
                     )}
                 </div>
 
                 <div class="home-drive-row" style="grid-column:1/-1;">
-                    ${drivePanel}
+                    <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+                        <div style="flex:1;max-width:620px;">${drivePanel}</div>
+                        <button onclick="App.router.go('config')" title="Configuración"
+                            style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1px solid #e2e8f0;background:white;color:#64748b;cursor:pointer;transition:all 0.15s;"
+                            onmouseenter="this.style.background='#f1f5f9';this.style.color='#2563eb';this.style.borderColor='#2563eb';"
+                            onmouseleave="this.style.background='white';this.style.color='#64748b';this.style.borderColor='#e2e8f0';">
+                            ${icon('settings', 18, 1.75)}
+                        </button>
+                    </div>
                 </div>
 
                 <div class="home-alerts-row">

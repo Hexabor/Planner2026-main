@@ -1204,7 +1204,7 @@ Object.assign(App.ui, {
             const showForm = App.uiState.eventoFormOpen || false;
 
             const formHtml = (showForm || editEv) ? `
-            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:16px;max-width:640px;">
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:16px;">
                 <h4 style="margin:0 0 14px;font-size:0.88rem;font-weight:700;color:#1e293b;">${editEv ? '✏️ Editar evento' : '➕ Nuevo evento'}</h4>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
                     <div>
@@ -1252,7 +1252,7 @@ Object.assign(App.ui, {
 
             const listaHtml = eventos.length === 0
                 ? `<div style="padding:32px;text-align:center;color:#94a3b8;font-size:0.85rem;">Sin eventos registrados. Pulsa "+ Nuevo evento" para añadir uno.</div>`
-                : `<table style="width:100%;border-collapse:collapse;max-width:800px;">
+                : `<table style="width:100%;border-collapse:collapse;">
                     <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
                         <th style="padding:8px 12px;text-align:left;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;">Empleado</th>
                         <th style="padding:8px 12px;text-align:left;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;">Tipo</th>
@@ -1278,13 +1278,15 @@ Object.assign(App.ui, {
 
             c.style.cssText = 'padding:16px;overflow-y:auto;box-sizing:border-box;';
             c.innerHTML = sectionBar + `
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;max-width:800px;">
-                    <h3 style="margin:0;font-size:1rem;font-weight:700;color:#1e293b;">📅 Eventos extra</h3>
-                    <button onclick="App.uiState.eventoFormOpen=true; App.uiState.eventoEditId=null; App.ui.renderRequests(document.querySelector('.main-scroll'));"
-                        style="padding:7px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;font-size:0.82rem;cursor:pointer;">+ Nuevo evento</button>
-                </div>
-                ${formHtml}
-                ${listaHtml}`;
+                <div style="max-width:800px;margin:0 auto;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                        <h3 style="margin:0;font-size:1rem;font-weight:700;color:#1e293b;">📅 Eventos extra</h3>
+                        <button onclick="App.uiState.eventoFormOpen=true; App.uiState.eventoEditId=null; App.ui.renderRequests(document.querySelector('.main-scroll'));"
+                            style="padding:7px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;font-size:0.82rem;cursor:pointer;">+ Nuevo evento</button>
+                    </div>
+                    ${formHtml}
+                    ${listaHtml}
+                </div>`;
         }
 
 });

@@ -650,7 +650,7 @@ App.drive = {
         const get = (id) => { const el = document.getElementById(id); return el ? el.checked : true; };
         if (get('cb-drv-team'))     exportData.empleados = App.data.empleados;
         if (get('cb-drv-shifts'))   { exportData.shiftDefs = App.data.shiftDefs; exportData.fixedShifts = App.data.fixedShifts; }
-        if (get('cb-drv-schedule')) { exportData.schedule = App.data.schedule; exportData.requests = App.data.requests; exportData.recurringRequests = App.data.recurringRequests || []; exportData.lockedDays = App.data.lockedDays || {}; }
+        if (get('cb-drv-schedule')) { exportData.schedule = App.data.schedule; exportData.requests = App.data.requests; exportData.recurringRequests = App.data.recurringRequests || []; exportData.lockedDays = App.data.lockedDays || {}; exportData.eventos = App.data.eventos || []; }
         exportData.storeConfig = {};
         if (get('cb-drv-config'))   { exportData.storeConfig.nombre = App.data.storeConfig.nombre || ''; exportData.storeConfig.base = App.data.storeConfig.base; exportData.config = App.data.config; }
         if (get('cb-drv-holidays')) exportData.storeConfig.holidays = App.data.storeConfig.holidays;

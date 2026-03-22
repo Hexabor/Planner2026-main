@@ -666,27 +666,9 @@ Object.assign(App.ui, {
                         const color = acum > 0.5 ? '#f59e0b' : acum < -0.5 ? '#3b82f6' : '#10b981';
                         const label = acum > 0.5 ? 'horas de más' : acum < -0.5 ? 'horas de menos' : 'sin desvío';
                         const recPend = emp.recPendientes || 0;
-                        const vacPend = emp.vacPendientes || 0;                        // Auto-calculado del módulo de festivos (curso actual)
-                        const todayY = new Date().getFullYear();
-                        const cursoY = new Date().getMonth() >= 2 ? todayY : todayY - 1;
-                        const fRangeStart = `${cursoY}-03-01`;
-                        const fRangeEnd   = `${cursoY+1}-02-${new Date(cursoY+1,2,0).getDate()}`;
-                        let autoRec = 0;
-                        (App.data.storeConfig.holidays||[]).filter(h=>h.date>=fRangeStart&&h.date<=fRangeEnd&&Utils.empleadoVigenteEnFecha(emp,h.date)).forEach(h=>{
-                            const sid2 = App.data.schedule[h.date]?.[emp.id];
-                            const sh2  = sid2 ? Utils.getShift(sid2) : null;
-                            let estado2 = 'sin_definir';
-                            if(sh2) {
-                                if(sh2.fixed && sh2.code==='F') {
-                                    const wdays2 = Utils.getWeekDays(Utils.getMonday(h.date));
-                                    let cL2=0; wdays2.forEach(d2=>{const s3=App.data.schedule[d2]?.[emp.id];const sh3=s3?Utils.getShift(s3):null;if(sh3&&sh3.fixed&&sh3.code==='L')cL2++;});
-                                    estado2 = cL2>=2?'disfrutado':'coincide';
-                                } else if(sh2.start&&sh2.end) estado2='trabaja';
-                            }
-                            if(estado2==='coincide'||estado2==='trabaja') {
-                                if(!(emp.festivoTracking||{})[h.date]?.rDate) autoRec++;
-                            }
-                        });
+                        const vacPend = emp.vacPendientes || 0;
+                        // Festivos pendientes: solo semanas cerradas, igual que rejilla de empleados
+                        const autoRec = App.ui._calcFestivosPend(emp);
                         const pendHTML = (recPend > 0 || vacPend > 0 || autoRec > 0) ? `
                             <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:7px;padding-top:7px;">
                                 <div style="font-weight:700;color:#e2e8f0;margin-bottom:5px;font-size:10px;text-transform:uppercase;">Pendiente de dar</div>
