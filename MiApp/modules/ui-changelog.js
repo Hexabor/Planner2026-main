@@ -6,6 +6,19 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '22/03/2026', version: 'v1.0',
+                items: [
+                    '✨ Botón Configuración visible en home junto al panel Drive',
+                    '✨ Nav lateral reordenado — Home / Planificador / Plantilla·Peticiones·Turnos·Calendario / Análisis·Presentación·Importar·Exportar / Alertas / Configuración',
+                    '✨ Botón central Planificador rediseñado — icono slate grande, layout columna, fondo transparente hasta hover',
+                    '✨ Tile Importar restaurado en home con ruta correcta',
+                    '✨ Pestaña Eventos centrada y consistente con el resto de Peticiones',
+                    '🔧 Eventos viajan en backups modulares Drive y local (bloque schedule)',
+                    '🔧 Guarda anti-sobreescritura al cargar backup desde Drive — conserva eventos locales si el backup los trae vacíos',
+                    '🔧 Festivos pendientes en tooltip Balance Semanal ahora solo cuenta semanas cerradas (igual que rejilla de empleados)',
+                ]
+            },
+                        {
                 fecha: '20/03/2026 (noche)', version: 'v41.99',
                 items: [
                     '✨ Pantalla de Novedades — historial de versiones accesible desde el header',
