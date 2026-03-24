@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '24/03/2026', version: 'v1.0',
+                items: [
+                    '🔧 Módulo Valle — domingos excluidos del cómputo de horas semanal',
+                ]
+            },
+                        {
                 fecha: '22/03/2026', version: 'v1.0',
                 items: [
                     '✨ Botón Configuración visible en home junto al panel Drive',
