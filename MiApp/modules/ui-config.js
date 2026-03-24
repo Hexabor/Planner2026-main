@@ -110,7 +110,7 @@ Object.assign(App.ui, {
                                        style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; box-sizing:border-box;">
                             </div>
                         </div>
-                        <p style="margin:14px 0 0; font-size:0.78rem; color:#94a3b8;">Si la bolsa es 0, el módulo Valle no aparece en el planificador.</p>
+                        <p style="margin:14px 0 0; font-size:0.78rem; color:#94a3b8;">Si la bolsa es 0, el módulo Valle no aparece en el planificador. Los domingos no se contabilizan en el cómputo semanal.</p>
                     </div>
                     <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0; margin-top:16px;">
                         <h3 style="margin:0 0 6px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">🎨 Colores del header del grid</h3>

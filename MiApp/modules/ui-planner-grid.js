@@ -48,6 +48,7 @@ Object.assign(App.ui, {
             const vS = toMin(valleStart), vE = toMin(valleEnd);
             let valleConsumed = 0;
             weekDays.forEach(d => {
+                if(new Date(d).getDay() === 0) return; // Domingos excluidos del cómputo valle
                 Object.keys(App.data.schedule[d] || {}).forEach(empId => {
                     const shift = Utils.getShift(App.data.schedule[d][empId]);
                     if(shift && shift.start && shift.end && !shift.external) {
