@@ -32,14 +32,22 @@ Object.assign(App.logic, {
         },
         reqToggleType: function(t) {
             const ALL = ['VAC','LIB','HRL','AP','BAJ'];
-            let f = [...(App.uiState.reqTypeFilter || ALL)];
-            if (f.includes(t)) { f = f.filter(x => x !== t); if (f.length === 0) f = ALL; }
-            else f.push(t);
-            App.uiState.reqTypeFilter = f;
+            const cur = App.uiState.reqTypeFilter || ALL;
+            // Exclusive select: click type → show only that type; click again if already sole → reset to all
+            if(cur.length === 1 && cur[0] === t) {
+                App.uiState.reqTypeFilter = ALL;
+            } else {
+                App.uiState.reqTypeFilter = [t];
+            }
             App.ui._reqRefresh();
         },
         reqResetTypeFilter: function() {
             App.uiState.reqTypeFilter = ['VAC','LIB','HRL','AP','BAJ'];
+            App.ui._reqRefresh();
+        },
+        reqSetEmpFilter: function(empId) {
+            const cur = App.uiState.reqEmpFilter || 'todos';
+            App.uiState.reqEmpFilter = (cur === empId) ? 'todos' : empId;
             App.ui._reqRefresh();
         },
         reqSort: function(key) {
@@ -484,13 +492,13 @@ Object.assign(App.logic, {
                 App.data.eventos.push({ id: 'ev_' + Date.now(), empId, tipo: tipo||'otro', desc: desc||'', fechaInicio, fechaFin: fechaFin||fechaInicio, horaInicio, horaFin, creadoEn: new Date().toISOString() });
             }
             Safe.save('v40_db', App.data);
-            App.ui.renderRequests(document.querySelector('.main-scroll'));
+            App.ui._refreshEventos();
         },
 
         eventoDel: function(id) {
             if(!confirm('¿Borrar este evento?')) return;
             App.data.eventos = (App.data.eventos || []).filter(e => e.id !== id);
             Safe.save('v40_db', App.data);
-            App.ui.renderRequests(document.querySelector('.main-scroll'));
+            App.ui._refreshEventos();
         },
 });

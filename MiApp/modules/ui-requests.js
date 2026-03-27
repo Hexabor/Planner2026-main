@@ -280,16 +280,40 @@ Object.assign(App.ui, {
 
             const ALL_TYPES = ['VAC','LIB','HRL','AP','BAJ'];
             const activeFilter = App.uiState.reqTypeFilter || ALL_TYPES;
-            const allActive = ALL_TYPES.every(t => activeFilter.includes(t));
+            const allTypesActive = ALL_TYPES.every(t => activeFilter.includes(t));
+            const empFilter = App.uiState.reqEmpFilter || 'todos';
             const TYPE_META = App.ui._reqTypeMeta();
 
-            let filterBar = '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;">';
-            filterBar += '<button onclick="App.logic.reqResetTypeFilter()" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;border:1px solid ' + (allActive?'#2563eb':'#e2e8f0') + ';background:' + (allActive?'#eff6ff':'white') + ';color:' + (allActive?'#2563eb':'#94a3b8') + ';font-size:0.73rem;font-weight:600;cursor:pointer;">' + ico('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>', 12) + ' Todo</button>';
+            // Empleados con requests en la vista actual
+            const _showArch = App.uiState.reqShowArchived;
+            const _reqsVis = App.data.requests.filter(r => _showArch ? r.archived : !r.archived);
+            const _empIds = [...new Set(_reqsVis.map(r => r.empId))];
+            const _empsReqs = App.data.empleados.filter(e => _empIds.includes(e.id)).sort((a,b) => a.customOrder - b.customOrder);
+
+            const _ps = (on, color, bg, border) =>
+                'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;cursor:pointer;border:1px solid ' +
+                (on ? (border||color) : '#e2e8f0') + ';background:' + (on ? (bg||'#eff6ff') : 'white') + ';color:' + (on ? color : '#94a3b8') + ';';
+
+            let filterBar = '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">';
+            // Fila tipos
+            filterBar += '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">';
+            filterBar += '<button onclick="App.logic.reqResetTypeFilter()" style="' + _ps(allTypesActive,'#2563eb','#eff6ff','#93c5fd') + '">Todos</button>';
             ALL_TYPES.forEach(function(t) {
                 const m = TYPE_META[t];
-                const on = activeFilter.includes(t);
-                filterBar += '<button onclick="App.logic.reqToggleType(\'' + t + '\')" title="' + m.label + '" style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1px solid ' + (on?m.border:'#e2e8f0') + ';background:' + (on?m.bg:'white') + ';color:' + (on?m.color:'#94a3b8') + ';font-size:0.73rem;font-weight:600;cursor:pointer;opacity:' + (on?'1':'0.55') + ';">' + ico(m.ico, 12) + ' ' + t + '</button>';
+                const on = activeFilter.length === 1 && activeFilter[0] === t;
+                filterBar += '<button onclick="App.logic.reqToggleType(\'' + t + '\')" title="' + m.label + '" style="' + _ps(on, m.color, m.bg, m.border) + '">' + ico(m.ico, 12) + ' ' + m.label + '</button>';
             });
+            filterBar += '</div>';
+            // Fila empleados (solo si hay más de uno)
+            if(_empsReqs.length > 1) {
+                filterBar += '<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">';
+                filterBar += '<button onclick="App.uiState.reqEmpFilter=\'todos\'; App.ui._reqRefresh()" style="' + _ps(empFilter==='todos','#64748b','#f1f5f9','#cbd5e1') + '">Todos</button>';
+                _empsReqs.forEach(function(e) {
+                    const on = empFilter === e.id;
+                    filterBar += '<button onclick="App.logic.reqSetEmpFilter(\'' + e.id + '\')" style="' + _ps(on,'#475569','#f1f5f9','#94a3b8') + '">' + e.nombre.split(' ')[0] + '</button>';
+                });
+                filterBar += '</div>';
+            }
             filterBar += '</div>';
 
             return controlBar + filterBar;
@@ -329,6 +353,7 @@ Object.assign(App.ui, {
 
             if (section === 'eventos') {
                 this._renderEventos(c, sectionBar);
+                this.renderEventoInspector(null);
                 return;
             }
 
@@ -347,6 +372,8 @@ Object.assign(App.ui, {
             } else {
                 App.ui._reqShowList(mod);
             }
+            // Abrir inspector con nueva petición al entrar en la sección
+            App.ui.renderReqInspector(App.uiState.selectedReqId || null);
         },
 
         _reqShowList: function(mod) {
@@ -371,7 +398,8 @@ Object.assign(App.ui, {
                 status: (a,b) => a.status.localeCompare(b.status) * sd,
             };
             const list = App.data.requests.filter(r => showArchived ? r.archived : !r.archived);
-            const filtered = [...list].sort(sortFns[sk] || sortFns.start).filter(r => activeFilter.includes(r.type));
+            const _ef = App.uiState.reqEmpFilter || 'todos';
+            const filtered = [...list].sort(sortFns[sk] || sortFns.start).filter(r => activeFilter.includes(r.type) && (_ef === 'todos' || r.empId === _ef));
 
             if (filtered.length === 0) {
                 mod.innerHTML = `<div style="max-width:580px;margin:20px auto;text-align:center;padding:50px 20px;border:2px dashed #e2e8f0;border-radius:10px;color:#94a3b8;">
@@ -689,6 +717,51 @@ Object.assign(App.ui, {
                 
                 <button class="btn btn-primary" onclick="App.logic.reqSave('${id||''}')">💾 Guardar Solicitud</button>
                 ${id ? `<button class="btn btn-danger" onclick="App.logic.reqDel('${id}')">🗑️ Eliminar</button>` : ''}`;
+        },
+
+        renderEventoInspector: function(id) {
+            const ev = id ? (App.data.eventos||[]).find(e => e.id === id) : null;
+            const TIPO_LABEL = { curso:'Curso', mentoria:'Mentoría', visita:'Visita', otro:'Otro' };
+            const p = document.getElementById('inspector-content');
+            if(!p) return;
+            const empOpts = App.data.empleados.filter(e => e.active !== false)
+                .sort((a,b) => a.customOrder - b.customOrder)
+                .map(e => `<option value="${e.id}" ${ev?.empId===e.id?'selected':''}>${e.nombre}</option>`).join('');
+            p.innerHTML = `
+                <h3>${id ? '✏️ Editar Evento' : '➕ Nuevo Evento'}</h3>
+                <div class="form-group">
+                    <label>Empleado</label>
+                    <select id="ev-empId">${empOpts}</select>
+                </div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select id="ev-tipo">
+                        ${['curso','mentoria','visita','otro'].map(t=>`<option value="${t}" ${ev?.tipo===t?'selected':''}>${TIPO_LABEL[t]}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="date" id="ev-fechaInicio" value="${ev?.fechaInicio||''}" style="display:none;">
+                    ${Utils.getDateInputHTML('ev-fechaInicio-picker', ev?.fechaInicio||'', "document.getElementById('ev-fechaInicio').value=this.dataset.isoValue;")}
+                </div>
+                <div class="form-group">
+                    <label>Hora inicio</label>
+                    <select id="ev-horaInicio">${Utils.getTimeOptions(ev?.horaInicio||'09:00', false, 9)}</select>
+                </div>
+                <div class="form-group">
+                    <label>Hora fin</label>
+                    <select id="ev-horaFin">${Utils.getTimeOptions(ev?.horaFin||'10:00', false, 9)}</select>
+                </div>
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <input type="text" id="ev-desc" value="${ev?.desc||''}" placeholder="Ej: Curso de atención al cliente" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:6px;font-size:0.9rem;">
+                </div>
+                <button class="btn btn-primary" onclick="
+                    const _f = document.getElementById('ev-fechaInicio').value;
+                    App.logic.eventoSave({id:'${id||''}', empId:document.getElementById('ev-empId').value, tipo:document.getElementById('ev-tipo').value, desc:document.getElementById('ev-desc').value, fechaInicio:_f, fechaFin:_f, horaInicio:document.getElementById('ev-horaInicio').value, horaFin:document.getElementById('ev-horaFin').value});
+                ">💾 Guardar Evento</button>
+                ${id ? `<button class="btn btn-danger" onclick="App.logic.eventoDel('${id}')">🗑️ Eliminar</button>` : ''}
+            `;
         },
 
         // ============================================================
@@ -1190,65 +1263,52 @@ Object.assign(App.ui, {
         },
 
         _renderEventos: function(c, sectionBar) {
-            const eventos = (App.data.eventos || []).slice().sort((a,b) => a.fechaInicio.localeCompare(b.fechaInicio));
-            const empName = id => { const e = App.data.empleados.find(e => e.id === id); return e ? e.nombre : '—'; };
             const TIPO_LABEL = { curso:'Curso', mentoria:'Mentoría', visita:'Visita', otro:'Otro' };
             const TIPO_COLOR = { curso:'#2563eb', mentoria:'#7c3aed', visita:'#0891b2', otro:'#64748b' };
-            const empOpts = App.data.empleados.filter(e => e.active !== false)
-                .sort((a,b) => a.customOrder - b.customOrder)
-                .map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
+            const ALL_TIPOS = ['curso','mentoria','visita','otro'];
+            const tipoFilter = App.uiState.evTipoFilter || 'todos';
+            const evEmpFilter = App.uiState.evEmpFilter || 'todos';
 
-            // Estado del formulario inline
-            const editId = App.uiState.eventoEditId || null;
-            const editEv = editId ? (App.data.eventos||[]).find(e => e.id === editId) : null;
-            const showForm = App.uiState.eventoFormOpen || false;
+            const empName = id => { const e = App.data.empleados.find(e => e.id === id); return e ? e.nombre : '—'; };
 
-            const formHtml = (showForm || editEv) ? `
-            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:16px;">
-                <h4 style="margin:0 0 14px;font-size:0.88rem;font-weight:700;color:#1e293b;">${editEv ? '✏️ Editar evento' : '➕ Nuevo evento'}</h4>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-                    <div>
-                        <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Empleado *</label>
-                        <select id="ev-empId" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
-                            ${App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder).map(e=>`<option value="${e.id}" ${editEv?.empId===e.id?'selected':''}>${e.nombre}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Tipo *</label>
-                        <select id="ev-tipo" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">
-                            ${['curso','mentoria','visita','otro'].map(t=>`<option value="${t}" ${editEv?.tipo===t?'selected':''}>${TIPO_LABEL[t]}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div>
-                        <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Fecha inicio *</label>
-                        <input type="date" id="ev-fechaInicio" value="${editEv?.fechaInicio||''}" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box;display:none;">
-                        ${Utils.getDateInputHTML('ev-fechaInicio-picker', editEv?.fechaInicio||'', "document.getElementById('ev-fechaInicio').value=this.dataset.isoValue;")}
-                    </div>
-                    <div>
-                        <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Fecha fin</label>
-                        <input type="date" id="ev-fechaFin" value="${editEv?.fechaFin||''}" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box;display:none;">
-                        ${Utils.getDateInputHTML('ev-fechaFin-picker', editEv?.fechaFin||'', "document.getElementById('ev-fechaFin').value=this.dataset.isoValue;")}
-                    </div>
-                    <div>
-                        <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Hora inicio *</label>
-                        <select id="ev-horaInicio" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">${Utils.getTimeOptions(editEv?.horaInicio||'09:00', false, 9)}</select>
-                    </div>
-                    <div>
-                        <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Hora fin *</label>
-                        <select id="ev-horaFin" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;">${Utils.getTimeOptions(editEv?.horaFin||'10:00', false, 9)}</select>
-                    </div>
-                </div>
-                <div style="margin-bottom:14px;">
-                    <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px;">Descripción</label>
-                    <input type="text" id="ev-desc" value="${editEv?.desc||''}" placeholder="Ej: Curso de atención al cliente" style="width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;box-sizing:border-box;">
-                </div>
-                <div style="display:flex;gap:8px;">
-                    <button onclick="App.logic.eventoSave({id:'${editId||''}',empId:document.getElementById('ev-empId').value,tipo:document.getElementById('ev-tipo').value,desc:document.getElementById('ev-desc').value,fechaInicio:document.getElementById('ev-fechaInicio').value,fechaFin:document.getElementById('ev-fechaFin').value,horaInicio:document.getElementById('ev-horaInicio').value,horaFin:document.getElementById('ev-horaFin').value}); App.uiState.eventoFormOpen=false; App.uiState.eventoEditId=null;"
-                        style="padding:8px 20px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;font-size:0.82rem;cursor:pointer;">💾 Guardar</button>
-                    <button onclick="App.uiState.eventoFormOpen=false; App.uiState.eventoEditId=null; App.ui.renderRequests(document.querySelector('.main-scroll'));"
-                        style="padding:8px 14px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:6px;font-size:0.82rem;cursor:pointer;">Cancelar</button>
-                </div>
-            </div>` : '';
+            // Empleados con eventos
+            const empIdsEv = [...new Set((App.data.eventos||[]).map(ev => ev.empId))];
+            const empsConEv = App.data.empleados.filter(e => empIdsEv.includes(e.id)).sort((a,b) => a.customOrder - b.customOrder);
+
+            const _ps = (on, color, bg, border) =>
+                'display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;cursor:pointer;border:1px solid ' +
+                (on ? (border||color) : '#e2e8f0') + ';background:' + (on ? (bg||'#eff6ff') : 'white') + ';color:' + (on ? color : '#94a3b8') + ';';
+
+            // Build evFilterBar
+            const _evPill = (label, onclick, on, color, bg, border) =>
+                '<button onclick="' + onclick + '" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;cursor:pointer;border:1px solid ' +
+                (on ? (border||color) : '#e2e8f0') + ';background:' + (on ? (bg||'#eff6ff') : 'white') + ';color:' + (on ? color : '#94a3b8') + ';">' + label + '</button>';
+            const _refresh = "App.ui.renderRequests(document.querySelector('.main-scroll'))";
+            let evFilterBar = '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">';
+            evFilterBar += '<div style="display:flex;gap:5px;flex-wrap:wrap;">';
+            evFilterBar += _evPill('Todos', 'App.uiState.evTipoFilter=\'todos\';' + _refresh, tipoFilter==='todos', '#2563eb', '#eff6ff', '#93c5fd');
+            ALL_TIPOS.forEach(t => {
+                const c2 = TIPO_COLOR[t];
+                evFilterBar += _evPill(TIPO_LABEL[t], 'App.uiState.evTipoFilter=\'' + t + '\';' + _refresh, tipoFilter===t, c2, c2+'18', c2+'60');
+            });
+            evFilterBar += '</div>';
+            if(empsConEv.length > 1) {
+                evFilterBar += '<div style="display:flex;gap:5px;flex-wrap:wrap;">';
+                evFilterBar += _evPill('Todos', 'App.uiState.evEmpFilter=\'todos\';' + _refresh, evEmpFilter==='todos', '#64748b', '#f1f5f9', '#cbd5e1');
+                empsConEv.forEach(e => {
+                    evFilterBar += _evPill(e.nombre.split(' ')[0], 'App.uiState.evEmpFilter=\'' + e.id + '\';' + _refresh, evEmpFilter===e.id, '#475569', '#f1f5f9', '#94a3b8');
+                });
+                evFilterBar += '</div>';
+            }
+            evFilterBar += '</div>';
+
+            const todos = (App.data.eventos || []).slice().sort((a,b) => a.fechaInicio.localeCompare(b.fechaInicio));
+            const eventos = todos.filter(ev =>
+                (tipoFilter === 'todos' || ev.tipo === tipoFilter) &&
+                (evEmpFilter === 'todos' || ev.empId === evEmpFilter)
+            );
+
+            // Sin formulario inline — se usa el inspector
 
             const listaHtml = eventos.length === 0
                 ? `<div style="padding:32px;text-align:center;color:#94a3b8;font-size:0.85rem;">Sin eventos registrados. Pulsa "+ Nuevo evento" para añadir uno.</div>`
@@ -1265,26 +1325,26 @@ Object.assign(App.ui, {
                     ${eventos.map(ev => `<tr style="border-bottom:1px solid #f1f5f9;">
                         <td style="padding:9px 12px;font-size:0.82rem;font-weight:600;color:#1e293b;">${empName(ev.empId)}</td>
                         <td style="padding:9px 12px;"><span style="background:${TIPO_COLOR[ev.tipo]||'#64748b'}18;color:${TIPO_COLOR[ev.tipo]||'#64748b'};border:1px solid ${TIPO_COLOR[ev.tipo]||'#64748b'}40;border-radius:4px;padding:2px 8px;font-size:0.72rem;font-weight:700;">${TIPO_LABEL[ev.tipo]||'Otro'}</span></td>
-                        <td style="padding:9px 12px;font-size:0.8rem;color:#475569;white-space:nowrap;">${ev.fechaInicio}${ev.fechaFin && ev.fechaFin !== ev.fechaInicio ? ' → ' + ev.fechaFin : ''}</td>
+                        <td style="padding:9px 12px;font-size:0.8rem;color:#475569;white-space:nowrap;">${ev.fechaInicio}</td>
                         <td style="padding:9px 12px;font-size:0.8rem;color:#475569;white-space:nowrap;">${ev.horaInicio} – ${ev.horaFin}</td>
                         <td style="padding:9px 12px;font-size:0.8rem;color:#475569;">${ev.desc||'—'}</td>
                         <td style="padding:9px 12px;white-space:nowrap;">
-                            <button onclick="App.uiState.eventoEditId='${ev.id}'; App.uiState.eventoFormOpen=false; App.ui.renderRequests(document.querySelector('.main-scroll'));" title="Editar" style="background:none;border:none;cursor:pointer;color:#64748b;font-size:14px;padding:2px 5px;">✏️</button>
+                            <button onclick="App.ui.renderEventoInspector('${ev.id}')" title="Editar" style="background:none;border:none;cursor:pointer;color:#64748b;font-size:14px;padding:2px 5px;">✏️</button>
                             <button onclick="App.logic.eventoDel('${ev.id}')" title="Borrar" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:14px;padding:2px 5px;">🗑</button>
                         </td>
                     </tr>`).join('')}
                     </tbody>
                 </table>`;
 
-            c.style.cssText = 'padding:16px;overflow-y:auto;box-sizing:border-box;';
+            c.style.cssText = 'padding:16px;overflow-y:auto;box-sizing:border-box;scrollbar-gutter:stable;';
             c.innerHTML = sectionBar + `
                 <div style="max-width:800px;margin:0 auto;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                         <h3 style="margin:0;font-size:1rem;font-weight:700;color:#1e293b;">📅 Eventos extra</h3>
-                        <button onclick="App.uiState.eventoFormOpen=true; App.uiState.eventoEditId=null; App.ui.renderRequests(document.querySelector('.main-scroll'));"
+                        <button onclick="App.ui.renderEventoInspector(null)"
                             style="padding:7px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;font-size:0.82rem;cursor:pointer;">+ Nuevo evento</button>
                     </div>
-                    ${formHtml}
+                    ${evFilterBar}
                     ${listaHtml}
                 </div>`;
         }

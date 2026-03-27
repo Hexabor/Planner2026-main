@@ -10,7 +10,7 @@
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg-body); color: var(--text-main); height: 100vh; overflow: hidden; font-size: 13px; }
 
         /* LAYOUT */
-        .app-layout { display: grid; grid-template-columns: var(--sidebar-w) 19fr 6fr; grid-template-rows: var(--header-h) 1fr; height: 100vh; }
+        .app-layout { display: grid; grid-template-columns: var(--sidebar-w) 19fr 7.25fr; grid-template-rows: var(--header-h) 1fr; height: 100vh; }
         .header { grid-column: 1 / -1; background: white; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
         .app-title { font-weight: 700; font-size: 1rem; display:flex; gap:10px; align-items:center; }
         
@@ -53,8 +53,8 @@
         }
         
         .inspector-scalable-content {
-            width: 440px; /* Ancho base del inspector - aumentado para aprovechar expansión */
-            min-width: 440px;
+            width: 510px; /* Ancho base del inspector */
+            min-width: 510px;
             transform-origin: top left;
             transition: transform 0.2s ease;
             padding: 20px;
@@ -92,8 +92,8 @@
         .balance-table td.b-name { font-weight: 600; width: 80px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;}
         .balance-table td.b-hrs { font-family: monospace; text-align: right; width: 45px; font-size: 0.75rem; }
         
-        .week-dots { display: flex; gap: 3px; }
-        .dot { width: 14px; height: 14px; border-radius: 2px; cursor: help; }
+        .week-dots { display: flex; gap: 4px; }
+        .dot { width: 22px; height: 22px; border-radius: 3px; cursor: help; }
         .balance-legend { padding: 15px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.7rem; color: var(--text-muted); background: #f8fafc; margin-top: auto; }
 
         /* INFO TIPS */

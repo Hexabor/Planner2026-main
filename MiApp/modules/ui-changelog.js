@@ -6,6 +6,18 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '28/03/2026', version: 'v1.0',
+                items: [
+                    '✨ Balance Semanal — cuadraditos muestran las horas del día con color adaptado a la luminancia del fondo',
+                    '✨ Inspector más ancho (+15%) y cuadraditos más grandes (22px)',
+                    '✨ Pestaña Eventos del inspector — vista tabla con edición y borrado por fila',
+                    '✨ Peticiones — filtros de tipo exclusivos (click = solo ese tipo) y nuevo filtro de empleado',
+                    '✨ Eventos en Peticiones — filtros de tipo y empleado, formulario usa el inspector',
+                    '🔧 Al cambiar de sección en Peticiones el inspector se abre automáticamente',
+                    '🔧 Eventos solo tienen una fecha (eliminada fecha fin redundante)',
+                ]
+            },
+            {
                 fecha: '24/03/2026', version: 'v1.0',
                 items: [
                     '🔧 Módulo Valle — domingos excluidos del cómputo de horas semanal',
