@@ -339,7 +339,7 @@ Object.assign(App.ui, {
                     ${icoHtml} ${label}
                 </button>`;
             };
-            const sectionBar = `<div style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:9px;width:fit-content;margin-bottom:14px;">
+            const sectionBar = `<div id="req-section-bar" style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:9px;width:fit-content;margin-bottom:14px;">
                 ${tabBtn('individual', ICO.list,   'Peticiones')}
                 ${tabBtn('recurring',  ICO.repeat, 'Recurrentes')}
                 ${tabBtn('eventos',    ICO.event,  'Eventos')}

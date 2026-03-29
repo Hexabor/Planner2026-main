@@ -638,6 +638,18 @@ markDirty: function() {
         </details>`;
     }
 
+    // Botón reset recuperaciones
+    html += `
+    <div style="margin-top:20px; padding-top:16px; border-top:1px dashed #fca5a5;">
+        <button onclick="App.logic.festivoResetRecuperaciones('${emp.id}')"
+            style="width:100%; padding:9px 12px; background:white; color:#ef4444; border:1px solid #fca5a5; border-radius:7px; font-size:0.75rem; font-weight:700; cursor:pointer; text-align:left;">
+            ↺ Resetear recuperaciones de festivos
+        </button>
+        <div style="margin-top:5px; font-size:0.65rem; color:#94a3b8; line-height:1.5; padding:0 2px;">
+            Desasigna todas las recuperaciones registradas. Útil para reordenar durante la elaboración de horarios.
+        </div>
+    </div>`;
+
     return html;
 },
 

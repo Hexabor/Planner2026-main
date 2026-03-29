@@ -346,6 +346,8 @@ App.logic = {
             }
             Safe.save('v40_db', App.data);
             App.ui.renderPlanner(document.getElementById('main-view'));
+            const insp = document.getElementById('inspector-content');
+            if(insp) App.ui.renderPlannerInspector(insp);
         },
 
         toggleDayLock: function(date) {

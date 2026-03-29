@@ -99,21 +99,21 @@ Object.assign(App.ui, {
             // 2. GENERAR CABECERAS DINÁMICAS (Ahora con padding 0 y doble dígito)
             let html = `
             <div style="padding: 15px; overflow-x: auto;">
-                <h3 style="margin-top: 0; font-size: 0.95rem; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Rotación de Fines de Semana (12W)</h3>
+                <h3 style="margin-top: 0; font-size: 0.95rem; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Rotación de Fines de Semana (14W)</h3>
                 
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; text-align: center; table-layout: auto;">
                     <thead>
                         <tr style="border-bottom: 2px solid #cbd5e1; color: #64748b;">
                             <th style="text-align: left; padding: 4px 2px; font-weight: 600;">Nombre</th>`;
             
-            // Bucle: 00 = semana actual, -01 a -11 = semanas anteriores
-            for (let w = 0; w <= 11; w++) {
+            // Bucle: 00 = semana actual, -01 a -13 = semanas anteriores
+            for (let w = 0; w <= 13; w++) {
                 const label = w === 0 ? `<span style="color:#2563eb;font-weight:700;">↓</span>` : `-${String(w).padStart(2, '0')}`;
                 const titleAttr = w === 0 ? 'Semana actual' : `Hace ${w} semana(s)`;
                 html += `<th style="padding: 4px 0; min-width: 24px; width: 24px;" title="${titleAttr}">${label}</th>`;
             }
             
-            html += `   <th style="padding: 4px 2px; min-width: 32px; width: 32px; font-size:0.6rem;" title="Sábados / Domingos trabajados (12 semanas)">Σ</th>
+            html += `   <th style="padding: 4px 2px; min-width: 32px; width: 32px; font-size:0.6rem;" title="Sábados / Domingos trabajados (14 semanas)">Σ</th>
                         </tr>
                     </thead>
                     <tbody>`;
@@ -184,7 +184,7 @@ Object.assign(App.ui, {
                             <td style="text-align: left; padding: 7px 2px; color: #334155; font-weight: 600; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${e.nombre}">${e.nombre}</td>`;
                 
                 let countSab = 0, countDom = 0;
-                for (let w = 0; w <= 11; w++) {
+                for (let w = 0; w <= 13; w++) {
                     const targetMonday = addDays(currentMondayStr, -(w * 7));
                     const sabadoStr = addDays(targetMonday, 5);
                     const domingoStr = addDays(targetMonday, 6);
@@ -204,13 +204,13 @@ Object.assign(App.ui, {
                              </td>`;
                 }
                 // Columna resumen S/D — umbrales: ≤6 gris, 7-8 verde, 9-10 naranja, 11-12 rojo
-                const getCountColor = (n) => n >= 11 ? '#ef4444' : n >= 9 ? '#f59e0b' : n >= 7 ? '#22c55e' : '#64748b';
+                const getCountColor = (n) => n >= 13 ? '#ef4444' : n >= 11 ? '#f59e0b' : n >= 8 ? '#22c55e' : '#64748b';
                 const sabColor = getCountColor(countSab);
                 const domColor = getCountColor(countDom);
                 html += `<td style="padding: 4px 2px; text-align: center; border-left: 1px solid #e2e8f0;">
                             <div style="display:flex; flex-direction:column; gap:1px; align-items:center; font-size:0.6rem; font-weight:700; line-height:1.3;">
-                                <span style="color:${sabColor};" title="${countSab} sábados trabajados de 12">S:${countSab}</span>
-                                <span style="color:${domColor};" title="${countDom} domingos trabajados de 12">D:${countDom}</span>
+                                <span style="color:${sabColor};" title="${countSab} sábados trabajados de 14">S:${countSab}</span>
+                                <span style="color:${domColor};" title="${countDom} domingos trabajados de 14">D:${countDom}</span>
                             </div>
                          </td>`;
                 html += `</tr>`;
@@ -460,7 +460,8 @@ Object.assign(App.ui, {
                 const { justifiedH, countL, countF } = Utils.calcEsperadas(Utils.getContrato(e, monday), days, e.id);
                 
                 stats.push({ 
-                    name: e.nombre, 
+                    name: e.nombre,
+                    empId: e.id,
                     contract: Utils.getContrato(e, monday), 
                     planned,
                     asig,
@@ -504,19 +505,17 @@ Object.assign(App.ui, {
                     </div>
                 </div>
             </div>
-            <div style="padding:0 12px 8px; display:flex; gap:10px; justify-content:flex-end;">
-                <span style="font-size:0.65rem; color:#94a3b8; cursor:pointer;" onclick="Utils.showInfoTip(event, Utils.Tips.columnaCntr)">ⓘ Cntr</span>
-                <span style="font-size:0.65rem; color:#94a3b8; cursor:pointer;" onclick="Utils.showInfoTip(event, Utils.Tips.columnaDif)">ⓘ Dif</span>
-            </div>
             <table class="balance-table">
                 <thead><tr>
-                    <th style="text-align:left">Emp</th>
-                    <th style="white-space:nowrap;">Cntr<span class="diff-tooltip-wrap" style="cursor:help;font-size:9px;vertical-align:super;margin-left:1px;">ℹ️<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Desvío acumulado sobre semanas cerradas 🔒.<br>Solo se incluyen las semanas bloqueadas con el switch del planificador.</div></span></th>
-                    <th>Asig</th>
-                    <th>Dif</th>
-                    <th>SEG</th>
-                    <th title="Libranzas completas">LIB</th>
-                    <th>Semana (L-D)</th>
+                    <th style="text-align:left;"><span class="diff-tooltip-wrap" style="cursor:help;">Emp<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Nombre del empleado.</div></span></th>
+                    <th style=""><span class="diff-tooltip-wrap" style="cursor:help;">Cntr<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Horas de contrato semanales del empleado.</div></span></th>
+                    <th style=""><span class="diff-tooltip-wrap" style="cursor:help;">Asig<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Horas de trabajo asignadas esta semana (turnos con horario real). No incluye L ni festivos.</div></span></th>
+                    <th style=""><span class="diff-tooltip-wrap" style="cursor:help;">Dif<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Diferencia entre horas asignadas (+ ausencias justificadas) y horas de contrato. Verde = cubierto, azul = falta trabajo, naranja = exceso.</div></span></th>
+                    <th style="border-left:2px solid #cbd5e1;"><span class="diff-tooltip-wrap" style="cursor:help;">Des<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Desvío acumulado sobre semanas cerradas 🔒. Positivo = trabajó de más · Negativo = debe horas.</div></span></th>
+                    <th style=""><span class="diff-tooltip-wrap" style="cursor:help;">Fes<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Festivos trabajados pendientes de compensar 🔒 (solo semanas cerradas).</div></span></th>
+                    <th style="border-left:2px solid #cbd5e1;"><span class="diff-tooltip-wrap" style="cursor:help;">SEG<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Días consecutivos trabajando incluyendo esta semana. Verde ≤3 · Naranja 4–5 · Rojo ≥6.</div></span></th>
+                    <th style=""><span class="diff-tooltip-wrap" style="cursor:help;">LIB<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Libranzas completas esta semana. Verde ✓ = 2 libranzas L. Naranja ⚠ = 1L+1F.</div></span></th>
+                    <th style=""><span class="diff-tooltip-wrap" style="cursor:help;">Semana (L-D)<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Turnos de la semana: sólido = turno trabajado (con sus horas), borde = ausencia con código.</div></span></th>
                 </tr></thead>
                 <tbody>`;
             
@@ -525,30 +524,21 @@ Object.assign(App.ui, {
                 const coveredDiff = Math.round((st.asig + st.justifiedH - st.contract) * 10) / 10;
                 const rawDiff = Math.round((st.asig - st.contract) * 10) / 10;
                 const hasJustified = st.justifiedH > 0;
-                const isFullyCovered = coveredDiff >= -0.5;
+                const _threshold = st.contract > 0 ? st.contract * 0.1 : 0.5;
+                const isFullyCovered = Math.abs(coveredDiff) <= _threshold;
 
                 let diffClass, diffDisplay, diffTitle = null;
 
+                const _desglose = (extraFooter) => `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desglose de horas</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">🔵 Trabajo</span><span style="font-weight:600;">${f1(st.asig)}h</span></div>${hasJustified ? `<div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">✦ Ausencias</span><span style="color:#a78bfa;font-weight:600;">+${f1(st.justifiedH)}h</span></div>` : ''}<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid rgba(255,255,255,0.1);margin-top:5px;padding-top:5px;"><span style="color:#94a3b8;">📋 Contrato</span><span style="font-weight:600;">${f1(st.contract)}h</span></div>${extraFooter}`;
+
+                diffDisplay = coveredDiff > 0 ? `+${coveredDiff}` : `${coveredDiff}`;
+
                 if(isFullyCovered) {
-                    // Todo cubierto
-                    if(hasJustified) {
-                        // Cubierto gracias a ausencias → gris con ✦
-                        diffClass = 'val-justified';
-                        diffDisplay = `0<span style="font-size:0.6rem;vertical-align:super;">✦</span>`;
-                        diffTitle = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desglose de horas</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">🔵 Trabajo</span><span style="font-weight:600;">${f1(st.asig)}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">✦ Ausencias</span><span style="color:#a78bfa;font-weight:600;">+${f1(st.justifiedH)}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid rgba(255,255,255,0.1);margin-top:5px;padding-top:5px;"><span style="color:#94a3b8;">📋 Contrato</span><span style="font-weight:600;">${f1(st.contract)}h</span></div><div style="margin-top:6px;font-size:10px;color:#64748b;">L (libranzas) no justifican horas</div>`;
-                    } else {
-                        // Cubierto solo con trabajo → verde normal
-                        diffClass = 'val-good';
-                        diffDisplay = rawDiff > 0 ? `+${rawDiff}` : `${rawDiff}`;
-                        diffTitle = null;
-                    }
+                    diffClass = 'val-good';
+                    diffTitle = hasJustified ? _desglose(`<div style="margin-top:6px;padding:4px 6px;background:rgba(16,185,129,0.15);border-radius:4px;color:#6ee7b7;font-size:10px;">✓ Semana cubierta</div>`) : null;
                 } else {
-                    // Faltan horas reales
-                    diffClass = 'val-warn';
-                    diffDisplay = coveredDiff > 0 ? `+${coveredDiff}` : `${coveredDiff}`;
-                    diffTitle = hasJustified
-                        ? `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desglose de horas</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">🔵 Trabajo</span><span style="font-weight:600;">${st.asig}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">✦ Ausencias</span><span style="color:#a78bfa;font-weight:600;">+${st.justifiedH}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid rgba(255,255,255,0.1);margin-top:5px;padding-top:5px;"><span style="color:#94a3b8;">📋 Contrato</span><span style="font-weight:600;">${st.contract}h</span></div><div style="margin-top:6px;padding:4px 6px;background:rgba(245,158,11,0.2);border-radius:4px;color:#fbbf24;font-size:10px;">⚠️ Faltan ${Math.abs(coveredDiff)}h por cubrir</div>`
-                        : null;
+                    diffClass = coveredDiff < 0 ? 'val-warn' : 'val-good';
+                    diffTitle = _desglose(`<div style="margin-top:6px;padding:4px 6px;background:rgba(245,158,11,0.2);border-radius:4px;color:#fbbf24;font-size:10px;">${coveredDiff < 0 ? `⚠️ Faltan ${f1(Math.abs(coveredDiff))}h por cubrir` : `⬆ ${f1(coveredDiff)}h de más`}</div>`);
                 }
                 
                 // Días consecutivos - color según cantidad
@@ -556,20 +546,7 @@ Object.assign(App.ui, {
                 if(st.consecutiveDays >= 6) consColor = '#ef4444'; // Rojo si 6+
                 else if(st.consecutiveDays >= 4) consColor = '#f59e0b'; // Naranja si 4-5
                 
-                let consHtml = `<div style="
-                    width: 22px; 
-                    height: 22px; 
-                    border-radius: 3px; 
-                    background-color: ${consColor}; 
-                    color: white; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                    font-weight: 700; 
-                    font-size: 0.75rem;
-                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-                    cursor: help;
-                " title="Lleva ${st.consecutiveDays} día${st.consecutiveDays !== 1 ? 's' : ''} consecutivo${st.consecutiveDays !== 1 ? 's' : ''} trabajando (incluye días de esta semana con turno asignado)">${st.consecutiveDays}</div>`;
+                let consHtml = `<div style="width:16px;height:16px;border-radius:3px;background-color:${consColor};color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.65rem;box-shadow:0 1px 2px rgba(0,0,0,0.1);cursor:help;margin:0 auto;" title="Lleva ${st.consecutiveDays} día${st.consecutiveDays !== 1 ? 's' : ''} consecutivo${st.consecutiveDays !== 1 ? 's' : ''} trabajando (incluye días de esta semana con turno asignado)">${st.consecutiveDays}</div>`;
                 
                 // Renderizar dots de la semana
                 let dotsHtml = `<div class="week-dots" style="position: relative;">`;
@@ -604,90 +581,129 @@ Object.assign(App.ui, {
                 let chivatoHtml = '';
                 if(st.countL >= 2) {
                     // 2 o más L → Verde, puede cebarlo
-                    chivatoHtml = `<div style="
-                        width: 16px; 
-                        height: 16px; 
-                        background: #22c55e;
-                        color: white;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 0.7rem;
-                        font-weight: 700;
-                        cursor: help;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                        margin: 0 auto;
-                    " title="✓ Tiene ${st.countL} libranzas L - Puede asignar turnos extra sin comprometer descanso">✓</div>`;
+                    chivatoHtml = `<div style="width:12px;height:12px;background:#22c55e;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;cursor:help;box-shadow:0 1px 2px rgba(0,0,0,0.2);margin:0 auto;" title="✓ Tiene ${st.countL} libranzas L - Puede asignar turnos extra sin comprometer descanso">✓</div>`;
                 } else if(st.countL >= 1 && st.countF >= 1) {
                     // 1 L + 1 F → Naranja, cubierto pero podría tener otro L
-                    chivatoHtml = `<div style="
-                        width: 16px; 
-                        height: 16px; 
-                        background: #f59e0b;
-                        color: white;
-                        border-radius: 50%;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 0.7rem;
-                        font-weight: 700;
-                        cursor: help;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-                        margin: 0 auto;
-                    " title="⚠ Tiene 1 L + 1 F - Descansos cubiertos. Considera L adicional para evitar compensar festivo">⚠</div>`;
+                    chivatoHtml = `<div style="width:12px;height:12px;background:#f59e0b;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;cursor:help;box-shadow:0 1px 2px rgba(0,0,0,0.2);margin:0 auto;" title="⚠ Tiene 1 L + 1 F - Descansos cubiertos. Considera L adicional para evitar compensar festivo">⚠</div>`;
                 }
                 
                 dotsHtml += `</div>`;
                 
-                html += `<tr class="b-row">
-                    <td class="b-name" title="${st.name}">${st.name}</td>
-                    <td class="b-hrs" style="white-space:nowrap;">${(() => {
-                        // Calcular desvío acumulado para este empleado (rango configurado o año fiscal)
-                        const emp = App.data.empleados.find(e => e.nombre === st.name);
-                        if(!emp) return st.contract;
-                        // Usar semanas cerradas + vigentes como el inspector de empleados
-                        const empLockedWeeks = App.ui._getLockedWeeks(emp);
-                        const rangeStart = empLockedWeeks.length > 0 ? empLockedWeeks[0] : Utils.getMonday(App.uiState.currentDate);
-                        const rangeEnd = empLockedWeeks.length > 0 ? empLockedWeeks[empLockedWeeks.length - 1] : rangeStart;
-                        let acum = emp.saldoInicial || 0;
-                        empLockedWeeks.forEach(isoWeek => {
-                                const wdays = Utils.getWeekDays(isoWeek);
-                                let worked = 0;
-                                wdays.forEach(d => {
-                                    const sid = App.data.schedule[d] ? App.data.schedule[d][emp.id] : null;
-                                    const sh = sid ? Utils.getShift(sid) : null;
-                                    if(sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
-                                });
-                                const { esperadas } = Utils.calcEsperadas(Utils.getContrato(emp, isoWeek), wdays, emp.id);
-                                acum += worked - esperadas;
+                // --- Calcular desvío y festivos para este empleado ---
+                const _emp = App.data.empleados.find(e => e.id === st.empId);
+                let _acum = 0, _acumColor = '#10b981', _acumSign = '', _autoRec = 0;
+                let _rangeStart = Utils.getMonday(App.uiState.currentDate), _rangeEnd = _rangeStart;
+                if(_emp) {
+                    const _lw = App.ui._getLockedWeeks(_emp);
+                    _rangeStart = _lw.length > 0 ? _lw[0] : _rangeStart;
+                    _rangeEnd   = _lw.length > 0 ? _lw[_lw.length-1] : _rangeEnd;
+                    _acum = _emp.saldoInicial || 0;
+                    _lw.forEach(isoWeek => {
+                        const wdays = Utils.getWeekDays(isoWeek);
+                        let worked = 0;
+                        wdays.forEach(d => {
+                            const sid = App.data.schedule[d]?.[_emp.id];
+                            const sh = sid ? Utils.getShift(sid) : null;
+                            if(sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
                         });
-                        acum = Math.round(acum * 10) / 10;
-                        // Ajustes manuales de horas
-                        const ajusteTotal = ((emp.ajustes || []).reduce((s, a) => s + a.signo * a.horas, 0));
-                        acum = Math.round((acum + ajusteTotal) * 10) / 10;
-                        const sign = acum > 0 ? '+' : '';
-                        const color = acum > 0.5 ? '#f59e0b' : acum < -0.5 ? '#3b82f6' : '#10b981';
-                        const label = acum > 0.5 ? 'horas de más' : acum < -0.5 ? 'horas de menos' : 'sin desvío';
-                        const recPend = emp.recPendientes || 0;
-                        const vacPend = emp.vacPendientes || 0;
-                        // Festivos pendientes: solo semanas cerradas, igual que rejilla de empleados
-                        const autoRec = App.ui._calcFestivosPend(emp);
-                        const pendHTML = (recPend > 0 || vacPend > 0 || autoRec > 0) ? `
-                            <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:7px;padding-top:7px;">
-                                <div style="font-weight:700;color:#e2e8f0;margin-bottom:5px;font-size:10px;text-transform:uppercase;">Pendiente de dar</div>
-                                ${autoRec > 0 ? `<div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;">🔴 Recup. festivos (auto)</span><span style="color:#f87171;font-weight:700;">${autoRec} día${autoRec!==1?'s':''}</span></div>` : ''}
-                                ${recPend > 0 ? `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:3px;"><span style="color:#94a3b8;">🔴 Recup. arrastre</span><span style="color:#f87171;font-weight:700;">${recPend} día${recPend!==1?'s':''}</span></div>` : ''}
-                                ${vacPend > 0 ? `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:3px;"><span style="color:#94a3b8;">🟣 Vacaciones</span><span style="color:#c084fc;font-weight:700;">${vacPend} día${vacPend!==1?'s':''}</span></div>` : ''}
-                            </div>` : '';
-                        const tooltip = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desvío acumulado</div><div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:4px;"><span style="color:#94a3b8;">Periodo</span><span style="font-weight:600;font-size:10px;text-align:right;">${Utils.getWeekCode(rangeStart)} → ${Utils.getWeekCode(rangeEnd)}</span></div><div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;">Desvío total</span><span style="color:${color};font-weight:700;">${sign}${f1(acum)}h ${label}</span></div>${pendHTML}<div style="margin-top:8px;font-size:10px;color:#64748b;border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;">Configura en 📈 Análisis · ficha del empleado</div>`;
-                        return `<span class="diff-tooltip-wrap" style="cursor:help;">${f1(st.contract)}<sup style="font-size:0.5rem;opacity:0.6;">⏱</sup><div class="diff-tooltip" style="min-width:260px; white-space:normal; line-height:1.7;">${tooltip}</div></span>`;
-                    })()}</td>
-                    <td class="b-hrs" style="white-space:nowrap;">${f1(st.asig)}</td>
-                    <td class="b-hrs ${diffClass}" style="position:relative;">${diffTitle ? `<span class="diff-tooltip-wrap">${diffDisplay}<div class="diff-tooltip">${diffTitle}</div></span>` : diffDisplay}</td>
-                    <td style="text-align: center; padding: 4px;">${consHtml}</td>
-                    <td style="text-align: center; padding: 4px;">${chivatoHtml || '—'}</td>
-                    <td style="position: relative;">${dotsHtml}</td>
+                        const { esperadas } = Utils.calcEsperadas(Utils.getContrato(_emp, isoWeek), wdays, _emp.id);
+                        _acum += worked - esperadas;
+                    });
+                    _acum = Math.round((_acum + (_emp.ajustes||[]).reduce((s,a)=>s+a.signo*a.horas,0)) * 10) / 10;
+                    _acumColor = _acum > 0.5 ? '#f59e0b' : _acum < -0.5 ? '#3b82f6' : '#10b981';
+                    _acumSign  = _acum > 0 ? '+' : '';
+                    _autoRec   = App.ui._calcFestivosPend(_emp);
+                }
+                // Lista de festivos pendientes para tooltip
+                const _fesPendList = (() => {
+                    if(!_emp || _autoRec === 0) return [];
+                    const locked = App.data.lockedDays || {};
+                    const tracking = _emp.festivoTracking || {};
+                    const realRs = new Set();
+                    Object.keys(App.data.schedule || {}).forEach(iso => {
+                        const sid = App.data.schedule[iso]?.[_emp.id];
+                        const sh = sid ? Utils.getShift(sid) : null;
+                        if(sh && sh.fixed && sh.code === 'R') realRs.add(iso);
+                    });
+                    const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+                    const result = [];
+                    (App.data.storeConfig.holidays || [])
+                        .filter(h => locked[h.date] && Utils.empleadoVigenteEnFecha(_emp, h.date))
+                        .forEach(h => {
+                            const tr = tracking[h.date] || {};
+                            if(tr.rDate && realRs.has(tr.rDate)) return;
+                            const sid = App.data.schedule[h.date]?.[_emp.id];
+                            const shift = sid ? Utils.getShift(sid) : null;
+                            if(!shift) return;
+                            if(shift.fixed && shift.code === 'V') return;
+                            let counts = false;
+                            if(shift.fixed && shift.code === 'F') {
+                                const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
+                                let countL = 0;
+                                wdays.forEach(d => { const s2 = App.data.schedule[d]?.[_emp.id]; const sh2 = s2 ? Utils.getShift(s2) : null; if(sh2 && sh2.fixed && sh2.code === 'L') countL++; });
+                                if(countL < 2) counts = true;
+                            } else if(shift.start && shift.end) {
+                                counts = true;
+                            }
+                            if(counts) {
+                                const d = new Date(h.date);
+                                result.push(`${d.getDate()} ${monthNames[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`);
+                            }
+                        });
+                    return result;
+                })();
+
+                const _recPend = _emp?.recPendientes || 0;
+                const _vacPend = _emp?.vacPendientes || 0;
+                const _pendHTML = (_recPend > 0 || _vacPend > 0 || _autoRec > 0) ? `
+                    <div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:7px;padding-top:7px;">
+                        <div style="font-weight:700;color:#e2e8f0;margin-bottom:5px;font-size:10px;text-transform:uppercase;">Pendiente de dar</div>
+                        ${_autoRec > 0 ? `<div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;">🔴 Recup. festivos (auto)</span><span style="color:#f87171;font-weight:700;">${_autoRec} día${_autoRec!==1?'s':''}</span></div>` : ''}
+                        ${_recPend > 0 ? `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:3px;"><span style="color:#94a3b8;">🔴 Recup. arrastre</span><span style="color:#f87171;font-weight:700;">${_recPend} día${_recPend!==1?'s':''}</span></div>` : ''}
+                        ${_vacPend > 0 ? `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:3px;"><span style="color:#94a3b8;">🟣 Vacaciones</span><span style="color:#c084fc;font-weight:700;">${_vacPend} día${_vacPend!==1?'s':''}</span></div>` : ''}
+                    </div>` : '';
+                const _cntrTooltip = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desvío acumulado</div><div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:4px;"><span style="color:#94a3b8;">Periodo</span><span style="font-weight:600;font-size:10px;text-align:right;">${Utils.getWeekCode(_rangeStart)} → ${Utils.getWeekCode(_rangeEnd)}</span></div><div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;">Desvío total</span><span style="color:${_acumColor};font-weight:700;">${_acumSign}${f1(_acum)}h</span></div>${_pendHTML}<div style="margin-top:8px;font-size:10px;color:#64748b;border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;">Configura en 📈 Análisis · ficha del empleado</div>`;
+
+                const _shortName = st.name.length > 10 ? st.name.slice(0, 10) + '…' : st.name;
+                const _desCell = `<span style="font-family:monospace;font-weight:700;font-size:0.75rem;color:${_acumColor};">${_acumSign}${f1(_acum)}</span>`;
+                const _fesTooltip = _autoRec > 0 && _fesPendList.length > 0
+                    ? `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:4px;">Festivos sin recuperar</div>${_fesPendList.map(f=>`<div style="color:#fca5a5;font-size:0.72rem;line-height:1.7;">${f}</div>`).join('')}`
+                    : null;
+                const _fesCell = _autoRec > 0
+                    ? (_fesTooltip
+                        ? `<span class="diff-tooltip-wrap" style="cursor:help;font-weight:700;font-size:0.75rem;color:#ef4444;">${_autoRec}<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;">${_fesTooltip}</div></span>`
+                        : `<span style="font-weight:700;font-size:0.75rem;color:#ef4444;">${_autoRec}</span>`)
+                    : `<span style="font-weight:700;font-size:0.75rem;color:#10b981;">✓</span>`;
+
+                // ASIG tooltip
+                const _asigTooltip = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Horas asignadas</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">🔵 Trabajo</span><span style="font-weight:600;">${f1(st.asig)}h</span></div>${st.justifiedH > 0 ? `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">✦ Ausencias just.</span><span style="color:#a78bfa;font-weight:600;">+${f1(st.justifiedH)}h</span></div>` : ''}<div style="margin-top:5px;font-size:10px;color:#64748b;">Solo turnos con horario real. L y festivos no cuentan.</div>`;
+
+                // DIF tooltip — siempre presente
+                const _difThreshold = st.contract * 0.1;
+                const _difAbsDev = Math.abs(coveredDiff);
+                const _difFooter = _difAbsDev <= _difThreshold
+                    ? `<div style="margin-top:6px;padding:4px 6px;background:rgba(16,185,129,0.15);border-radius:4px;color:#6ee7b7;font-size:10px;">✓ Semana cubierta</div>`
+                    : `<div style="margin-top:6px;padding:4px 6px;background:rgba(245,158,11,0.15);border-radius:4px;color:#fbbf24;font-size:10px;">${coveredDiff > 0 ? `⬆ ${f1(coveredDiff)}h de más` : `⬇ Faltan ${f1(_difAbsDev)}h`}</div>`;
+                const _difTooltipContent = diffTitle || `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Diferencia semanal</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">🔵 Asignado</span><span style="font-weight:600;">${f1(st.asig)}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid rgba(255,255,255,0.1);margin-top:5px;padding-top:5px;"><span style="color:#94a3b8;">📋 Contrato</span><span style="font-weight:600;">${f1(st.contract)}h</span></div>${_difFooter}`;
+
+                // SEG tooltip
+                const _segColor = st.consecutiveDays >= 6 ? '#ef4444' : st.consecutiveDays >= 4 ? '#f59e0b' : '#22c55e';
+                const _segLabel = st.consecutiveDays >= 6 ? 'Riesgo de fatiga — revisar descansos' : st.consecutiveDays >= 4 ? 'Tramo largo — vigilar' : 'Dentro de lo normal';
+                const _segTooltip = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Días consecutivos trabajando</div><div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;">Días seguidos</span><span style="color:${_segColor};font-weight:700;">${st.consecutiveDays}</span></div><div style="margin-top:6px;padding:4px 6px;background:rgba(255,255,255,0.05);border-radius:4px;font-size:10px;color:${_segColor};">${_segLabel}</div><div style="margin-top:6px;font-size:10px;color:#64748b;">Incluye días de esta semana con turno asignado</div>`;
+
+                // Wrap consHtml in tooltip
+                const _consWithTip = `<span class="diff-tooltip-wrap" style="cursor:help;">${consHtml}<div class="diff-tooltip" style="min-width:220px;white-space:normal;line-height:1.6;">${_segTooltip}</div></span>`;
+
+                html += `<tr class="b-row">
+                    <td class="b-name" title="${st.name}">${_shortName}</td>
+                    <td class="b-hrs" style="white-space:nowrap;"><span class="diff-tooltip-wrap" style="cursor:help;">${f1(st.contract)}<sup style="font-size:0.5rem;opacity:0.6;">⏱</sup><div class="diff-tooltip" style="min-width:260px;white-space:normal;line-height:1.7;">${_cntrTooltip}</div></span></td>
+                    <td class="b-hrs" style="white-space:nowrap;"><span class="diff-tooltip-wrap" style="cursor:help;">${f1(st.asig)}<div class="diff-tooltip" style="min-width:220px;white-space:normal;line-height:1.6;">${_asigTooltip}</div></span></td>
+                    <td class="b-hrs ${diffClass}" style="position:relative;"><span class="diff-tooltip-wrap" style="cursor:help;">${diffDisplay}<div class="diff-tooltip" style="min-width:220px;white-space:normal;line-height:1.6;">${_difTooltipContent}</div></span></td>
+                    <td style="text-align:center;padding:3px;border-left:2px solid #cbd5e1;">${_desCell}</td>
+                    <td style="text-align:center;padding:3px;">${_fesCell}</td>
+                    <td style="text-align:center;padding:3px;border-left:2px solid #cbd5e1;">${_consWithTip}</td>
+                    <td style="text-align:center;padding:3px;">${chivatoHtml || '—'}</td>
+                    <td style="position:relative;">${dotsHtml}</td>
                 </tr>`;
             });
             html += `</tbody></table>`;
@@ -848,34 +864,66 @@ Object.assign(App.ui, {
         },
 
         renderMonitorEquilibrio: function() {
-            let startDate = App.uiState.balanceStartDate;
-            let endDate = App.uiState.balanceEndDate;
-            
-            if(!startDate || !endDate) {
-                const allDates = Object.keys(App.data.schedule).sort();
-                if(allDates.length === 0) {
-                    return `<div style="padding:40px; text-align:center; color:var(--text-muted);"><p>No hay datos disponibles.</p></div>`;
+            // Modo: 'locked' = solo semanas cerradas, 'range' = rango libre
+            const mode = App.uiState.equilibrioMode || 'locked';
+
+            // Calcular set de fechas válidas según modo
+            let validDates = null; // null = sin restricción adicional
+            let startDate, endDate, lockedWeekCount = 0;
+
+            if(mode === 'locked') {
+                // Replicar lógica de _getLockedWeeks sin filtrar por empleado
+                const locked = App.data.lockedDays || {};
+                const mondaySet = new Set(Object.keys(locked).map(d => Utils.getMonday(d)));
+                const lockedMondays = [...mondaySet].sort().filter(monday => {
+                    const days = Utils.getWeekDays(monday);
+                    return days.every(d => locked[d]);
+                });
+                lockedWeekCount = lockedMondays.length;
+                if(lockedMondays.length === 0) {
+                    return `<div style="padding:12px 15px;background:#f8fafc;border-bottom:1px solid var(--border);">
+                        <div style="display:flex;gap:4px;margin-bottom:10px;">
+                            ${['locked','range'].map(m=>`<button onclick="App.uiState.equilibrioMode='${m}';App.ui.renderPlannerInspector(document.getElementById('inspector-content'))" style="padding:4px 12px;border-radius:20px;border:1px solid ${mode===m?'#2563eb':'#e2e8f0'};background:${mode===m?'#eff6ff':'white'};color:${mode===m?'#2563eb':'#94a3b8'};font-size:0.68rem;font-weight:700;cursor:pointer;">${m==='locked'?'🔒 Cerradas':'📅 Rango'}</button>`).join('')}
+                        </div>
+                        <div style="padding:24px;text-align:center;color:#94a3b8;font-size:0.78rem;">Sin semanas cerradas todavía.</div>
+                    </div>`;
                 }
-                startDate = allDates[0];
-                endDate = allDates[allDates.length - 1];
+                validDates = new Set();
+                lockedMondays.forEach(monday => {
+                    Utils.getWeekDays(monday).forEach(d => validDates.add(d));
+                });
+                const sortedValid = [...validDates].sort();
+                startDate = sortedValid[0];
+                endDate = sortedValid[sortedValid.length - 1];
+            } else {
+                startDate = App.uiState.balanceStartDate;
+                endDate = App.uiState.balanceEndDate;
+                if(!startDate || !endDate) {
+                    const allDates = Object.keys(App.data.schedule).sort();
+                    if(allDates.length === 0) {
+                        return `<div style="padding:40px;text-align:center;color:var(--text-muted);"><p>No hay datos disponibles.</p></div>`;
+                    }
+                    startDate = allDates[0];
+                    endDate = allDates[allDates.length - 1];
+                }
             }
-            
+
             const stats = [];
             let totalM = 0, totalT = 0, totalP = 0, totalI = 0, totalAll = 0;
             
             App.data.empleados.filter(e => {
-                // Filtrar por activo Y vigente en algún momento del rango
                 return e.active !== false && Utils.empleadoVigenteEnRango(e, startDate, endDate);
             }).forEach(emp => {
                 let countM = 0, countT = 0, countP = 0, countI = 0, total = 0;
                 
                 Object.keys(App.data.schedule).forEach(date => {
-                    if(date >= startDate && date <= endDate) {
+                    const inRange = date >= startDate && date <= endDate;
+                    const inScope = mode === 'locked' ? validDates.has(date) : inRange;
+                    if(inScope) {
                         const shiftId = App.data.schedule[date][emp.id];
                         if(shiftId) {
                             const shift = Utils.getShift(shiftId);
                             if(shift && shift.start && shift.end) {
-                                // Clasificar automáticamente (funciona para paleta y CUSTOM)
                                 const type = Utils.classifyShift(shift);
                                 if(type === 'M') countM++;
                                 else if(type === 'T') countT++;
@@ -945,32 +993,34 @@ Object.assign(App.ui, {
             const avgPercP = totalAll > 0 ? (totalP / totalAll * 100) : 0;
             const avgPercI = totalAll > 0 ? (totalI / totalAll * 100) : 0;
             
+            const _modeBtn = (m, label) =>
+                `<button onclick="App.uiState.equilibrioMode='${m}';App.ui.renderPlannerInspector(document.getElementById('inspector-content'))"
+                    style="padding:4px 12px;border-radius:20px;border:1px solid ${mode===m?'#2563eb':'#e2e8f0'};background:${mode===m?'#eff6ff':'white'};color:${mode===m?'#2563eb':'#94a3b8'};font-size:0.68rem;font-weight:700;cursor:pointer;">${label}</button>`;
+
             let html = `
             <div style="padding:12px 15px; background:#f8fafc; border-bottom:1px solid var(--border);">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <h3 style="margin:0; font-size:0.85rem; font-weight:700;">⚖️ EQUILIBRIO DE TURNOS</h3>
+                <div style="display:flex;gap:4px;margin-bottom:10px;">
+                    ${_modeBtn('locked','🔒 Semanas cerradas')}
+                    ${_modeBtn('range','📅 Rango')}
                 </div>
-                <div style="display:flex; gap:6px; align-items:flex-end; font-size:0.7rem; flex-wrap:wrap;">
-                    <div style="flex:1; min-width:90px;">
-                        <label style="display:block; margin-bottom:2px; font-weight:600; font-size:0.65rem;">Desde:</label>
-                        ${Utils.getDateInputHTML('eq-start', startDate, 'App.logic.storeEquilibrioDate(this, "start")')}
+                ${mode === 'locked'
+                    ? `<div style="font-size:0.65rem;color:#64748b;">${lockedWeekCount} semana${lockedWeekCount!==1?'s':''} cerrada${lockedWeekCount!==1?'s':''} · ${Utils.formatDateES(startDate)} → ${Utils.formatDateES(endDate)}</div>`
+                    : `<div style="display:flex;gap:6px;align-items:flex-end;font-size:0.7rem;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:90px;">
+                            <label style="display:block;margin-bottom:2px;font-weight:600;font-size:0.65rem;">Desde:</label>
+                            ${Utils.getDateInputHTML('eq-start', startDate, 'App.logic.storeEquilibrioDate(this,"start")')}
+                        </div>
+                        <div style="flex:1;min-width:90px;">
+                            <label style="display:block;margin-bottom:2px;font-weight:600;font-size:0.65rem;">Hasta:</label>
+                            ${Utils.getDateInputHTML('eq-end', endDate, 'App.logic.storeEquilibrioDate(this,"end")')}
+                        </div>
+                        <button onclick="App.logic.updateEquilibrioRange()"
+                                style="padding:4px 10px;background:var(--primary);color:white;border:none;border-radius:3px;cursor:pointer;font-size:0.65rem;font-weight:600;">Aplicar</button>
+                        <button onclick="App.logic.resetEquilibrioRange()"
+                                style="padding:4px 10px;background:#e2e8f0;color:var(--text-main);border:none;border-radius:3px;cursor:pointer;font-size:0.65rem;">Todo</button>
                     </div>
-                    <div style="flex:1; min-width:90px;">
-                        <label style="display:block; margin-bottom:2px; font-weight:600; font-size:0.65rem;">Hasta:</label>
-                        ${Utils.getDateInputHTML('eq-end', endDate, 'App.logic.storeEquilibrioDate(this, "end")')}
-                    </div>
-                    <button onclick="App.logic.updateEquilibrioRange()" 
-                            style="padding:4px 10px; background:var(--primary); color:white; border:none; border-radius:3px; cursor:pointer; font-size:0.65rem; font-weight:600;">
-                        Aplicar
-                    </button>
-                    <button onclick="App.logic.resetEquilibrioRange()" 
-                            style="padding:4px 10px; background:#e2e8f0; color:var(--text-main); border:none; border-radius:3px; cursor:pointer; font-size:0.65rem;">
-                        Todo
-                    </button>
-                </div>
-                <div style="font-size:0.65rem; color:var(--text-muted); margin-top:6px;">
-                    📅 ${Utils.formatDateES(startDate)} → ${Utils.formatDateES(endDate)}
-                </div>
+                    <div style="font-size:0.65rem;color:var(--text-muted);margin-top:6px;">📅 ${Utils.formatDateES(startDate)} → ${Utils.formatDateES(endDate)}</div>`
+                }
             </div>
             
             <div style="overflow-y:auto;">
@@ -1160,9 +1210,12 @@ Object.assign(App.ui, {
 
         _refreshEventos: function() {
             const ms = document.querySelector('.main-scroll');
-            if(ms && App.uiState.currentView === 'requests') App.ui.renderRequests(ms);
             const insp = document.getElementById('inspector-content');
-            if(insp) App.ui.renderPlannerInspector(insp);
+            if(ms && document.getElementById('req-section-bar') !== null) {
+                App.ui.renderRequests(ms);
+            } else {
+                if(insp) App.ui.renderPlannerInspector(insp);
+            }
         },
 
         renderMonitorEventos: function() {

@@ -93,7 +93,7 @@
         .balance-table td.b-hrs { font-family: monospace; text-align: right; width: 45px; font-size: 0.75rem; }
         
         .week-dots { display: flex; gap: 4px; }
-        .dot { width: 22px; height: 22px; border-radius: 3px; cursor: help; }
+        .dot { width: 18px; height: 18px; border-radius: 3px; cursor: help; }
         .balance-legend { padding: 15px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.7rem; color: var(--text-muted); background: #f8fafc; margin-top: auto; }
 
         /* INFO TIPS */

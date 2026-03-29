@@ -6,6 +6,20 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '30/03/2026', version: 'v1.0',
+                items: [
+                    '✨ Balance Semanal — nuevas columnas Desvío acumulado y Festivos pendientes con tooltip de fechas',
+                    '✨ Balance Semanal — tooltips explicativos en todas las cabeceras',
+                    '✨ Balance Semanal — reorden de columnas: EMP·CNTR·ASIG·DIF ‖ DES·FES ‖ SEG·LIB·SEMANA',
+                    '✨ Equilibrio de turnos — modo Semanas Cerradas vs Rango seleccionable',
+                    '✨ Rotación de fines de semana ampliada a 14 semanas',
+                    '✨ Festivos — botón "Resetear recuperaciones" con aviso destructivo',
+                    '🔧 DIF semana usa umbral del 10% del contrato en lugar de 0.5h fijo',
+                    '🔧 Al cerrar/abrir semana el inspector del planner se actualiza automáticamente',
+                    '🔧 Fix: editar evento en Peticiones refresca correctamente sin sobreescribir el inspector',
+                ]
+            },
+            {
                 fecha: '28/03/2026', version: 'v1.0',
                 items: [
                     '✨ Balance Semanal — cuadraditos muestran las horas del día con color adaptado a la luminancia del fondo',

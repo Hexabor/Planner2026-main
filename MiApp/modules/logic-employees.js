@@ -215,6 +215,33 @@ Object.assign(App.logic, {
     }
 },
 
+        festivoResetRecuperaciones: function(empId) {
+            const confirmed = confirm(
+                '⚠️ ACCIÓN DESTRUCTIVA\n\n' +
+                'Esto desasignará TODAS las recuperaciones de festivos registradas para este empleado.\n\n' +
+                'Tendrás que volver a asignarlas manualmente desde el panel de festivos.\n\n' +
+                'Está pensado para reordenar durante la elaboración de horarios.\n\n' +
+                'Piénsalo bien antes de pulsarlo.\n\n' +
+                '¿Deseas continuar?'
+            );
+            if(!confirmed) return;
+            const i = App.data.empleados.findIndex(e => e.id === empId);
+            if(i < 0) return;
+            const tracking = App.data.empleados[i].festivoTracking || {};
+            Object.keys(tracking).forEach(hDate => {
+                if(tracking[hDate].rDate) delete tracking[hDate].rDate;
+                if(tracking[hDate].factorialDate) delete tracking[hDate].factorialDate;
+                // Si el registro quedó vacío, eliminarlo
+                if(!tracking[hDate].rDate && !tracking[hDate].factorialDate) {
+                    delete tracking[hDate];
+                }
+            });
+            App.data.empleados[i].festivoTracking = tracking;
+            Safe.save('v40_db', App.data);
+            App.ui.renderEmpInspector(empId);
+            App.ui.renderEmp(document.querySelector('.main-scroll'));
+        },
+
         festivoTrackUpd: function(empId, hDate, field, value) {
             const i = App.data.empleados.findIndex(x => x.id === empId);
             if(i < 0) return;
