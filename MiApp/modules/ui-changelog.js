@@ -6,6 +6,17 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '01/04/2026', version: 'v1.0',
+                items: [
+                    '🔧 Festivos durante vacaciones ya no se absorben — nuevo estado "En vacaciones" con badge púrpura y selector de recuperación',
+                    '✨ Navegador semanal compacto — muestra solo el código de semana (2026WK14), flechas ◀◀▶▶ para saltar ±4 semanas',
+                    '✨ Switch Cerrada/Abierta integrado en la fila del navegador, más compacto y con tooltip en la etiqueta',
+                    '✨ Módulo DRAG independiente a la derecha de VISTA — botones Editar/Cambiar apilados verticalmente',
+                    '🔧 Botón activo del modo drag refleja visualmente el modo seleccionado',
+                    '🔧 Botón DH ocultado de la paleta de turnos',
+                ]
+            },
+                        {
                 fecha: '30/03/2026', version: 'v1.0',
                 items: [
                     '✨ Balance Semanal — nuevas columnas Desvío acumulado y Festivos pendientes con tooltip de fechas',
