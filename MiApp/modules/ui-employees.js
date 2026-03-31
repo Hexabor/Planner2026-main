@@ -57,7 +57,7 @@ Object.assign(App.ui, {
                 const sid = App.data.schedule[h.date]?.[emp.id];
                 const shift = sid ? Utils.getShift(sid) : null;
                 if(!shift) return;
-                if(shift.fixed && shift.code === 'V') return; // Vacaciones = festivo disfrutado
+                if(shift.fixed && shift.code === 'V') { pendientes++; return; } // Vacaciones NO absorben festivos
                 if(shift.fixed && shift.code === 'F') {
                     const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
                     let countL = 0;
@@ -541,7 +541,7 @@ markDirty: function() {
         const sid = App.data.schedule[hDate]?.[emp.id];
         const shift = sid ? Utils.getShift(sid) : null;
         if(!shift) return 'sin_definir';
-        if(shift.fixed && shift.code === 'V') return 'disfrutado';
+        if(shift.fixed && shift.code === 'V') return 'vacaciones';
         if(shift.fixed && shift.code === 'F') {
             const monday = Utils.getMonday(hDate);
             const wdays  = Utils.getWeekDays(monday);
@@ -581,7 +581,7 @@ markDirty: function() {
         const rDateValida = tr.rDate && allRsSet.has(tr.rDate);
         const isResuelto = (estado === 'disfrutado') || rDateValida;
 
-        if(estado === 'coincide' || estado === 'trabaja') adeudadas++;
+        if(estado === 'coincide' || estado === 'trabaja' || estado === 'vacaciones') adeudadas++;
         if(rDateValida) dadas++;
 
         const itemHtml = this.renderFestivoItemRow(emp, h, estado, tr, allRs, assignedRDates);
@@ -655,7 +655,7 @@ markDirty: function() {
 
 // Función auxiliar para renderizar cada tarjeta de festivo
 renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
-    const needsTracking = estado === 'coincide' || estado === 'trabaja';
+    const needsTracking = estado === 'coincide' || estado === 'trabaja' || estado === 'vacaciones';
     const isTrabajado = estado === 'trabaja';
     const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     const d = new Date(h.date);
@@ -666,6 +666,7 @@ renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
         disfrutado: ['#dcfce7','#15803d','✅ OK'],
         coincide: ['#fef9c3','#854d0e','⚠️ Coincide'],
         trabaja: ['#fee2e2','#991b1b','🔴 Trabaja'],
+        vacaciones: ['#ede9fe','#6d28d9','🏖️ En vacaciones'],
         sin_definir: ['#f1f5f9','#94a3b8','⬜ ?']
     }[estado];
 

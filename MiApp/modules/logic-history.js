@@ -273,23 +273,12 @@ App.logic = {
             const currentMode = this.getCurrentDragMode();
             const editBtn = document.getElementById('mode-edit-btn');
             const swapBtn = document.getElementById('mode-swap-btn');
-            
             if(!editBtn || !swapBtn) return;
-            
-            // Limpiar clases
-            editBtn.classList.remove('active', 'temp');
-            swapBtn.classList.remove('active', 'temp');
-            
-            // Aplicar clase activa
-            if(currentMode === 'edit') {
-                editBtn.classList.add('active');
-            } else if(currentMode === 'swap') {
-                swapBtn.classList.add('active');
-                // Si es temporal (Ctrl), añadir animación
-                if(App.uiState.tempDragMode === 'swap') {
-                    swapBtn.classList.add('temp');
-                }
-            }
+            const _active = 'background:#2563eb; color:white;';
+            const _inactive = 'background:#f1f5f9; color:#64748b;';
+            const _base = 'width:100%; padding:5px 4px; border:none; border-radius:6px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; transition:all 0.15s; ';
+            editBtn.style.cssText = _base + (currentMode === 'edit' ? _active : _inactive);
+            swapBtn.style.cssText = _base + (currentMode === 'swap' ? _active : _inactive);
         },
         
         _weekStateRowHTML: function(monday) {
@@ -299,15 +288,19 @@ App.logic = {
             const lblCls = isClosed ? 'is-closed' : '';
             const lblTxt = isClosed ? 'Cerrada' : 'Abierta';
             const title = isClosed ? 'Desbloquear semana' : 'Cerrar/bloquear semana';
-            return '<button type="button" class="week-lock-track ' + trackCls + '"'
+            return '<div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:0 6px;">'
+                 + '<div style="transform:scale(0.75); transform-origin:center center;">'
+                 + '<button type="button" id="week-lock-btn" class="week-lock-track ' + trackCls + '"'
                  + ' data-monday="' + monday + '"'
                  + ' onclick="App.logic.toggleWeekLock(this.dataset.monday)"'
                  + ' title="' + title + '">'
                  + '<div class="week-lock-thumb"></div></button>'
-                 + '<span class="week-lock-label ' + lblCls + '">' + lblTxt + '</span>'
-                 + '<span style="cursor:help;font-size:11px;color:#94a3b8;margin-left:3px;position:relative;" onclick="event.stopPropagation()"'
+                 + '</div>'
+                 + '<span id="week-lock-label" class="week-lock-label ' + lblCls + '"'
+                 + ' style="font-size:0.55rem; font-weight:800; text-transform:uppercase; letter-spacing:0.03em; cursor:help;"'
                  + ' onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById(\'wk-info-tip\');t.style.left=r.left+\'px\';t.style.top=(r.bottom+4)+\'px\';t.style.display=\'block\';"'
-                 + ' onmouseleave="document.getElementById(\'wk-info-tip\').style.display=\'none\';">ℹ️</span>';
+                 + ' onmouseleave="document.getElementById(\'wk-info-tip\').style.display=\'none\';">' + lblTxt + '</span>'
+                 + '</div>';
         },
 
         // ── BLOQUEO DE DÍAS ──────────────────────────────────────────────────

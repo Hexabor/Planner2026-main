@@ -18,7 +18,8 @@ Object.assign(App.ui, {
             const availableWidth = c.clientWidth;
             const valleModuleWidth = (parseFloat(App.data.config.valleBolsa) > 0) ? 112 : 0; // 100px + 12px gap
             const vistaModuleWidth = 102; // 90px + 12px gap — siempre visible
-            const controlsScale = Math.min(1, (availableWidth - 40) / (985 + valleModuleWidth + vistaModuleWidth));
+            const dragModuleWidth  = 92;  // 80px + 12px gap — siempre visible
+            const controlsScale = Math.min(1, (availableWidth - 40) / (985 + valleModuleWidth + vistaModuleWidth + dragModuleWidth));
             const gridScale = Math.min(1, (availableWidth - 40) / 1435);
 
             // Calcular scale basado en el ancho disponible
@@ -130,19 +131,50 @@ Object.assign(App.ui, {
                 </div>
             </div>`;
 
+            // Módulo DRAG — botones Editar/Cambiar apilados
+            const _mBtn = (mode, icon, label) => {
+                const isActive = App.uiState.dragMode === mode;
+                const btnId = mode === 'edit' ? 'mode-edit-btn' : 'mode-swap-btn';
+                return '<button id="' + btnId + '" onclick="App.logic.setDragMode(\'' + mode + '\')" title="' + label + '"'
+                     + ' style="width:100%; padding:5px 4px; border:none; border-radius:6px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; transition:all 0.15s;'
+                     + ' background:' + (isActive ? '#2563eb' : '#f1f5f9') + '; color:' + (isActive ? 'white' : '#64748b') + ';">'
+                     + '<span style="font-size:14px; line-height:1;">' + icon + '</span>'
+                     + '<span style="font-size:0.55rem; font-weight:800; text-transform:uppercase; letter-spacing:0.03em;">' + label + '</span>'
+                     + '</button>';
+            };
+            const dragModuleHtml = `<div class="planner-module" style="flex:0 0 80px; width:80px;">
+                <div class="planner-module-title">🎯 DRAG</div>
+                <div class="planner-module-content" style="display:flex; flex-direction:column; gap:5px; padding:6px; justify-content:center;">
+                    ${_mBtn('edit','✏️','Editar')}
+                    ${_mBtn('swap','🔄','Cambiar')}
+                </div>
+            </div>`;
+
             let html = `<div class="planner-controls-super-wrapper">
-                <div class="planner-controls-super" id="planner-controls-super" style="transform: scale(${controlsScale}); transform-origin: top left; width:${985 + valleModuleWidth + vistaModuleWidth}px; min-width:${985 + valleModuleWidth + vistaModuleWidth}px;">
+                <div class="planner-controls-super" id="planner-controls-super" style="transform: scale(${controlsScale}); transform-origin: top left; width:${985 + valleModuleWidth + vistaModuleWidth + dragModuleWidth}px; min-width:${985 + valleModuleWidth + vistaModuleWidth + dragModuleWidth}px;">
                 <div class="planner-controls">
                 <!-- MÓDULO 1: NAVEGADOR -->
                 <div class="planner-module planner-navigator">
                     <div class="planner-module-title">📅 NAVEGADOR</div>
                     <div class="planner-module-content">
-                        <div class="week-selector">
-                            <button class="week-btn" onclick="App.logic.changeWeek(-1)">◀</button>
-                            <select id="week-dropdown" onchange="App.logic.goToWeek(this.value)" style="padding:4px 6px; border:1px solid var(--border); border-radius:4px; font-weight:600; cursor:pointer; background:white; font-size:0.75rem; text-align:center;">
-                                ${App.logic.getWeekOptions(monday)}
-                            </select>
-                            <button class="week-btn" onclick="App.logic.changeWeek(1)">▶</button>
+                        <div class="week-selector" style="justify-content:space-between;">
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <button class="week-btn week-btn-fast" onclick="App.logic.changeWeek(-4)" title="−4 semanas">◀◀</button>
+                                <button class="week-btn" onclick="App.logic.changeWeek(-1)" title="−1 semana">◀</button>
+                                <div style="position:relative; display:inline-flex; align-items:center; border:1px solid var(--border); border-radius:4px; background:white; height:28px;">
+                                    <span style="pointer-events:none; position:relative; z-index:1; padding:0 8px; font-weight:700; font-size:0.82rem; white-space:nowrap; color:#1e293b;">
+                                        ${Utils.getWeekCode(monday)} <span style="font-size:0.65em; color:#94a3b8; margin-left:2px;">▾</span>
+                                    </span>
+                                    <select id="week-dropdown" onchange="App.logic.goToWeek(this.value)" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:none; background:none;">
+                                        ${App.logic.getWeekOptions(monday)}
+                                    </select>
+                                </div>
+                                <button class="week-btn" onclick="App.logic.changeWeek(1)" title="+1 semana">▶</button>
+                                <button class="week-btn week-btn-fast" onclick="App.logic.changeWeek(4)" title="+4 semanas">▶▶</button>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0; font-size:0.65rem; color:var(--text-muted);">
+                                ${App.logic._weekStateRowHTML(monday)}
+                            </div>
                         </div>
                         <div class="compact-days-wrapper">
                         <div class="compact-day-selector">`;
@@ -212,13 +244,7 @@ Object.assign(App.ui, {
             
             html += `</div>`; // Cierre de compact-indicators-row
             html += `</div>`; // Cierre de compact-days-wrapper
-            html += `<div style="margin-top:6px; display:flex; align-items:center; justify-content:flex-end; font-size:0.65rem; color:var(--text-muted); padding:0 4px;">
-                            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                                ${App.logic._weekStateRowHTML(monday)}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            html += `</div></div>
 
                 <!-- MÓDULO 2: PALETA DE TURNOS (en el centro) -->
                 <div class="planner-module planner-palette-inline">
@@ -227,7 +253,7 @@ Object.assign(App.ui, {
                         <div style="display:flex; height:100%; gap:0;">
                             <!-- Fijos: columna izquierda -->`;
             html += `<div style="display:flex; flex-direction:column; gap:2px; flex-shrink:0;">`;
-            App.data.fixedShifts.forEach(s => {
+            App.data.fixedShifts.filter(s => s.code !== 'DH').forEach(s => {
                 const isSel = App.uiState.paintShiftId === s.id ? 'selected' : '';
                 html += `<div class="palette-item palette-item-fixed ${isSel}" title="${s.desc}" style="border: 2px solid ${s.color}; background:transparent; border-color:${isSel?s.color:s.color}40; min-width:22px;" onclick="App.logic.setPaint('${s.id}')"><span style="color:${s.color}; font-weight:700;">${s.code}</span></div>`;
             });
@@ -267,24 +293,10 @@ Object.assign(App.ui, {
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- SUBMÓDULO 30%: SWITCH DE MODOS -->
-                    <div class="tools-submodule-mode">
-                        <div class="planner-module-title">🎯 MODO DE DRAG</div>
-                        <div class="mode-switch-container">
-                            <button class="mode-btn ${App.uiState.dragMode === 'edit' ? 'active' : ''}" id="mode-edit-btn" onclick="App.logic.setDragMode('edit')" title="Modo edición: Ajustar horarios (defecto)">
-                                <span class="mode-icon">✏️</span>
-                                <span>Editar</span>
-                            </button>
-                            <button class="mode-btn ${App.uiState.dragMode === 'swap' ? 'active' : ''}" id="mode-swap-btn" onclick="App.logic.setDragMode('swap')" title="Modo intercambio: Mover turnos entre empleados (o mantén Ctrl)">
-                                <span class="mode-icon">🔄</span>
-                                <span>Cambiar</span>
-                            </button>
-                        </div>
-                    </div>
                 </div>
                 ${valleModuleHtml}
                 ${vistaModuleHtml}
+                ${dragModuleHtml}
             </div>
             </div>
             </div>`;
