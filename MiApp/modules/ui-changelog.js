@@ -6,6 +6,20 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '01/04/2026 (tarde)', version: 'v1.0',
+                items: [
+                    '🔧 Festivos en el tooltip de Balance Semanal ahora muestra todas las fechas correctamente (incluye vacaciones)',
+                    '✨ Navegador del planificador — flechas + semana + switch centrados como unidad, switch en marco redondeado con color según estado',
+                    '✨ Balance Semanal — F+F muestra círculo naranja igual que L+F, con tooltip preciso sobre cuántas L faltan',
+                    '✨ Vista de impresión mensual — días del mes anterior/siguiente visibles atenuados',
+                    '✨ Vista de impresión mensual — horas en esquina inferior derecha de cada celda',
+                    '✨ Vista de impresión semanal — festivos en rojo/blanco, domingos en violeta/blanco, línea separadora gruesa',
+                    '✨ Navegador en vista de impresión — ◀◀ ◀ [selector] ▶ ▶▶ en semanal; selectores Mes/Año/Staff en mensual',
+                    '🔧 Fix definitivo navegación en presentación — cálculo de fecha en click-time, sin deriva de zona horaria',
+                    '✨ Selector de empleado mensual rediseñado — etiquetas Mes / Año / Staff apiladas',
+                ]
+            },
+                        {
                 fecha: '01/04/2026', version: 'v1.0',
                 items: [
                     '🔧 Festivos durante vacaciones ya no se absorben — nuevo estado "En vacaciones" con badge púrpura y selector de recuperación',

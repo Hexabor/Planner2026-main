@@ -157,7 +157,7 @@ Object.assign(App.ui, {
                 <div class="planner-module planner-navigator">
                     <div class="planner-module-title">📅 NAVEGADOR</div>
                     <div class="planner-module-content">
-                        <div class="week-selector" style="justify-content:space-between;">
+                        <div class="week-selector" style="display:flex; align-items:center; justify-content:center; gap:16px;">
                             <div style="display:flex; align-items:center; gap:4px;">
                                 <button class="week-btn week-btn-fast" onclick="App.logic.changeWeek(-4)" title="−4 semanas">◀◀</button>
                                 <button class="week-btn" onclick="App.logic.changeWeek(-1)" title="−1 semana">◀</button>
@@ -172,7 +172,7 @@ Object.assign(App.ui, {
                                 <button class="week-btn" onclick="App.logic.changeWeek(1)" title="+1 semana">▶</button>
                                 <button class="week-btn week-btn-fast" onclick="App.logic.changeWeek(4)" title="+4 semanas">▶▶</button>
                             </div>
-                            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0; font-size:0.65rem; color:var(--text-muted);">
+                            <div style="display:flex; align-items:center; font-size:0.65rem; color:var(--text-muted);">
                                 ${App.logic._weekStateRowHTML(monday)}
                             </div>
                         </div>

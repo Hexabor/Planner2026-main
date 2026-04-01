@@ -580,11 +580,15 @@ Object.assign(App.ui, {
                 // Chivato de descansos completos
                 let chivatoHtml = '';
                 if(st.countL >= 2) {
-                    // 2 o más L → Verde, puede cebarlo
+                    // 2 o más L → Verde
                     chivatoHtml = `<div style="width:12px;height:12px;background:#22c55e;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;cursor:help;box-shadow:0 1px 2px rgba(0,0,0,0.2);margin:0 auto;" title="✓ Tiene ${st.countL} libranzas L - Puede asignar turnos extra sin comprometer descanso">✓</div>`;
-                } else if(st.countL >= 1 && st.countF >= 1) {
-                    // 1 L + 1 F → Naranja, cubierto pero podría tener otro L
-                    chivatoHtml = `<div style="width:12px;height:12px;background:#f59e0b;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;cursor:help;box-shadow:0 1px 2px rgba(0,0,0,0.2);margin:0 auto;" title="⚠ Tiene 1 L + 1 F - Descansos cubiertos. Considera L adicional para evitar compensar festivo">⚠</div>`;
+                } else if((st.countL >= 1 && st.countF >= 1) || st.countF >= 2) {
+                    // 1L+1F o 2F → Naranja: cubierto pero sin L+L
+                    const _lFaltan = 2 - st.countL;
+                    const _tip = st.countF >= 2
+                        ? `⚠ ${st.countF} festivos como libranza, sin L real. Añadir ${_lFaltan} L para tener descanso garantizado`
+                        : '⚠ Tiene 1 L + 1 F - Descansos cubiertos. Considera añadir una L adicional para evitar compensar festivo';
+                    chivatoHtml = `<div style="width:12px;height:12px;background:#f59e0b;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.55rem;font-weight:700;cursor:help;box-shadow:0 1px 2px rgba(0,0,0,0.2);margin:0 auto;" title="${_tip}">⚠</div>`;
                 }
                 
                 dotsHtml += `</div>`;
@@ -614,7 +618,7 @@ Object.assign(App.ui, {
                     _acumSign  = _acum > 0 ? '+' : '';
                     _autoRec   = App.ui._calcFestivosPend(_emp);
                 }
-                // Lista de festivos pendientes para tooltip
+                // Lista de festivos pendientes para tooltip — misma lógica que _calcFestivosPend
                 const _fesPendList = (() => {
                     if(!_emp || _autoRec === 0) return [];
                     const locked = App.data.lockedDays || {};
@@ -635,9 +639,10 @@ Object.assign(App.ui, {
                             const sid = App.data.schedule[h.date]?.[_emp.id];
                             const shift = sid ? Utils.getShift(sid) : null;
                             if(!shift) return;
-                            if(shift.fixed && shift.code === 'V') return;
                             let counts = false;
-                            if(shift.fixed && shift.code === 'F') {
+                            if(shift.fixed && shift.code === 'V') {
+                                counts = true; // Vacaciones NO absorben festivos
+                            } else if(shift.fixed && shift.code === 'F') {
                                 const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
                                 let countL = 0;
                                 wdays.forEach(d => { const s2 = App.data.schedule[d]?.[_emp.id]; const sh2 = s2 ? Utils.getShift(s2) : null; if(sh2 && sh2.fixed && sh2.code === 'L') countL++; });

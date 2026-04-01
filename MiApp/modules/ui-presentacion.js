@@ -62,20 +62,40 @@ Object.assign(App.ui, {
 
             if(pv === 'semanal') {
                 // Navegación de semana
-                const prevWk = (() => { const d = new Date(weekDate+'T00:00:00'); d.setDate(d.getDate()-7); return d.toISOString().slice(0,10); })();
-                const nextWk = (() => { const d = new Date(weekDate+'T00:00:00'); d.setDate(d.getDate()+7); return d.toISOString().slice(0,10); })();
+                // Función de navegación que se ejecuta en el momento del click — T12:00:00 evita DST, local getters evitan UTC drift
+                const _nav = (delta) => `(function(){var d=new Date(App.uiState.currentDate+'T12:00:00');d.setDate(d.getDate()+(${delta}));App.uiState.currentDate=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');App.ui.renderPresentacion(document.querySelector('.main-scroll'));})()`;
                 const days = Utils.getWeekDays(Utils.getMonday(weekDate));
                 const DAY_ES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
                 const MONTH_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
                 html += `
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;" class="no-print">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <button onclick="App.uiState.currentDate='${prevWk}'; App.ui.renderPresentacion(document.querySelector('.main-scroll'))"
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <button onclick="${_nav(-28)}" title="-4 semanas"
+                            style="background:#f1f5f9;border:1px solid var(--border);border-radius:4px;padding:4px 8px;cursor:pointer;font-size:0.6rem;opacity:0.7;letter-spacing:-1px;">◀◀</button>
+                        <button onclick="${_nav(-7)}" title="-1 semana"
                             style="background:#f1f5f9;border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;">◀</button>
-                        <span style="font-weight:600;color:var(--text-muted);font-size:0.85rem;">${Utils.getWeekCode(weekDate)}</span>
-                        <button onclick="App.uiState.currentDate='${nextWk}'; App.ui.renderPresentacion(document.querySelector('.main-scroll'))"
+                        <select onchange="App.uiState.currentDate=this.value; App.ui.renderPresentacion(document.querySelector('.main-scroll'))"
+                            style="height:28px;padding:0 6px;border:1px solid var(--border);border-radius:4px;background:white;font-weight:700;font-size:0.82rem;color:#1e293b;cursor:pointer;">
+                            ${(() => {
+                                const _cur = Utils.getMonday(weekDate);
+                                const _fmt = d => { const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+dd; };
+                                const _fmtShort = s => { const [y,m,d]=s.split('-'); return d+'.'+m+'.'+y.slice(2); };
+                                let _opts = '', _d = new Date(_cur+'T12:00:00');
+                                _d.setDate(_d.getDate() - 52*7);
+                                for(let i=0; i<120; i++, _d.setDate(_d.getDate()+7)) {
+                                    const _mon = _fmt(_d);
+                                    const _sun = Utils.getWeekDays(_mon)[6];
+                                    const _sel = _mon === _cur ? 'selected' : '';
+                                    _opts += '<option value="'+_mon+'" '+_sel+'>'+Utils.getWeekCode(_mon)+' · '+_fmtShort(_mon)+' – '+_fmtShort(_sun)+'</option>';
+                                }
+                                return _opts;
+                            })()}
+                        </select>
+                        <button onclick="${_nav(7)}" title="+1 semana"
                             style="background:#f1f5f9;border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;">▶</button>
+                        <button onclick="${_nav(28)}" title="+4 semanas"
+                            style="background:#f1f5f9;border:1px solid var(--border);border-radius:4px;padding:4px 8px;cursor:pointer;font-size:0.6rem;opacity:0.7;letter-spacing:-1px;">▶▶</button>
                     </div>
                 </div>
 
@@ -83,25 +103,29 @@ Object.assign(App.ui, {
                     <div style="text-align:center;font-weight:700;font-size:1rem;margin-bottom:8px;color:#1e293b;">
                         ${App.data.storeConfig?.nombre||'Horario Semanal'} · ${Utils.getWeekCode(weekDate)}
                     </div>
-                    <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
+                    <div style="overflow-x:auto;">
+                    <table style="border-collapse:collapse;width:auto;table-layout:fixed;margin:0 auto;">
                         <colgroup>
-                            <col style="width:130px;">
-                            ${days.map(()=>'<col>').join('')}
+                            <col style="width:120px;">
+                            ${days.map(()=>'<col style="width:90px;">').join('')}
                         </colgroup>
                         <thead>
                             <tr style="background:#1e293b;color:white;">
-                                <th style="padding:8px;text-align:left;border:1px solid #334155;font-size:0.75rem;background:#0f172a;">Empleado</th>
+                                <th style="padding:8px;text-align:left;border:1px solid #334155;border-bottom:3px solid #475569;font-size:0.75rem;background:#0f172a;">Empleado</th>
                                 ${days.map(d => {
                                     const date = new Date(d+'T00:00:00');
                                     const dow = date.getDay();
-                                    const isWeekend = dow===0||dow===6;
                                     const isHoliday = (App.data.storeConfig.holidays||[]).some(h=>h.date===d);
-                                    const bg = isHoliday?'#854d0e':isWeekend?'#334155':'';
                                     const isSun = dow === 0;
-                                    const dateColor = (isHoliday || isSun) ? '#ef4444' : 'inherit';
-                                    return `<th style="padding:8px 4px;text-align:center;border:1px solid #334155;font-size:0.75rem;${bg?'background:'+bg+';':''}">
-                                        <div style="font-weight:700;color:${dateColor};">${DAY_ES[dow]}</div>
-                                        <div style="font-size:0.65rem;opacity:0.8;color:${dateColor};">${String(date.getDate()).padStart(2,'0')} ${MONTH_ES[date.getMonth()]}</div>
+                                    // Fondo: festivo=blanco, domingo=blanco, finde=gris oscuro, normal=azul oscuro
+                                    let bg, txtColor;
+                                    if(isHoliday)      { bg='white';   txtColor='#ef4444'; }
+                                    else if(isSun)     { bg='white';   txtColor='#7c3aed'; }
+                                    else if(dow===6)   { bg='#334155'; txtColor='#94a3b8'; }
+                                    else               { bg='';        txtColor='white';   }
+                                    return `<th style="padding:8px 4px;text-align:center;border:1px solid #334155;border-bottom:3px solid #475569;font-size:0.75rem;${bg?'background:'+bg+';':''}">
+                                        <div style="font-weight:700;color:${txtColor};">${DAY_ES[dow]}</div>
+                                        <div style="font-size:0.65rem;opacity:0.85;color:${txtColor};">${String(date.getDate()).padStart(2,'0')} ${MONTH_ES[date.getMonth()]}</div>
                                     </th>`;
                                 }).join('')}
                             </tr>
@@ -133,6 +157,7 @@ Object.assign(App.ui, {
                             }).join('')}
                         </tbody>
                     </table>
+                    </div>
                 </div>`;
 
             } else {
@@ -161,24 +186,33 @@ Object.assign(App.ui, {
                 // Selector empleado + navegación mes
                 let empOpts = empActivos.map(e => `<option value="${e.id}" ${e.id===empId?'selected':''}>${e.nombre}</option>`).join('');
                 html += `
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;" class="no-print">
+                <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;" class="no-print">
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <button onclick="App.uiState.presMensualMonth=${pm};App.uiState.presMensualYear=${py};App.ui.renderPresentacion(document.querySelector('.main-scroll'))"
-                            style="background:#f1f5f9;border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;">◀</button>
-                        <span style="font-weight:600;font-size:0.9rem;">${MONTH_NAMES[month]} ${year}</span>
-                        <button onclick="App.uiState.presMensualMonth=${nm};App.uiState.presMensualYear=${ny};App.ui.renderPresentacion(document.querySelector('.main-scroll'))"
-                            style="background:#f1f5f9;border:1px solid var(--border);border-radius:4px;padding:4px 10px;cursor:pointer;">▶</button>
+                        <span style="font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;width:32px;flex-shrink:0;">Mes</span>
+                        <select onchange="App.uiState.presMensualMonth=parseInt(this.value); App.ui.renderPresentacion(document.querySelector('.main-scroll'))"
+                            style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-weight:600;background:white;width:auto;">
+                            ${MONTH_NAMES.map((n,i)=>`<option value="${i}" ${i===month?'selected':''}>${n}</option>`).join('')}
+                        </select>
+                        <span style="font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;width:32px;flex-shrink:0;">Año</span>
+                        <select onchange="App.uiState.presMensualYear=parseInt(this.value); App.ui.renderPresentacion(document.querySelector('.main-scroll'))"
+                            style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-weight:600;background:white;width:auto;">
+                            ${Array.from({length:7},(_,i)=>year-3+i).map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('')}
+                        </select>
                     </div>
-                    <select onchange="App.uiState.presMensualEmpId=this.value; App.ui.renderPresentacion(document.querySelector('.main-scroll'))"
-                        style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-weight:600;">${empOpts}</select>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;width:32px;flex-shrink:0;">Staff</span>
+                        <select onchange="App.uiState.presMensualEmpId=this.value; App.ui.renderPresentacion(document.querySelector('.main-scroll'))"
+                            style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-weight:600;background:white;width:auto;">${empOpts}</select>
+                    </div>
                 </div>
 
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
                     <div style="text-align:center;font-weight:700;font-size:1rem;margin-bottom:8px;color:#1e293b;">
                         ${emp?.nombre||'—'} · ${MONTH_NAMES[month]} ${year}
                     </div>
-                    <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
-                        <colgroup>${DAY_ES_SHORT.map(()=>'<col>').join('')}</colgroup>
+                    <div style="overflow-x:auto;">
+                    <table style="border-collapse:collapse;width:auto;table-layout:fixed;margin:0 auto;">
+                        <colgroup>${DAY_ES_SHORT.map(()=>'<col style="width:110px;">').join('')}</colgroup>
                         <thead>
                             <tr style="background:#1e293b;color:white;">
                                 ${DAY_ES_SHORT.map((d,i) => `<th style="padding:8px 4px;text-align:center;border:1px solid #334155;font-size:0.78rem;font-weight:700;${i>=5?'color:#94a3b8;':''}">${d}</th>`).join('')}
@@ -188,45 +222,55 @@ Object.assign(App.ui, {
 
                 // Construir semanas
                 let dayNum = 1 - firstDow;
+                const prevMonthDays = new Date(year, month, 0).getDate(); // días del mes anterior
                 for(let row = 0; row < 6; row++) {
                     const hasDay = dayNum <= daysInMonth && dayNum + 6 > 0;
                     if(!hasDay) break;
                     html += '<tr>';
                     for(let col = 0; col < 7; col++, dayNum++) {
-                        if(dayNum < 1 || dayNum > daysInMonth) {
-                            html += `<td class="pres-cell" style="background:#f8fafc;height:72px;"></td>`;
-                            continue;
+                        const isAdjacentMonth = dayNum < 1 || dayNum > daysInMonth;
+                        // Calcular la fecha real (puede ser mes anterior o siguiente)
+                        let adjYear = year, adjMonth = month + 1, adjDay = dayNum;
+                        if(dayNum < 1) {
+                            adjDay = prevMonthDays + dayNum;
+                            adjMonth = month === 0 ? 12 : month;
+                            adjYear = month === 0 ? year - 1 : year;
+                        } else if(dayNum > daysInMonth) {
+                            adjDay = dayNum - daysInMonth;
+                            adjMonth = month === 11 ? 1 : month + 2;
+                            adjYear = month === 11 ? year + 1 : year;
                         }
-                        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+                        const dateStr = `${adjYear}-${String(adjMonth).padStart(2,'0')}-${String(adjDay).padStart(2,'0')}`;
                         const shiftId = empId ? (App.data.schedule[dateStr]?.[empId]) : null;
                         const raw = shiftId ? Utils.getShift(shiftId) : null;
                         const s = fmtShift(raw);
                         const isWeekend = col >= 5;
                         const isHoliday = (App.data.storeConfig.holidays||[]).some(h=>h.date===dateStr);
-                        const cellBg = isHoliday?'#fef3c7':isWeekend?'#f8fafc':'white';
                         const isSunday = col === 6;
-                        const dayNumColor = (isHoliday || isSunday) ? '#ef4444' : isWeekend ? '#94a3b8' : '#475569';
-                        html += `<td class="pres-cell" style="height:72px;"
-                            <div style="display:flex;flex-direction:column;height:100%;padding:3px 5px;box-sizing:border-box;">
-                                <div style="text-align:right;font-size:0.7rem;font-weight:700;color:${dayNumColor};">${dayNum}</div>
-                                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0px;line-height:1.25;">
+                        const cellBg = isAdjacentMonth ? '#f1f5f9' : isHoliday ? '#fef3c7' : isWeekend ? '#f8fafc' : 'white';
+                        const opacity = isAdjacentMonth ? 'opacity:0.45;' : '';
+                        const dayNumColor = isAdjacentMonth ? '#94a3b8' : (isHoliday || isSunday) ? '#ef4444' : isWeekend ? '#94a3b8' : '#475569';
+                        const dispDay = isAdjacentMonth ? adjDay : dayNum;
+                        html += `<td class="pres-cell" style="height:72px;background:${cellBg};border:1px solid #e2e8f0;">
+                            <div style="position:relative;height:100%;padding:3px 5px;box-sizing:border-box;${opacity}">
+                                <div style="text-align:right;font-size:0.7rem;font-weight:700;color:${dayNumColor};">${dispDay}</div>
+                                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100% - 18px);gap:0px;line-height:1.25;">
                                 ${!s ? '' : s.libre
                                     ? `<span style="font-size:0.7rem;font-weight:700;color:${s.color};text-align:center;line-height:1.2;">${s.label}</span>`
                                     : s.hasBreak
                                         ? `<span style="font-size:0.78rem;font-weight:700;color:#1e293b;">${s.seg1}</span>
-                                           <span style="font-size:0.78rem;font-weight:700;color:#1e293b;">${s.seg2}</span>
-                                           <span style="font-size:0.62rem;color:#3b82f6;font-weight:700;margin-top:1px;">${s.total}</span>`
-                                        : `<span style="font-size:0.82rem;font-weight:700;color:#1e293b;">${s.t1}</span>
-                                           <span style="font-size:0.62rem;color:#3b82f6;font-weight:700;margin-top:1px;">${s.total}</span>`
+                                           <span style="font-size:0.78rem;font-weight:700;color:#1e293b;">${s.seg2}</span>`
+                                        : `<span style="font-size:0.82rem;font-weight:700;color:#1e293b;">${s.t1}</span>`
                                 }
                                 </div>
+                                ${!s || s.libre ? '' : `<div style="position:absolute;bottom:3px;right:5px;font-size:0.62rem;color:#3b82f6;font-weight:700;">${s.total}</div>`}
                             </div>
                         </td>`;
                     }
                     html += '</tr>';
                 }
 
-                html += `</tbody></table></div>`;
+                html += `</tbody></table></div></div>`;
             }
 
             html += `</div>`; // cierre print-area
