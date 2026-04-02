@@ -483,6 +483,20 @@ Object.assign(App.ui, {
             }
 
                         c.innerHTML = `<h2>Panel de Alertas</h2><p style="color:#64748b">Conflictos detectados en la planificación.</p>`;
+            // Accesos rápidos
+            c.innerHTML += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 18px;max-width:620px;margin:0 auto 20px;">' +
+                '<div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Accesos rápidos</div>' +
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+                    '<button onclick="App.uiState.reqSection=\'llaves\';App.router.go(\'requests\')" ' +
+                        'style="padding:5px 14px;border-radius:6px;border:1px solid #e2e8f0;background:white;font-size:0.8rem;cursor:pointer;">🔑 Optimizador de llaves</button>' +
+                    '<button onclick="App.router.go(\'planificador\')" ' +
+                        'style="padding:5px 14px;border-radius:6px;border:1px solid #e2e8f0;background:white;font-size:0.8rem;cursor:pointer;">📅 Planificador</button>' +
+                    '<button onclick="App.router.go(\'requests\')" ' +
+                        'style="padding:5px 14px;border-radius:6px;border:1px solid #e2e8f0;background:white;font-size:0.8rem;cursor:pointer;">📋 Peticiones</button>' +
+                    '<button onclick="App.router.go(\'config\')" ' +
+                        'style="padding:5px 14px;border-radius:6px;border:1px solid #e2e8f0;background:white;font-size:0.8rem;cursor:pointer;">⚙️ Config</button>' +
+                '</div>' +
+            '</div>';
             if(alerts.length === 0) {
                 c.innerHTML += `<div style="text-align:center; padding:40px; border:2px dashed #e2e8f0; border-radius:8px; color:#10b981">✨ Todo limpio. No hay alertas.</div>`;
             } else {

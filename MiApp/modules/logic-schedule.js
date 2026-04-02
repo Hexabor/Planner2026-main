@@ -1256,6 +1256,10 @@ Object.assign(App.logic, {
             const keyHoldersFin = App.data.empleados.filter(emp =>
                 (App.data.config.llaves || []).some(l => this.getTitularLlave(l.id, dateStr) === emp.id)
             );
+            // Sin ningún portador humano → todas las llaves en tienda, sin alerta de cobertura
+            if (keyHoldersInicio.length === 0 && keyHoldersFin.length === 0) {
+                return { hasApertura: true, hasCierre: true, horario };
+            }
             const hasApertura = keyHoldersInicio.some(emp => {
                 const shiftId = daySched[emp.id];
                 if(!shiftId) return false;

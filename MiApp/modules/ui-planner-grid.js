@@ -318,6 +318,7 @@ Object.assign(App.ui, {
                 <div class="planner-grid-module-scalable" id="planner-grid-scalable" style="transform: scale(${gridScale}); transform-origin: top left;">
                 <div class="time-header">
                     <div class="th-left">NOMBRE</div>
+                    <div class="th-llave">🔑</div>
                     <div class="th-rol">ROL</div>
                     <div class="th-tag">TAG</div>
                     <div class="th-hours">HRS</div>
@@ -461,22 +462,23 @@ Object.assign(App.ui, {
                 let nameContent = e.nombre + weekendIcon;
                 if (isDisabled) nameContent += ' <span style="color:#94a3b8; font-size:0.75em;">(des)</span>';
 
-                // Iconos de llave (solo si gestión activa)
+                // Iconos de llave — columna separada
+                let llaveContent = '';
                 if(App.data.config.llavesActivo && App.data.traspasoLlaves) {
-                    const KEY_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-left:3px;"><circle cx="8" cy="15" r="4"/><line x1="11.5" y1="11.5" x2="22" y2="1"/><line x1="18" y1="5" x2="21" y2="2"/><line x1="15" y1="8" x2="18" y2="5"/></svg>';
-                    const ARW_OUT = '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-left:1px;"><line x1="2" y1="8" x2="13" y2="8"/><polyline points="9 4 13 8 9 12"/></svg>';
-                    const ARW_IN  = '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#22c55e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-left:2px;"><line x1="14" y1="8" x2="3" y2="8"/><polyline points="7 4 3 8 7 12"/></svg>';
-                    const recibe  = App.data.traspasoLlaves.some(t => t.receptorId === e.id && t.fecha === date);
-                    const entrega = App.data.traspasoLlaves.some(t => t.dadorId    === e.id && t.fecha === date);
+                    const KEY_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><circle cx="8" cy="15" r="4"/><line x1="11.5" y1="11.5" x2="22" y2="1"/><line x1="18" y1="5" x2="21" y2="2"/><line x1="15" y1="8" x2="18" y2="5"/></svg>';
+                    const ARW_OUT = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><line x1="2" y1="8" x2="13" y2="8"/><polyline points="9 4 13 8 9 12"/></svg>';
+                    const ARW_IN  = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#22c55e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><line x1="14" y1="8" x2="3" y2="8"/><polyline points="7 4 3 8 7 12"/></svg>';
+                    const recibe      = App.data.traspasoLlaves.some(t => t.receptorId === e.id && t.fecha === date);
+                    const entrega     = App.data.traspasoLlaves.some(t => t.dadorId    === e.id && t.fecha === date);
                     const dejaTienda  = App.data.traspasoLlaves.some(t => t.dadorId === e.id && t.receptorId === '__TIENDA__' && t.fecha === date);
                     const cogeTienda  = App.data.traspasoLlaves.some(t => t.receptorId === e.id && t.dadorId === '__TIENDA__' && t.fecha === date);
-                    const tieneLlave = (App.data.config.llaves || []).some(l => App.logic.getTitularLlave(l.id, date) === e.id);
-                    const STORE = '<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-left:1px;"><path d="M2 6h12v8H2z"/><path d="M1 6l2-4h10l2 4"/><line x1="6" y1="10" x2="10" y2="10"/></svg>';
-                    if(dejaTienda)      nameContent += KEY_SVG + ARW_OUT + STORE; // 🔑 →rojo 🏪
-                    else if(cogeTienda) nameContent += KEY_SVG + ARW_IN  + STORE; // 🔑 ←verde 🏪
-                    else if(entrega)    nameContent += KEY_SVG + ARW_OUT;          // 🔑 →rojo
-                    else if(recibe)     nameContent += ARW_IN  + KEY_SVG;          // ←verde 🔑
-                    else if(tieneLlave) nameContent += KEY_SVG;                    // 🔑
+                    const tieneLlave  = (App.data.config.llaves || []).some(l => App.logic.getTitularLlave(l.id, date) === e.id);
+                    const STORE = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><path d="M2 6h12v8H2z"/><path d="M1 6l2-4h10l2 4"/><line x1="6" y1="10" x2="10" y2="10"/></svg>';
+                    if(dejaTienda)      llaveContent = KEY_SVG + ARW_OUT + STORE;
+                    else if(cogeTienda) llaveContent = KEY_SVG + ARW_IN  + STORE;
+                    else if(entrega)    llaveContent = KEY_SVG + ARW_OUT;
+                    else if(recibe)     llaveContent = ARW_IN  + KEY_SVG;
+                    else if(tieneLlave) llaveContent = KEY_SVG;
                 }
 
                 const tagClass = computedTag === 3 ? 'badge-tag-3' : 'badge-tag-1';
@@ -528,6 +530,7 @@ Object.assign(App.ui, {
                 // --- 4. SALIDA HTML ---
                 html += `<div class="pg-row" onclick="App.logic.paint('${e.id}')">
                     <div class="pg-name ${tag3Class}" style="${disabledBg}; cursor:pointer;" title="${txtTooltip}" onclick="event.stopPropagation(); App.uiState.individualEmpId='${e.id}'; App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));">${nameContent}</div>
+                    <div class="pg-llave ${tag3Class}" style="${disabledBg}">${llaveContent}</div>
                     <div class="pg-rol ${tag3Class}" style="${disabledBg}">${rolContent}</div>
                     <div class="pg-tag ${tag3Class}" style="${disabledBg}">${tagContent}</div>
                     <div class="pg-hours" style="${disabledBg}">${hoursContent}</div>

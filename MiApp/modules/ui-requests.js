@@ -1431,6 +1431,7 @@ Object.assign(App.ui, {
             c.style.cssText = 'padding:16px;overflow-y:auto;box-sizing:border-box;scrollbar-gutter:stable;';
             c.innerHTML = sectionBar + `
                 <div style="max-width:800px;margin:0 auto;">
+                    ${App.llaves._renderPanel()}
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                         <h3 style="margin:0;font-size:1rem;font-weight:700;color:#1e293b;">🔑 Traspasos de llave</h3>
                         <button onclick="App.ui.renderTraspasoInspector(null)"
