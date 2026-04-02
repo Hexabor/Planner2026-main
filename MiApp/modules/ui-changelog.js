@@ -6,6 +6,17 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '02/04/2026 (noche)', version: 'v1.0',
+                items: [
+                    '✨ Optimizador de llaves movido a Peticiones → Llaves; panel de accesos rápidos en Alertas',
+                    '✨ Columna llave separada en el grid del planificador (entre Nombre y ROL) con iconos SVG',
+                    '✨ Alertas ociosas muestran turno de regreso del titular (fecha + horario)',
+                    '🔧 Fix: alerta fantasma eliminada — sin traspasos equivale a llaves en tienda (sin alerta)',
+                    '🔧 Fix: Aceptar un traspaso individual ya no genera duplicados (borra auto traspasos antes de crear ancla)',
+                    '🔧 Penalización COVERAGE_PENALTY al traspasar dejando el cierre sin cobertura',
+                ]
+            },
+            {
                 fecha: '02/04/2026 (tarde)', version: 'v1.0',
                 items: [
                     '✨ Gestor de Llaves — modelo dinámico de traspasos con historial (traspasoLlaves[])',
