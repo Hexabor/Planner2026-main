@@ -327,6 +327,7 @@ Object.assign(App.ui, {
                 list:   ico('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>'),
                 repeat: ico('<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>'),
                 event:  ico('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/>'),
+                key:    ico('<circle cx="8" cy="15" r="4"/><line x1="11.5" y1="11.5" x2="22" y2="1"/><line x1="18" y1="5" x2="21" y2="2"/><line x1="15" y1="8" x2="18" y2="5"/>'),
             };
 
             const tabBtn = (key, icoHtml, label) => {
@@ -339,10 +340,12 @@ Object.assign(App.ui, {
                     ${icoHtml} ${label}
                 </button>`;
             };
+            const llavesTab = App.data.config.llavesActivo ? `${tabBtn('llaves', ICO.key, 'Llaves')}` : '';
             const sectionBar = `<div id="req-section-bar" style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:9px;width:fit-content;margin-bottom:14px;">
                 ${tabBtn('individual', ICO.list,   'Peticiones')}
                 ${tabBtn('recurring',  ICO.repeat, 'Recurrentes')}
                 ${tabBtn('eventos',    ICO.event,  'Eventos')}
+                ${llavesTab}
             </div>`;
 
             if (section === 'recurring') {
@@ -354,6 +357,12 @@ Object.assign(App.ui, {
             if (section === 'eventos') {
                 this._renderEventos(c, sectionBar);
                 this.renderEventoInspector(null);
+                return;
+            }
+
+            if (section === 'llaves') {
+                this._renderLlaves(c, sectionBar);
+                this.renderTraspasoInspector(null);
                 return;
             }
 
@@ -1346,6 +1355,142 @@ Object.assign(App.ui, {
                     </div>
                     ${evFilterBar}
                     ${listaHtml}
+                </div>`;
+        },
+
+        _renderLlaves: function(c, sectionBar) {
+            const hoy = new Date().toISOString().slice(0,10);
+            const llaves = App.data.config.llaves || [];
+            const traspasos = (App.data.traspasoLlaves || []).slice().sort((a,b) => a.fecha.localeCompare(b.fecha));
+
+            const empName = id => {
+                if(!id) return '<span style="color:#94a3b8;">—</span>';
+                if(id === '__TIENDA__') return '<span style="color:#f59e0b;font-weight:600;">🏪 En tienda</span>';
+                const e = App.data.empleados.find(e => e.id === id);
+                return e ? e.nombre : '—';
+            };
+            const llaveLabel = (llaveId) => {
+                const idx = llaves.findIndex(l => l.id === llaveId);
+                if(idx < 0) return 'Llave ?';
+                return `Llave ${idx+1}${llaves[idx].alias ? ' · ' + llaves[idx].alias : ''}`;
+            };
+
+            const _fila = (t, esPasado) => {
+                const dadorHtml = t.dadorId ? empName(t.dadorId) : '<span style="color:#94a3b8;font-style:italic;">asignación inicial</span>';
+                return `<tr style="border-bottom:1px solid #f1f5f9;${esPasado?'opacity:0.65;':''}">
+                    <td style="padding:9px 12px;font-size:0.8rem;color:#475569;white-space:nowrap;">${Utils.formatDateES(t.fecha)}</td>
+                    <td style="padding:9px 12px;font-size:0.82rem;font-weight:600;color:#1e293b;">${llaveLabel(t.llaveId)}</td>
+                    <td style="padding:9px 12px;font-size:0.82rem;color:#475569;">${dadorHtml}</td>
+                    <td style="padding:9px 12px;font-size:0.82rem;color:#1e293b;font-weight:600;">${empName(t.receptorId)}</td>
+                    <td style="padding:9px 12px;text-align:right;">
+                        ${!esPasado ? `<button onclick="App.logic.traspasoDel('${t.id}')" title="Borrar" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:13px;padding:2px 6px;">✕</button>` : ''}
+                    </td>
+                </tr>`;
+            };
+
+            const thead = `<thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+                <th style="padding:8px 12px;text-align:left;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;">Fecha</th>
+                <th style="padding:8px 12px;text-align:left;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;">Llave</th>
+                <th style="padding:8px 12px;text-align:left;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;">Entrega</th>
+                <th style="padding:8px 12px;text-align:left;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;">Recibe</th>
+                <th style="width:40px;"></th>
+            </tr></thead>`;
+
+            const proximos = traspasos.filter(t => t.fecha >= hoy);
+            const pasados  = traspasos.filter(t => t.fecha < hoy);
+
+            const proximosHtml = proximos.length === 0
+                ? `<div style="padding:32px;text-align:center;color:#94a3b8;font-size:0.85rem;">Sin traspasos planificados. Pulsa "+ Nuevo traspaso" para añadir uno.</div>`
+                : `<table style="width:100%;border-collapse:collapse;">${thead}<tbody>${proximos.map(t => _fila(t, false)).join('')}</tbody></table>`;
+
+            const archivoHtml = pasados.length === 0 ? '' : `
+                <details style="margin-top:18px;">
+                    <summary style="cursor:pointer;font-size:0.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;padding:6px 0;user-select:none;">
+                        📁 Archivo (${pasados.length})
+                    </summary>
+                    <div style="margin-top:8px;">
+                        <table style="width:100%;border-collapse:collapse;">${thead}<tbody>${pasados.map(t => _fila(t, true)).join('')}</tbody></table>
+                    </div>
+                </details>`;
+
+            const estadoActualHtml = llaves.length === 0 ? '' : `
+                <div style="margin-bottom:18px;padding:12px 16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                    <div style="font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:8px;">Estado actual</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        ${llaves.map((l, idx) => {
+                            const titularId = App.logic.getTitularLlave(l.id, hoy);
+                            const titular = titularId ? App.data.empleados.find(e => e.id === titularId) : null;
+                            return `<div style="padding:6px 12px;background:white;border-radius:6px;border:1px solid ${titular?'#bbf7d0':'#e2e8f0'};font-size:0.82rem;">
+                                <span style="font-weight:700;color:#334155;">Llave ${idx+1}${l.alias?' · '+l.alias:''}</span>
+                                <span style="color:${titular?'#059669':'#94a3b8'};margin-left:6px;">${titular ? '● '+titular.nombre : 'Sin asignar'}</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>`;
+
+            c.style.cssText = 'padding:16px;overflow-y:auto;box-sizing:border-box;scrollbar-gutter:stable;';
+            c.innerHTML = sectionBar + `
+                <div style="max-width:800px;margin:0 auto;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                        <h3 style="margin:0;font-size:1rem;font-weight:700;color:#1e293b;">🔑 Traspasos de llave</h3>
+                        <button onclick="App.ui.renderTraspasoInspector(null)"
+                            style="padding:7px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;font-size:0.82rem;cursor:pointer;">+ Nuevo traspaso</button>
+                    </div>
+                    ${estadoActualHtml}
+                    ${proximosHtml}
+                    ${archivoHtml}
+                </div>`;
+        },
+
+        renderTraspasoInspector: function(id, fecha) {
+            const p = document.getElementById('inspector-content');
+            if(!p) return;
+            const hoy = new Date().toISOString().slice(0,10);
+            const fechaRef = fecha || hoy;
+            const llaves = App.data.config.llaves || [];
+
+            if(!App.data.config.llavesActivo || llaves.length === 0) {
+                p.innerHTML = `<div style="padding:20px;color:#94a3b8;font-size:0.85rem;">
+                    La gestión de llaves no está activa o no hay llaves configuradas.<br>
+                    <button onclick="App.router.go('config')" style="margin-top:10px;padding:6px 12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;font-size:0.82rem;cursor:pointer;">Ir a Configuración</button>
+                </div>`;
+                return;
+            }
+
+            const tag3Opts = '<option value="__TIENDA__">🏪 Dejar en tienda (sin portador)</option>' +
+                App.data.empleados
+                .filter(e => e.active !== false && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, fechaRef)))
+                .sort((a,b) => a.customOrder - b.customOrder)
+                .map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
+
+            // Titulares calculados en la fecha de referencia (no hoy)
+            const llaveOpts = llaves.map((l, idx) => {
+                const titularId = App.logic.getTitularLlave(l.id, fechaRef);
+                const titular = titularId ? App.data.empleados.find(e => e.id === titularId) : null;
+                const label = `Llave ${idx+1}${l.alias?' · '+l.alias:''} — ${titular ? titular.nombre : 'Sin titular'}`;
+                return `<option value="${l.id}">${label}</option>`;
+            }).join('');
+
+            const dateOnChange = `document.getElementById('tr-fecha').value=this.dataset.isoValue; App.ui.renderTraspasoInspector(null, this.dataset.isoValue);`;
+
+            p.innerHTML = `
+                <div style="padding:20px;">
+                    <h3 style="margin:0 0 18px;font-size:1rem;font-weight:700;color:#1e293b;">Nuevo traspaso</h3>
+                    <div class="form-group">
+                        <label>Fecha del traspaso</label>
+                        <input type="hidden" id="tr-fecha" value="${fechaRef}">
+                        ${Utils.getDateInputHTML('tr-fecha-picker', fechaRef, dateOnChange)}
+                    </div>
+                    <div class="form-group">
+                        <label>Llave</label>
+                        <select id="tr-llaveId">${llaveOpts}</select>
+                    </div>
+                    <div class="form-group">
+                        <label>Recibe la llave</label>
+                        <select id="tr-receptorId">${tag3Opts}</select>
+                    </div>
+                    <p style="font-size:0.78rem;color:#94a3b8;margin:8px 0 16px;">El titular en la fecha seleccionada queda registrado automáticamente como quien entrega.</p>
+                    <button class="btn btn-primary" onclick="App.logic.traspasoSave(document.getElementById('tr-llaveId').value, document.getElementById('tr-fecha').value, document.getElementById('tr-receptorId').value)">💾 Guardar traspaso</button>
                 </div>`;
         }
 

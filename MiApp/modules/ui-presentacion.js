@@ -54,6 +54,8 @@ Object.assign(App.ui, {
                             style="padding:6px 14px;border:none;cursor:pointer;font-size:0.8rem;font-weight:600;background:${pv==='semanal'?'var(--primary)':'white'};color:${pv==='semanal'?'white':'var(--text-muted)'};">📅 Semanal</button>
                         <button onclick="App.uiState.presView='mensual'; App.ui.renderPresentacion(document.querySelector('.main-scroll'))"
                             style="padding:6px 14px;border:none;cursor:pointer;font-size:0.8rem;font-weight:600;background:${pv==='mensual'?'var(--primary)':'white'};color:${pv==='mensual'?'white':'var(--text-muted)'};">🗓️ Mensual</button>
+                        ${App.data.config.llavesActivo ? `<button onclick="App.uiState.presView='llaves'; App.ui.renderPresentacion(document.querySelector('.main-scroll'))"
+                            style="padding:6px 14px;border:none;cursor:pointer;font-size:0.8rem;font-weight:600;background:${pv==='llaves'?'var(--primary)':'white'};color:${pv==='llaves'?'white':'var(--text-muted)'};">🔑 Llaves</button>` : ''}
                     </div>
                     <button onclick="App.ui.printPresentacion()" style="background:#ef4444;color:white;border:none;border-radius:6px;padding:7px 16px;cursor:pointer;font-size:0.82rem;font-weight:700;">🖨️ Imprimir / PDF</button>
                 </div>
@@ -160,7 +162,7 @@ Object.assign(App.ui, {
                     </div>
                 </div>`;
 
-            } else {
+            } else if(pv === 'mensual') {
                 // --- VISTA MENSUAL ---
                 if(App.uiState.presMensualEmpId === undefined) App.uiState.presMensualEmpId = empActivos[0]?.id || null;
                 if(App.uiState.presMensualYear === undefined) App.uiState.presMensualYear = new Date().getFullYear();
@@ -273,6 +275,13 @@ Object.assign(App.ui, {
                 html += `</tbody></table></div></div>`;
             }
 
+            if(pv === 'llaves') {
+                html += `<div style="max-width:640px;margin:0 auto;">
+                    <h3 style="margin:0 0 16px;font-size:1rem;font-weight:700;color:#1e293b;">🔑 Cambios de llave programados</h3>
+                    ${App.ui._renderLlavesPresView()}
+                </div>`;
+            }
+
             html += `</div>`; // cierre print-area
             c.innerHTML = html;
         },
@@ -286,6 +295,121 @@ Object.assign(App.ui, {
                 : '@page { size: A4 portrait;  margin: 10mm; }')
                 + ' * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
             window.print();
+        },
+
+        _renderLlavesPresView: function() {
+            const hoy = new Date().toISOString().slice(0,10);
+            // Fecha de inicio configurable — por defecto hoy
+            if(!App.uiState.llavesPresDesde) App.uiState.llavesPresDesde = hoy;
+            const desde = App.uiState.llavesPresDesde;
+            const limite = new Date(desde + 'T12:00:00'); limite.setDate(limite.getDate() + 15);
+            const limiteStr = limite.toISOString().slice(0,10);
+            const llaves = App.data.config.llaves || [];
+            const _refresh = "App.ui.renderPresentacion(document.querySelector('.main-scroll'))";
+
+            const empNombre = id => {
+                if(!id) return '—';
+                if(id === '__TIENDA__') return 'Tienda';
+                return App.data.empleados.find(e => e.id === id)?.nombre || '—';
+            };
+            // Solo alias si lo tiene, sin número
+            const llaveAlias = id => {
+                const l = llaves.find(l => l.id === id);
+                if(!l) return '';
+                return l.alias || '';
+            };
+
+            const traspasos = (App.data.traspasoLlaves || [])
+                .filter(t => t.fecha >= desde && t.fecha <= limiteStr)
+                .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.llaveId.localeCompare(b.llaveId));
+
+            const porFecha = {};
+            traspasos.forEach(t => {
+                if(!porFecha[t.fecha]) porFecha[t.fecha] = [];
+                porFecha[t.fecha].push(t);
+            });
+            const fechas = Object.keys(porFecha).sort();
+
+            const DAY_NAMES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+            const fmtFecha = d => {
+                const dt = new Date(d + 'T12:00:00');
+                const [,, day] = d.split('-');
+                return `${DAY_NAMES[dt.getDay()]} ${parseInt(day)}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+            };
+
+            const navegador = `<div class="no-print" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <span style="font-size:0.82rem;font-weight:600;color:#475569;">Desde</span>
+                ${Utils.getDateInputHTML('llaves-pres-desde', desde, `App.uiState.llavesPresDesde=this.dataset.isoValue; ${_refresh}`)}
+                <span style="font-size:0.78rem;color:#94a3b8;">→ 15 días → ${Utils.formatDateES(limiteStr)}</span>
+            </div>`;
+
+            if(fechas.length === 0) {
+                return navegador + `<div style="padding:32px;text-align:center;color:#94a3b8;font-size:0.85rem;">Sin traspasos programados en este período.</div>`;
+            }
+
+            let rows = '';
+            fechas.forEach(fecha => {
+                const grupo = porFecha[fecha];
+                grupo.forEach((t, i) => {
+                    const esPrimero = i === 0;
+                    const esUltimo  = i === grupo.length - 1;
+                    const rowspan   = grupo.length;
+                    const sepStyle  = esUltimo ? 'border-bottom:2px solid #94a3b8;' : 'border-bottom:1px solid #f1f5f9;';
+                    const fechaCell = esPrimero
+                        ? `<td rowspan="${rowspan}" style="padding:10px 12px;font-weight:700;font-size:0.88rem;color:#1e293b;text-align:center;white-space:nowrap;border-right:2px solid #e2e8f0;vertical-align:middle;border-bottom:2px solid #94a3b8;">${fmtFecha(fecha)}</td>`
+                        : '';
+                    const alias = llaveAlias(t.llaveId);
+                    // Columnas de estado por llave (solo en la última fila del grupo, con rowspan)
+                    const _td = (content, extra) =>
+                        `<td style="padding:9px 12px;font-size:0.85rem;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${sepStyle}${extra||''}">${content}</td>`;
+
+                    const estadoCells = esPrimero ? llaves.map((l, li) => {
+                        const titId = App.logic.getTitularLlave(l.id, fecha);
+                        const tit = titId === '__TIENDA__' ? 'Tienda' : (App.data.empleados.find(e => e.id === titId)?.nombre || '—');
+                        const sep = li === 0 ? 'border-left:3px solid #94a3b8;' : 'border-left:1px solid #e2e8f0;';
+                        return `<td rowspan="${rowspan}" style="padding:9px 12px;font-size:0.82rem;color:#475569;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${sep}vertical-align:middle;border-bottom:2px solid #94a3b8;">${tit}</td>`;
+                    }).join('') : '';
+                    rows += `<tr style="${sepStyle}">
+                        ${fechaCell}
+                        ${_td(empNombre(t.dadorId), 'color:#475569;')}
+                        ${_td(alias, 'font-weight:600;color:#334155;')}
+                        ${_td(empNombre(t.receptorId), 'font-weight:700;color:#1e293b;')}
+                        ${estadoCells}
+                    </tr>`;
+                });
+            });
+
+            const stateW = 110;
+            const colgroup = `<colgroup>
+                <col style="width:80px;">
+                <col style="width:95px;">
+                <col style="width:110px;">
+                <col style="width:95px;">
+                ${llaves.map(() => `<col style="width:${stateW}px;">`).join('')}
+            </colgroup>`;
+
+            const _th = (label, align, extra) =>
+                `<th style="padding:10px 12px;text-align:${align};font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;overflow:hidden;${extra||''}">${label}</th>`;
+            const llaveThs = llaves.map((l, idx) => {
+                const label = l.alias || `Llave ${idx+1}`;
+                const sep = idx === 0 ? 'border-left:3px solid #4b5563;' : 'border-left:1px solid #334155;';
+                return _th(label, 'center', sep);
+            }).join('');
+
+            return navegador + `
+                <table style="width:100%;border-collapse:collapse;font-family:inherit;table-layout:fixed;">
+                    ${colgroup}
+                    <thead>
+                        <tr style="background:#1e293b;color:white;">
+                            ${_th('Fecha','center','')}
+                            ${_th('Entrega','center','')}
+                            ${_th('Llave','center','')}
+                            ${_th('Recibe','center','')}
+                            ${llaveThs}
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
         },
 
         // --- HOME ---

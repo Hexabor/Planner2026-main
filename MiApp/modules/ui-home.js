@@ -486,19 +486,30 @@ Object.assign(App.ui, {
             if(alerts.length === 0) {
                 c.innerHTML += `<div style="text-align:center; padding:40px; border:2px dashed #e2e8f0; border-radius:8px; color:#10b981">✨ Todo limpio. No hay alertas.</div>`;
             } else {
-                alerts.forEach(a => {
-                    c.innerHTML += `
-                    <div class="alert-card">
-                        <div class="alert-info">
-                            <span class="alert-icon">⚠️</span>
-                            <div class="alert-text">
-                                <div>${a.title}</div>
-                                <div>${a.desc}</div>
+                const dismissed = App.data.dismissedAlerts || [];
+                const visible = alerts.filter(a => !dismissed.includes(a.title + '||' + (a.date || '')));
+                if(visible.length === 0) {
+                    c.innerHTML += `<div style="text-align:center; padding:40px; border:2px dashed #e2e8f0; border-radius:8px; color:#10b981">✨ Todo limpio. No hay alertas.</div>`;
+                } else {
+                    visible.forEach(a => {
+                        const key = a.title + '||' + (a.date || '');
+                        const keyEsc = key.replace(/'/g, "\\'");
+                        c.innerHTML += `
+                        <div class="alert-card">
+                            <div class="alert-info">
+                                <span class="alert-icon">⚠️</span>
+                                <div class="alert-text">
+                                    <div>${a.title}</div>
+                                    <div>${a.desc}</div>
+                                </div>
                             </div>
-                        </div>
-                        <button class="btn btn-primary" style="width:auto; margin:0" onclick="App.router.go('planificador'); App.logic.setDate('${a.date}');">Ir al día</button>
-                    </div>`;
-                });
+                            <div style="display:flex;gap:6px;flex-shrink:0;">
+                                <button class="btn btn-primary" style="width:auto;margin:0" onclick="App.router.go('planificador'); App.logic.setDate('${a.date}');">Ir al día</button>
+                                <button style="width:auto;margin:0;padding:6px 12px;border:1px solid #cbd5e1;border-radius:6px;background:white;color:#64748b;font-size:0.8rem;font-weight:600;cursor:pointer;" onclick="App.logic.dismissAlert('${keyEsc}')">Ignorar</button>
+                            </div>
+                        </div>`;
+                    });
+                }
             }
         },
 

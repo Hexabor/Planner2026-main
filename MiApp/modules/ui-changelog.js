@@ -6,6 +6,21 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '02/04/2026 (tarde)', version: 'v1.0',
+                items: [
+                    '✨ Gestor de Llaves — modelo dinámico de traspasos con historial (traspasoLlaves[])',
+                    '✨ Peticiones → nueva sección Llaves con estado actual, traspasos próximos y archivo histórico',
+                    '✨ Traspaso "Dejar en tienda" — llave sin portador personal como estado intermedio',
+                    '✨ Iconos SVG en el grid: llave sola, flecha roja (entrega), flecha verde (recibe), icono tienda',
+                    '✨ Alertas de llaves — apertura/cierre sin cobertura y traspasos necesarios (ventana 21 días)',
+                    '✨ Alertas — botón Ignorar por alerta con auto-limpieza al resolverse el problema',
+                    '✨ Presentación → vista Llaves imprimible: date picker, columnas Entrega/Llave/Recibe + estado por llave',
+                    '✨ Configuración → toggle activar/desactivar gestión de llaves',
+                    '🔧 Apertura usa titular al inicio del día (antes del traspaso), cierre usa el titular al final',
+                    '🔧 Fix: checkAlerts y dismissAlert re-renderizan inmediatamente sin depender del nombre de ruta',
+                ]
+            },
+            {
                 fecha: '02/04/2026', version: 'v1.0',
                 items: [
                     '✨ Navegador del planificador — marco con borde alrededor de flechas+selector, mes debajo del código WK (detecta cambio de mes y de año)',

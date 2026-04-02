@@ -72,7 +72,38 @@ Object.assign(App.ui, {
                         <p style="margin:8px 0 0; font-size:0.78rem; color:#94a3b8;">Valores separados por comas. Aparecen en el desplegable al editar contratos.</p>
                     </div>
                     <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
-                        <h3 style="margin:0 0 16px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">🎨 Visualización del planificador</h3>
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:${App.data.config.llavesActivo ? '16px' : '0'};">
+                            <h3 style="margin:0; font-size:0.9rem; font-weight:700; color:#1e293b;">🔑 Llaves de tienda</h3>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <span style="font-size:11px; font-weight:700; color:${App.data.config.llavesActivo ? '#059669' : '#94a3b8'};">${App.data.config.llavesActivo ? 'Activado' : 'Desactivado'}</span>
+                                <input type="checkbox" ${App.data.config.llavesActivo ? 'checked' : ''}
+                                       onchange="App.data.config.llavesActivo=this.checked; Safe.save('v40_db',App.data); App.router.go('config');"
+                                       style="width:16px; height:16px; cursor:pointer; accent-color:#059669;">
+                            </label>
+                        </div>
+                        ${App.data.config.llavesActivo ? `
+                        <p style="margin:0 0 14px; font-size:0.82rem; color:#64748b;">Registra los juegos de llaves disponibles. Cada uno puede tener un alias (ej: nombre del llavero). Solo pueden tener llave asignada los empleados TAG3.</p>
+                        <div id="llaves-list" style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                            ${(App.data.config.llaves || []).map((llave, idx) => {
+                                const portador = App.data.empleados.find(e => e.llaveId === llave.id);
+                                const portadorTxt = portador ? `<span style="font-size:10px; color:#059669; font-weight:700; margin-left:8px;">● ${portador.nombre}</span>` : '';
+                                return `<div style="display:flex; align-items:center; gap:8px; background:#f8fafc; padding:8px 10px; border-radius:6px; border:1px solid #e2e8f0;">
+                                    <span style="font-size:11px; font-weight:800; color:#334155; white-space:nowrap; min-width:52px;">Llave ${idx+1}</span>
+                                    <input type="text" value="${llave.alias || ''}" placeholder="Alias (ej: Llavero rojo)"
+                                           onchange="App.logic.llaveUpdateAlias('${llave.id}', this.value)"
+                                           style="flex:1; padding:5px 8px; border:1px solid #cbd5e1; border-radius:4px; font-size:12px; background:white;">
+                                    ${portadorTxt}
+                                    <button type="button" onclick="App.logic.llaveDel('${llave.id}')"
+                                            title="${portador ? 'No se puede eliminar: llave asignada a ' + portador.nombre : 'Eliminar llave'}"
+                                            style="border:none; background:none; color:${portador ? '#cbd5e1' : '#ef4444'}; font-size:16px; cursor:${portador ? 'not-allowed' : 'pointer'}; line-height:1; padding:2px 4px;">&times;</button>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                        <button type="button" onclick="App.logic.llaveAdd()"
+                                style="padding:7px 14px; background:#f1f5f9; border:1px dashed #94a3b8; border-radius:6px; font-size:11px; font-weight:700; color:#475569; cursor:pointer;">
+                            + Añadir juego de llaves
+                        </button>` : ''}
+                    </div>
                         <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:8px;">Color modo monocromo</label>
                         <div style="display:flex; align-items:center; gap:12px;">
                             <input type="color" value="${App.data.config.gridMonoColor || '#1e3a5f'}"

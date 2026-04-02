@@ -395,6 +395,50 @@ Object.assign(App.logic, {
             horasEl.style.background = 'white';
             horasEl.style.color = '#334155';
         }
+    },
+
+    // ── GESTIÓN DE LLAVES ────────────────────────────────────────────────────
+
+    llaveAdd: function() {
+        if(!App.data.config.llaves) App.data.config.llaves = [];
+        const id = 'llave_' + Date.now();
+        App.data.config.llaves.push({ id, alias: '' });
+        Safe.save('v40_db', App.data);
+        App.router.go('config');
+    },
+
+    llaveDel: function(llaveId) {
+        const portador = App.data.empleados.find(e => e.llaveId === llaveId);
+        if(portador) {
+            alert(`No se puede eliminar: la llave está asignada a ${portador.nombre}. Desasígnala primero desde el inspector del empleado.`);
+            return;
+        }
+        App.data.config.llaves = (App.data.config.llaves || []).filter(l => l.id !== llaveId);
+        Safe.save('v40_db', App.data);
+        App.router.go('config');
+    },
+
+    llaveUpdateAlias: function(llaveId, alias) {
+        const llave = (App.data.config.llaves || []).find(l => l.id === llaveId);
+        if(!llave) return;
+        llave.alias = alias.trim();
+        Safe.save('v40_db', App.data);
+    },
+
+    llaveAssign: function(empId, llaveId) {
+        // Desasignar de quien la tuviera antes (si llaveId no es vacío)
+        if(llaveId) {
+            App.data.empleados.forEach(e => {
+                if(e.id !== empId && e.llaveId === llaveId) e.llaveId = null;
+            });
+        }
+        const emp = App.data.empleados.find(e => e.id === empId);
+        if(emp) emp.llaveId = llaveId || null;
+        Safe.save('v40_db', App.data);
+        App.ui.renderEmpInspector(empId);
+        const scroll = document.querySelector('.main-scroll');
+        if(scroll) App.ui.renderEmp(scroll);
+        App.logic.checkAlerts();
     }
 
 });

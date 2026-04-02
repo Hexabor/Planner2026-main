@@ -98,6 +98,22 @@ const App = {
         if(!App.data.config.headerBgColor)      App.data.config.headerBgColor      = '#dde3ed';
         if(!App.data.config.valleHeaderBgColor) App.data.config.valleHeaderBgColor = '#bfdbfe';
         if(!App.data.eventos) App.data.eventos = [];
+        if(!App.data.config.llaves) App.data.config.llaves = [];
+        if(App.data.config.llavesActivo === undefined) App.data.config.llavesActivo = false;
+        if(!App.data.traspasoLlaves) App.data.traspasoLlaves = [];
+        if(!App.data.dismissedAlerts) App.data.dismissedAlerts = [];
+
+        // Limpiar campo legacy emp.llaveId si quedara de versiones anteriores
+        App.data.empleados.forEach(e => { delete e.llaveId; });
+
+        // Purga: eliminar traspasos > 60 días, preservando siempre el más reciente por llave
+        const _purgeDate = new Date(); _purgeDate.setDate(_purgeDate.getDate() - 60);
+        const _purgeDateStr = _purgeDate.toISOString().slice(0,10);
+        const _latestByLlave = {};
+        App.data.traspasoLlaves.forEach(t => {
+            if(!_latestByLlave[t.llaveId] || t.fecha > _latestByLlave[t.llaveId].fecha) _latestByLlave[t.llaveId] = t;
+        });
+        App.data.traspasoLlaves = App.data.traspasoLlaves.filter(t => t.fecha >= _purgeDateStr || _latestByLlave[t.llaveId]?.id === t.id);
         if(!App.data.config.backups) App.data.config.backups = {
             autoIntervalMin: 30,
             preventivo: {
@@ -125,7 +141,7 @@ const App = {
         D.forEach(d => { if(!App.data.storeConfig.base[d]) App.data.storeConfig.base[d]={open:"10:00",close:"22:00",closed:false}; });
         if(!App.data.storeConfig.base["Festivo"]) App.data.storeConfig.base["Festivo"]={open:"12:00",close:"20:00",closed:false};
         
-        App.data.empleados.forEach((e, idx) => { if(!e.prefs) e.prefs = {}; if(e.customOrder === undefined) e.customOrder = idx; if(e.active === undefined) e.active = true; if(e.saldoInicial === undefined) e.saldoInicial = 0; if(e.recPendientes === undefined) e.recPendientes = 0; if(e.vacPendientes === undefined) e.vacPendientes = 0; if(!e.festivoTracking) e.festivoTracking = {}; if(!e.ajustes) e.ajustes = []; });
+        App.data.empleados.forEach((e, idx) => { if(!e.prefs) e.prefs = {}; if(e.customOrder === undefined) e.customOrder = idx; if(e.active === undefined) e.active = true; if(e.saldoInicial === undefined) e.saldoInicial = 0; if(e.recPendientes === undefined) e.recPendientes = 0; if(e.vacPendientes === undefined) e.vacPendientes = 0; if(!e.festivoTracking) e.festivoTracking = {}; if(!e.ajustes) e.ajustes = []; if(e.llaveId === undefined) e.llaveId = null; });
         App.data.shiftDefs.forEach((s, idx) => { if(s.customOrder === undefined) s.customOrder = idx; });
         App.logic.migrateData(); // Normaliza datos de backups antiguos (break heredado, campos faltantes)
         

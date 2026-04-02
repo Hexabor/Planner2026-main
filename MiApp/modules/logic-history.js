@@ -333,9 +333,26 @@ App.logic = {
             const days = Utils.getWeekDays(monday);
             const allLocked = days.every(d => App.data.lockedDays[d]);
             if (allLocked) {
-                // Desbloquear todos
+                // Desbloquear todos — sin validación de llaves
                 days.forEach(d => delete App.data.lockedDays[d]);
             } else {
+                // ANTES DE BLOQUEAR: comprobar cobertura de llaves
+                const hasLlaves = App.data.config.llavesActivo && App.data.config.llaves && App.data.config.llaves.length > 0;
+                const hasKeyHolders = App.data.config.llavesActivo && App.data.empleados.some(e => e.llaveId);
+                if(hasLlaves || hasKeyHolders) {
+                    const issues = [];
+                    days.forEach(date => {
+                        const cov = App.logic._checkKeysCoverageDay(date);
+                        if(!cov) return;
+                        if(!cov.hasApertura) issues.push(`${Utils.formatDateES(date)} · apertura (${cov.horario.open}) sin portador de llave`);
+                        if(!cov.hasCierre)   issues.push(`${Utils.formatDateES(date)} · cierre (${cov.horario.close}) sin portador de llave`);
+                    });
+                    if(issues.length > 0) {
+                        const lista = issues.map(i => `• ${i}`).join('\n');
+                        const ok = confirm(`🔑 Cobertura de llaves incompleta\n\n${lista}\n\n¿Cerrar la semana de todas formas?`);
+                        if(!ok) return;
+                    }
+                }
                 // Bloquear todos
                 days.forEach(d => App.data.lockedDays[d] = true);
             }

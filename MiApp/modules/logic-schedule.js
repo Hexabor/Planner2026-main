@@ -1205,6 +1205,72 @@ Object.assign(App.logic, {
             // Default: return first valid candidate
             return candidates[0];
         },
+
+        // ── HELPERS GESTIÓN DE LLAVES ─────────────────────────────────────────
+        getTitularLlave: function(llaveId, dateStr) {
+            // Devuelve el empId titular de la llave en esa fecha, o null
+            const traspasos = (App.data.traspasoLlaves || [])
+                .filter(t => t.llaveId === llaveId && t.fecha <= dateStr)
+                .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creadoEn.localeCompare(a.creadoEn));
+            return traspasos.length > 0 ? traspasos[0].receptorId : null;
+        },
+
+        getTitularLlaveInicio: function(llaveId, dateStr) {
+            // Titular AL INICIO del día — excluye traspasos del propio día (fecha < dateStr)
+            // Útil para apertura: el dador llega con la llave aunque ese día la entregue
+            const traspasos = (App.data.traspasoLlaves || [])
+                .filter(t => t.llaveId === llaveId && t.fecha < dateStr)
+                .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creadoEn.localeCompare(a.creadoEn));
+            return traspasos.length > 0 ? traspasos[0].receptorId : null;
+        },
+
+        _getKeyHoldersOnDate: function(dateStr) {
+            return App.data.empleados.filter(emp =>
+                (App.data.config.llaves || []).some(l => this.getTitularLlave(l.id, dateStr) === emp.id)
+            );
+        },
+
+        _getHorarioDelDia: function(dateStr) {
+            // 1. Días especiales con fecha concreta (máxima prioridad)
+            const special = (App.data.storeConfig.special || []).find(s => s.date === dateStr);
+            if(special) return special;
+            // 2. Festivo de tienda
+            const isHoliday = (App.data.storeConfig.holidays || []).some(h => h.date === dateStr);
+            if(isHoliday) return App.data.storeConfig.base['Festivo'] || { closed: true };
+            // 3. Día de la semana base
+            const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+            const dayName = dayNames[new Date(dateStr + 'T12:00:00').getDay()];
+            return App.data.storeConfig.base[dayName] || { closed: true };
+        },
+
+        _checkKeysCoverageDay: function(dateStr) {
+            // Devuelve { hasApertura: bool, hasCierre: bool, horario: obj }
+            const horario = this._getHorarioDelDia(dateStr);
+            if(!horario || horario.closed) return null;
+            const daySched = App.data.schedule[dateStr] || {};
+            // Apertura: quien tenía la llave AL INICIO del día (antes de traspasos del mismo día)
+            const keyHoldersInicio = App.data.empleados.filter(emp =>
+                (App.data.config.llaves || []).some(l => this.getTitularLlaveInicio(l.id, dateStr) === emp.id)
+            );
+            // Cierre: quien tiene la llave AL FINAL del día (después de traspasos del mismo día)
+            const keyHoldersFin = App.data.empleados.filter(emp =>
+                (App.data.config.llaves || []).some(l => this.getTitularLlave(l.id, dateStr) === emp.id)
+            );
+            const hasApertura = keyHoldersInicio.some(emp => {
+                const shiftId = daySched[emp.id];
+                if(!shiftId) return false;
+                const shift = Utils.getShift(shiftId);
+                return shift && !shift.fixed && shift.start === horario.open;
+            });
+            const hasCierre = keyHoldersFin.some(emp => {
+                const shiftId = daySched[emp.id];
+                if(!shiftId) return false;
+                const shift = Utils.getShift(shiftId);
+                return shift && !shift.fixed && shift.end === horario.close;
+            });
+            return { hasApertura, hasCierre, horario };
+        },
+
         getAlerts: function() {
             let alerts = [];
             
@@ -1338,12 +1404,143 @@ Object.assign(App.logic, {
                 });
             });
 
+            // PARTE 4: Cobertura de llaves en días cerrados
+            const hasLlaves = App.data.config.llavesActivo && App.data.config.llaves && App.data.config.llaves.length > 0;
+            const hasKeyHolders = App.data.config.llavesActivo && App.data.empleados.some(e => e.llaveId);
+            if(hasLlaves || hasKeyHolders) {
+                const _hoy = new Date(); _hoy.setHours(0,0,0,0);
+                const _limite = new Date(_hoy); _limite.setDate(_limite.getDate() + 21);
+                const lockedDays = App.data.lockedDays || {};
+                Object.keys(lockedDays).filter(d => {
+                    if(!lockedDays[d]) return false;
+                    const t = new Date(d + 'T12:00:00');
+                    return t >= _hoy && t <= _limite;
+                }).sort().forEach(date => {
+                    const cov = App.logic._checkKeysCoverageDay(date);
+                    if(!cov) return; // día cerrado de tienda
+                    if(!cov.hasApertura) {
+                        alerts.push({
+                            title: `🔑 Apertura sin llave — ${Utils.formatDateES(date)}`,
+                            desc: `Ningún portador de llave empieza a las ${cov.horario.open} (apertura de tienda). Asigna un turno compatible a alguien con llave o reasigna una llave.`,
+                            date: date
+                        });
+                    }
+                    if(!cov.hasCierre) {
+                        alerts.push({
+                            title: `🔑 Cierre sin llave — ${Utils.formatDateES(date)}`,
+                            desc: `Ningún portador de llave termina a las ${cov.horario.close} (cierre de tienda). Asigna un turno compatible a alguien con llave o reasigna una llave.`,
+                            date: date
+                        });
+                    }
+                });
+            }
+
+            // PARTE 5: Detección de traspasos de llaves necesarios
+            // La lógica correcta: buscar el último día viable para el traspaso
+            // ANTES del primer fallo de cobertura que involucra al portador
+            if(hasLlaves || hasKeyHolders) {
+                const _hoy2 = new Date(); _hoy2.setHours(0,0,0,0);
+                const _limite2 = new Date(_hoy2); _limite2.setDate(_limite2.getDate() + 21);
+                const lockedDays2 = App.data.lockedDays || {};
+
+                const todosLosDiasCerrados = Object.keys(lockedDays2)
+                    .filter(d => lockedDays2[d])
+                    .sort();
+
+                const diasEnRango = todosLosDiasCerrados.filter(d => {
+                    const t = new Date(d + 'T12:00:00');
+                    return t >= _hoy2 && t <= _limite2;
+                });
+
+                const _trabajaReal2 = (empId, date) => {
+                    const shiftId = (App.data.schedule[date] || {})[empId];
+                    if(!shiftId) return false;
+                    const shift = Utils.getShift(shiftId);
+                    return shift && !shift.fixed;
+                };
+
+                const hoyStr = new Date().toISOString().slice(0,10);
+                const tag3Ids = App.data.empleados
+                    .filter(e => e.active !== false && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, hoyStr)))
+                    .map(e => e.id);
+
+                // Iterar por llave (no por emp.llaveId — ahora es dinámico)
+                (App.data.config.llaves || []).forEach((llave, llaveIdx) => {
+                    const llaveLabel = `Llave ${llaveIdx + 1}${llave.alias ? ' (' + llave.alias + ')' : ''}`;
+
+                    // Titular actual de la llave
+                    const titularId = App.logic.getTitularLlave(llave.id, hoyStr);
+                    const emp = titularId ? App.data.empleados.find(e => e.id === titularId) : null;
+                    if(!emp) return; // sin titular conocido
+
+                    // Primer día del rango donde el titular no trabaja
+                    const primerFallo = diasEnRango.find(d => {
+                        // También comprobar que ese día la llave sigue siendo del mismo titular
+                        const titularEnFecha = App.logic.getTitularLlave(llave.id, d);
+                        return titularEnFecha === emp.id && !_trabajaReal2(emp.id, d);
+                    });
+                    if(!primerFallo) return;
+
+                    // Buscar hacia atrás el último día viable para el traspaso
+                    const diasAnteriores = todosLosDiasCerrados
+                        .filter(d => d < primerFallo)
+                        .reverse();
+
+                    let encontrado = false;
+                    for(const dia of diasAnteriores) {
+                        if(!_trabajaReal2(emp.id, dia)) continue;
+                        const receptores = tag3Ids
+                            .filter(id => id !== emp.id && _trabajaReal2(id, dia))
+                            .map(id => App.data.empleados.find(e => e.id === id)?.nombre)
+                            .filter(Boolean);
+
+                        if(receptores.length > 0) {
+                            alerts.push({
+                                title: `📋 Traspaso de ${llaveLabel} — ${Utils.formatDateES(dia)}`,
+                                desc: `${emp.nombre} no trabaja a partir del ${Utils.formatDateES(primerFallo)}. Traspaso posible el ${Utils.formatDateES(dia)} a: ${receptores.join(', ')}.`,
+                                date: dia
+                            });
+                        } else {
+                            alerts.push({
+                                title: `⚠️ Traspaso de ${llaveLabel} imposible — antes del ${Utils.formatDateES(primerFallo)}`,
+                                desc: `${emp.nombre} no trabaja a partir del ${Utils.formatDateES(primerFallo)} y no hay ningún otro TAG3 trabajando los días previos para recoger la llave.`,
+                                date: dia
+                            });
+                        }
+                        encontrado = true;
+                        break;
+                    }
+
+                    if(!encontrado) {
+                        alerts.push({
+                            title: `⚠️ Traspaso de ${llaveLabel} imposible — antes del ${Utils.formatDateES(primerFallo)}`,
+                            desc: `${emp.nombre} no trabaja a partir del ${Utils.formatDateES(primerFallo)} y no hay días previos cerrados donde pueda hacer el traspaso.`,
+                            date: primerFallo
+                        });
+                    }
+                });
+            }
+
             return alerts;
         },
         checkAlerts: function() {
-            const al = this.getAlerts();
+            const allAlerts = this.getAlerts();
+            const dismissed = App.data.dismissedAlerts || [];
+            // Auto-limpiar claves descartadas cuya alerta ya no existe
+            const activeKeys = new Set(allAlerts.map(a => a.title + '||' + (a.date || '')));
+            App.data.dismissedAlerts = dismissed.filter(k => activeKeys.has(k));
+            const al = allAlerts.filter(a => !App.data.dismissedAlerts.includes(a.title + '||' + (a.date || '')));
             const btn = document.getElementById('nav-alerts');
             if(btn) { if(al.length > 0) btn.classList.add('has-alerts'); else btn.classList.remove('has-alerts'); }
+        },
+
+        dismissAlert: function(key) {
+            if(!App.data.dismissedAlerts) App.data.dismissedAlerts = [];
+            if(!App.data.dismissedAlerts.includes(key)) App.data.dismissedAlerts.push(key);
+            Safe.save('v40_db', App.data);
+            this.checkAlerts();
+            const c = document.querySelector('.main-scroll');
+            if(c) App.ui.renderAlerts(c);
         },
         massClearDay: function() {
             if(!confirm("⚠️ VACIAR DÍA\n\n¿Seguro que quieres BORRAR TODOS los turnos del día actual?\n\nEsta acción no se puede deshacer.")) return;

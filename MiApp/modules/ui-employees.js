@@ -326,6 +326,23 @@ Object.assign(App.ui, {
                 </div>
             </details>
             
+            ${id && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, hoy)) ? `
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-bottom:15px;">
+                <label style="display:block; font-size:10px; font-weight:800; color:#15803d; text-transform:uppercase; margin-bottom:8px;">🔑 Llave asignada</label>
+                ${(() => {
+                    if(!App.data.config.llavesActivo) return '<p style="margin:0;font-size:11px;color:#94a3b8;">Gestión de llaves desactivada.</p>';
+                    const hoyStr = new Date().toISOString().slice(0,10);
+                    const llaveActual = (App.data.config.llaves || []).find(l => App.logic.getTitularLlave(l.id, hoyStr) === id);
+                    if(llaveActual) {
+                        const idx = (App.data.config.llaves || []).indexOf(llaveActual);
+                        return `<p style="margin:0;font-size:12px;font-weight:600;color:#15803d;">Llave ${idx+1}${llaveActual.alias ? ' · ' + llaveActual.alias : ''}</p>
+                                <p style="margin:4px 0 0;font-size:10px;color:#64748b;">Gestiona los traspasos en <button type="button" onclick="App.uiState.reqSection='llaves'; App.router.go('peticiones')" style="background:none;border:none;color:#2563eb;cursor:pointer;font-size:10px;text-decoration:underline;padding:0;">Peticiones → Llaves</button></p>`;
+                    }
+                    return `<p style="margin:0;font-size:11px;color:#94a3b8;">Sin llave asignada actualmente.</p>
+                            <p style="margin:4px 0 0;font-size:10px;color:#64748b;">Asigna una en <button type="button" onclick="App.uiState.reqSection='llaves'; App.router.go('peticiones')" style="background:none;border:none;color:#2563eb;cursor:pointer;font-size:10px;text-decoration:underline;padding:0;">Peticiones → Llaves</button></p>`;
+                })()}
+            </div>` : ''}
+
             <div style="background:#fefce8; border:1px solid #fef08a; padding:12px; border-radius:10px; margin-bottom:15px; display:flex; gap:10px; align-items:center;">
                 <label style="flex:1; cursor:pointer; display:flex; align-items:center; gap:10px; background:white; padding:10px; border-radius:8px; border:2px solid ${isActive?'#10b981':'#cbd5e1'};">
                     <input type="checkbox" id="ie-active" ${isActive?'checked':''} onchange="App.logic.empSave('${id||''}')" style="width:18px; height:18px; cursor:pointer;">
