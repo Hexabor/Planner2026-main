@@ -923,6 +923,7 @@ Object.assign(App.logic, {
                 const paletteId = Utils.matchesPaletteShift(finalShift);
                 App.data.schedule[date][empId] = paletteId || finalShift;
 
+                App.logic.saveSnapshot('Ajuste de turno');
                 Safe.save('v40_db', App.data);
                 App.logic.checkAlerts();
 
@@ -968,7 +969,8 @@ Object.assign(App.logic, {
                     breakStart: originalShift.breakStart || '',
                     breakEnd: originalShift.breakEnd || '',
                     color: '#6b7280',
-                    custom: true
+                    custom: true,
+                    external: originalShift.external || false
                 };
             } else {
                 newShift = { ...originalShift };
@@ -1163,6 +1165,7 @@ Object.assign(App.logic, {
             }
             
             // Guardar y actualizar
+            App.logic.saveSnapshot(targetShiftId ? 'Intercambiar turnos' : 'Mover turno');
             Safe.save('v40_db', App.data);
             App.ui.renderPlanner(document.getElementById('main-view'));
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));

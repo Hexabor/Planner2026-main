@@ -290,7 +290,7 @@ App.logic = {
             const title = isClosed ? 'Desbloquear semana' : 'Cerrar/bloquear semana';
             const borderColor = isClosed ? '#bfdbfe' : '#e2e8f0';
             const bgColor = isClosed ? '#eff6ff' : '#f8fafc';
-            return '<div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:5px 10px; border:1px solid ' + borderColor + '; border-radius:8px; background:' + bgColor + ';">'
+            return '<div style="display:flex; flex-direction:column; align-items:center; gap:3px; padding:5px 10px; border:1px solid ' + borderColor + '; border-radius:8px; background:' + bgColor + '; min-width:72px; width:72px; box-sizing:border-box;">'
                  + '<div style="transform:scale(0.75); transform-origin:center center;">'
                  + '<button type="button" id="week-lock-btn" class="week-lock-track ' + trackCls + '"'
                  + ' data-monday="' + monday + '"'

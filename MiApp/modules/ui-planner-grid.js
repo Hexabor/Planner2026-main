@@ -7,6 +7,19 @@ Object.assign(App.ui, {
             const date = App.uiState.currentDate; 
             const monday = Utils.getMonday(date);
             const weekDays = Utils.getWeekDays(monday);
+            const _monParts = monday.split('-');
+            const _MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            const _sunDate = new Date(monday + 'T12:00:00');
+            _sunDate.setDate(_sunDate.getDate() + 6);
+            const _sunMonth = _sunDate.getMonth() + 1;
+            const _sunYear  = _sunDate.getFullYear();
+            const _monMonth = parseInt(_monParts[1]);
+            const _monYear  = parseInt(_monParts[0]);
+            const _monthLabel = (_monMonth === _sunMonth)
+                ? _MESES[_monMonth - 1] + ' ' + _monYear
+                : (_monYear !== _sunYear)
+                    ? _MESES[_monMonth - 1] + ' ' + _monYear + ' – ' + _MESES[_sunMonth - 1] + ' ' + _sunYear
+                    : _MESES[_monMonth - 1] + ' – ' + _MESES[_sunMonth - 1] + ' ' + _monYear;
             const dayAssignments = App.data.schedule[date] || {};
             const dayKey = Utils.getDayKey(date);
             const holiday = App.data.storeConfig.holidays.find(h => h.date === date);
@@ -16,10 +29,8 @@ Object.assign(App.ui, {
 
             // Calcular scale ANTES de generar HTML para aplicarlo inline
             const availableWidth = c.clientWidth;
-            const valleModuleWidth = (parseFloat(App.data.config.valleBolsa) > 0) ? 112 : 0; // 100px + 12px gap
-            const vistaModuleWidth = 102; // 90px + 12px gap — siempre visible
-            const dragModuleWidth  = 92;  // 80px + 12px gap — siempre visible
-            const controlsScale = Math.min(1, (availableWidth - 40) / (985 + valleModuleWidth + vistaModuleWidth + dragModuleWidth));
+            const rightColWidth = 87; // 75px + 12px gap — columna VISTA (+VALLE)
+            const controlsScale = Math.min(1, (availableWidth - 40) / (985 + rightColWidth));
             const gridScale = Math.min(1, (availableWidth - 40) / 1435);
 
             // Calcular scale basado en el ancho disponible
@@ -73,106 +84,99 @@ Object.assign(App.ui, {
             // Declarar antes de usarlos en los módulos HTML
             const isIndividual = App.uiState.plannerViewMode === 'individual';
 
-            // Módulo VALLE — solo círculo de bolsa (toggles van en módulo VISTA)
+            // Módulo VALLE — número grande + barra fina
             let _valleCircle = '';
             if(valleBolsa > 0) {
                 const _res  = Math.round((valleBolsa - valleConsumed) * 10) / 10;
                 const _pct  = Math.min(valleConsumed / valleBolsa, 1);
-                const _fill = _pct < 0.6 ? '#10b981' : _pct < 0.9 ? '#f59e0b' : '#ef4444';
-                const _rc   = _res > 0 ? '#10b981' : _res < 0 ? '#ef4444' : '#94a3b8';
-                const _rs   = _res > 0 ? '+' : '';
-                const _r = 26, _circ = 2 * Math.PI * _r;
-                const _dash = Math.round(_pct * _circ * 10) / 10;
+                const _rc       = _res > 0 ? '#10b981' : _res < 0 ? '#ef4444' : '#94a3b8';
+                const _rs       = _res > 0 ? '+' : '';
+                const _barScale = 10;
+                const _barGreen = _res >= 0 ? Math.round(Math.min(_res / _barScale, 1) * 100) : 0;
+                const _barRed   = _res <  0 ? Math.round(Math.min(-_res / _barScale, 1) * 100) : 0;
                 _valleCircle = `
-                    <div style="position:relative; width:68px; height:68px; flex-shrink:0;">
-                        <svg width="68" height="68" viewBox="0 0 68 68">
-                            <circle cx="34" cy="34" r="${_r}" fill="none" stroke="#e2e8f0" stroke-width="7"/>
-                            <circle cx="34" cy="34" r="${_r}" fill="none" stroke="${_fill}" stroke-width="7"
-                                stroke-dasharray="${_dash} ${_circ}" stroke-linecap="round" transform="rotate(-90 34 34)"/>
-                        </svg>
-                        <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.2;">
-                            <span style="font-size:0.75rem; font-family:monospace; font-weight:800; color:${_rc};">${_rs}${_res}h</span>
-                            <span style="font-size:0.52rem; color:#94a3b8; font-weight:600;">restante</span>
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:3px; width:100%; padding:2px 6px; box-sizing:border-box; cursor:default;"
+                         onmouseenter="const t=document.getElementById('valle-tip');const r=this.getBoundingClientRect();t.style.left=(r.left+r.width/2)+'px';t.style.top=(r.top-8)+'px';t.style.display='block';"
+                         onmouseleave="document.getElementById('valle-tip').style.display='none';">
+                        <div style="line-height:1; margin-top:2px;">
+                            <span style="font-size:1.09rem; font-weight:800; color:${_rc}; font-family:monospace; letter-spacing:-0.03em;">${_rs}${_res}h</span>
+                        </div>
+                        <div style="width:100%; height:5px; background:#e2e8f0; border-radius:3px; overflow:hidden; margin-top:1px;">
+                            <div style="width:${_barGreen > 0 ? _barGreen : _barRed}%; height:100%; background:${_res >= 0 ? '#10b981' : '#ef4444'}; border-radius:3px;"></div>
                         </div>
                     </div>
-                    <div style="text-align:center;">
-                        <div style="font-size:0.6rem; color:#64748b; font-weight:700;">${valleStart}–${valleEnd}</div>
-                        <div style="font-size:0.58rem; color:#94a3b8; margin-top:1px;">${valleConsumed}h / ${valleBolsa}h</div>
+                    <div id="valle-tip" style="display:none; position:fixed; transform:translate(-50%,-100%); background:#1e293b; color:white; border-radius:8px; padding:8px 10px; font-size:0.68rem; line-height:1.5; white-space:nowrap; z-index:9999; pointer-events:none; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+                        <div style="font-weight:700; margin-bottom:4px; color:#94a3b8; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.05em;">Tramo valle</div>
+                        <div>${valleStart}–${valleEnd} &nbsp;·&nbsp; ${valleConsumed}h consumidas de ${valleBolsa}h</div>
+                        <div style="margin-top:4px; color:#94a3b8; font-size:0.65rem;">Horas de baja actividad. En verde mientras<br>queda bolsa; en rojo si se supera.</div>
                     </div>`;
             }
-            const valleModuleHtml = valleBolsa > 0 ? `<div class="planner-module" style="flex:0 0 100px; width:100px;">
-                <div class="planner-module-title">🕐 VALLE</div>
+            const valleModuleHtml = valleBolsa > 0 ? `<div class="planner-module" style="flex:0 0 75px; width:75px;">
+                <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em;">VALLE</div>
                 <div class="planner-module-content" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
                     ${_valleCircle}
                 </div>
             </div>` : '';
 
-            // Módulo VISTA — tres switches de visualización
+            // Módulo CONTROLES — VISTA + DRAG fusionados
             const _isMoono = !!App.uiState.gridMonocromo;
             const _isDivid = !!App.uiState.gridDividido;
-            const _bS = (active) => 'padding:4px 8px; border:none; border-radius:10px; font-size:0.65rem; font-weight:700; cursor:pointer; transition:all 0.15s; background:' + (active?'#2563eb':'transparent') + '; color:' + (active?'white':'#64748b') + ';';
+            const _bS = (active) => 'flex:1; padding:3px 5px; border:none; outline:none; border-radius:8px; font-size:0.62rem; font-weight:700; cursor:pointer; transition:background 0.15s, color 0.15s; white-space:nowrap; background:' + (active?'#2563eb':'transparent') + '; color:' + (active?'white':'#64748b') + ';';
             const _row = (labelA, titleA, onA, activeA, labelB, titleB, onB, activeB, disabled) => {
                 const disStyle = disabled ? 'opacity:0.35; filter:grayscale(1); pointer-events:none;' : '';
-                return '<div style="font-size:0.52rem; font-weight:700; color:#64748b; text-align:center; margin-bottom:1px;">' + (activeA ? titleA : titleB) + '</div>' +
-                '<div style="display:flex; justify-content:center; background:#f1f5f9; border-radius:10px; padding:2px; gap:1px; ' + disStyle + '">' +
-                '<button onclick="' + onA + '" title="' + titleA + '" style="' + _bS(activeA) + '">' + labelA + '</button>' +
-                '<button onclick="' + onB + '" title="' + titleB + '" style="' + _bS(activeB) + '">' + labelB + '</button>' +
+                return '<div style="display:flex; width:100%; background:#f1f5f9; border-radius:8px; padding:2px; gap:1px; overflow:hidden; ' + disStyle + '">'  +
+                '<button tabindex="-1" onclick="' + onA + '" title="' + titleA + '" style="' + _bS(activeA) + '">' + labelA + '</button>' +
+                '<button tabindex="-1" onclick="' + onB + '" title="' + titleB + '" style="' + _bS(activeB) + '">' + labelB + '</button>' +
                 '</div>';
             };
-            const vistaModuleHtml = `<div class="planner-module" style="flex:0 0 90px; width:90px;">
-                <div class="planner-module-title">👁 VISTA</div>
-                <div class="planner-module-content" style="display:flex; flex-direction:column; gap:4px; padding:5px 6px; justify-content:center;">
-                    ${_row('👥','Grupo',"App.uiState.plannerViewMode='group'; App.ui.renderPlanner(document.getElementById('main-view'));",!isIndividual,
-                           '👤','Individual',"if(!App.uiState.individualEmpId){const first=App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder)[0]; if(first)App.uiState.individualEmpId=first.id;} App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));",isIndividual,false)}
-                    ${_row('📋','Junto',"App.uiState.gridDividido=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isDivid,
-                           '➗','Separado',"App.uiState.gridDividido=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isDivid,isIndividual)}
-                    ${_row('🎨','Color',"App.uiState.gridMonocromo=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isMoono,
-                           '⬛','Monocromo',"App.uiState.gridMonocromo=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isMoono,isIndividual)}
+            const _dragSwitch = () => {
+                const isEdit = App.uiState.dragMode === 'edit';
+                return '<div style="display:flex; width:100%; background:#f1f5f9; border-radius:8px; padding:2px; gap:1px; overflow:hidden;">'
+                     + '<button tabindex="-1" data-drag-mode="edit" onclick="App.logic.setDragMode(\'edit\'); App.ui.renderPlanner(document.getElementById(\'main-view\'));" title="Editar" style="' + _bS(isEdit) + '">EDITAR</button>'
+                     + '<button tabindex="-1" data-drag-mode="swap" onclick="App.logic.setDragMode(\'swap\'); App.ui.renderPlanner(document.getElementById(\'main-view\'));" title="Cambiar" style="' + _bS(!isEdit) + '">CAMBIAR</button>'
+                     + '</div>';
+            };
+            const vistaModuleHtml = `<div class="planner-module" style="width:100%;">
+                <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em;">VISTA</div>
+                <div class="planner-module-content" style="display:flex; flex-direction:column; gap:3px; padding:4px 5px; justify-content:center;">
+                        ${_row('<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>','Grupo',"App.uiState.plannerViewMode='group'; App.ui.renderPlanner(document.getElementById('main-view'));",!isIndividual,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Individual',"if(!App.uiState.individualEmpId){const first=App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder)[0]; if(first)App.uiState.individualEmpId=first.id;} App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));",isIndividual,false)}
+                        ${_row('<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="1"/><rect x="3" y="14" width="18" height="7" rx="1"/></svg>','Junto',"App.uiState.gridDividido=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isDivid,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>','Separado',"App.uiState.gridDividido=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isDivid,isIndividual)}
+                        ${_row('<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg>','Color',"App.uiState.gridMonocromo=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isMoono,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18V3z" fill="currentColor" stroke="none"/></svg>','Monocromo',"App.uiState.gridMonocromo=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isMoono,isIndividual)}
                 </div>
             </div>`;
-
-            // Módulo DRAG — botones Editar/Cambiar apilados
-            const _mBtn = (mode, icon, label) => {
-                const isActive = App.uiState.dragMode === mode;
-                const btnId = mode === 'edit' ? 'mode-edit-btn' : 'mode-swap-btn';
-                return '<button id="' + btnId + '" onclick="App.logic.setDragMode(\'' + mode + '\')" title="' + label + '"'
-                     + ' style="width:100%; padding:5px 4px; border:none; border-radius:6px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; transition:all 0.15s;'
-                     + ' background:' + (isActive ? '#2563eb' : '#f1f5f9') + '; color:' + (isActive ? 'white' : '#64748b') + ';">'
-                     + '<span style="font-size:14px; line-height:1;">' + icon + '</span>'
-                     + '<span style="font-size:0.55rem; font-weight:800; text-transform:uppercase; letter-spacing:0.03em;">' + label + '</span>'
-                     + '</button>';
-            };
-            const dragModuleHtml = `<div class="planner-module" style="flex:0 0 80px; width:80px;">
-                <div class="planner-module-title">🎯 DRAG</div>
-                <div class="planner-module-content" style="display:flex; flex-direction:column; gap:5px; padding:6px; justify-content:center;">
-                    ${_mBtn('edit','✏️','Editar')}
-                    ${_mBtn('swap','🔄','Cambiar')}
+            const dragModuleHtml = `<div class="planner-module" style="align-self:stretch;">
+                <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em;">DRAG</div>
+                <div class="planner-module-content" style="display:flex; justify-content:center; padding:4px 5px;">
+                    ${_dragSwitch()}
                 </div>
             </div>`;
 
             let html = `<div class="planner-controls-super-wrapper">
-                <div class="planner-controls-super" id="planner-controls-super" style="transform: scale(${controlsScale}); transform-origin: top left; width:${985 + valleModuleWidth + vistaModuleWidth + dragModuleWidth}px; min-width:${985 + valleModuleWidth + vistaModuleWidth + dragModuleWidth}px;">
+                <div class="planner-controls-super" id="planner-controls-super" style="transform: scale(${controlsScale}); transform-origin: top left; width:${985 + rightColWidth}px; min-width:${985 + rightColWidth}px;">
                 <div class="planner-controls">
                 <!-- MÓDULO 1: NAVEGADOR -->
                 <div class="planner-module planner-navigator">
-                    <div class="planner-module-title">📅 NAVEGADOR</div>
+                    <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em;">NAVEGADOR</div>
                     <div class="planner-module-content">
-                        <div class="week-selector" style="display:flex; align-items:center; justify-content:center; gap:16px;">
-                            <div style="display:flex; align-items:center; gap:4px;">
-                                <button class="week-btn week-btn-fast" onclick="App.logic.changeWeek(-4)" title="−4 semanas">◀◀</button>
-                                <button class="week-btn" onclick="App.logic.changeWeek(-1)" title="−1 semana">◀</button>
-                                <div style="position:relative; display:inline-flex; align-items:center; border:1px solid var(--border); border-radius:4px; background:white; height:28px;">
-                                    <span style="pointer-events:none; position:relative; z-index:1; padding:0 8px; font-weight:700; font-size:0.82rem; white-space:nowrap; color:#1e293b;">
-                                        ${Utils.getWeekCode(monday)} <span style="font-size:0.65em; color:#94a3b8; margin-left:2px;">▾</span>
-                                    </span>
-                                    <select id="week-dropdown" onchange="App.logic.goToWeek(this.value)" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:none; background:none;">
-                                        ${App.logic.getWeekOptions(monday)}
-                                    </select>
+                        <div class="week-selector" style="display:flex; align-items:center; justify-content:center; gap:10px;">
+                            <div style="display:flex; flex-direction:column; align-items:center; gap:3px; border:1px solid #e2e8f0; border-radius:8px; background:white; padding:5px 8px;">
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <button class="week-btn week-btn-fast" onclick="App.logic.changeWeek(-4)" title="−4 semanas">◀◀</button>
+                                    <button class="week-btn" onclick="App.logic.changeWeek(-1)" title="−1 semana">◀</button>
+                                    <div style="position:relative; display:inline-flex; align-items:center; border:1px solid var(--border); border-radius:4px; background:white; height:28px;">
+                                        <span style="pointer-events:none; position:relative; z-index:1; padding:0 8px; font-weight:700; font-size:0.82rem; white-space:nowrap; color:#1e293b;">
+                                            ${Utils.getWeekCode(monday)} <span style="font-size:0.65em; color:#94a3b8; margin-left:2px;">▾</span>
+                                        </span>
+                                        <select id="week-dropdown" onchange="App.logic.goToWeek(this.value)" style="position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:none; background:none;">
+                                            ${App.logic.getWeekOptions(monday)}
+                                        </select>
+                                    </div>
+                                    <button class="week-btn" onclick="App.logic.changeWeek(1)" title="+1 semana">▶</button>
+                                    <button class="week-btn week-btn-fast" onclick="App.logic.changeWeek(4)" title="+4 semanas">▶▶</button>
                                 </div>
-                                <button class="week-btn" onclick="App.logic.changeWeek(1)" title="+1 semana">▶</button>
-                                <button class="week-btn week-btn-fast" onclick="App.logic.changeWeek(4)" title="+4 semanas">▶▶</button>
+                                <span style="font-size:0.58rem; color:#94a3b8; font-weight:500; pointer-events:none; white-space:nowrap;">${_monthLabel}</span>
                             </div>
-                            <div style="display:flex; align-items:center; font-size:0.65rem; color:var(--text-muted);">
+                            <div style="display:flex; align-items:center;">
                                 ${App.logic._weekStateRowHTML(monday)}
                             </div>
                         </div>
@@ -248,14 +252,14 @@ Object.assign(App.ui, {
 
                 <!-- MÓDULO 2: PALETA DE TURNOS (en el centro) -->
                 <div class="planner-module planner-palette-inline">
-                    <div class="planner-module-title">🎨 PALETA DE TURNOS</div>
+                    <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em;">PALETA DE TURNOS</div>
                     <div class="planner-module-content">
                         <div style="display:flex; height:100%; gap:0;">
                             <!-- Fijos: columna izquierda -->`;
             html += `<div style="display:flex; flex-direction:column; gap:2px; flex-shrink:0;">`;
             App.data.fixedShifts.filter(s => s.code !== 'DH').forEach(s => {
                 const isSel = App.uiState.paintShiftId === s.id ? 'selected' : '';
-                html += `<div class="palette-item palette-item-fixed ${isSel}" title="${s.desc}" style="border: 2px solid ${s.color}; background:transparent; border-color:${isSel?s.color:s.color}40; min-width:22px;" onclick="App.logic.setPaint('${s.id}')"><span style="color:${s.color}; font-weight:700;">${s.code}</span></div>`;
+                html += `<div class="palette-item palette-item-fixed ${isSel}" title="${s.desc}" style="border: 2px solid ${s.color}; background:transparent; border-color:${isSel?s.color:s.color}40; min-width:19px;" onclick="App.logic.setPaint('${s.id}')"><span style="color:${s.color}; font-weight:700;">${s.code}</span></div>`;
             });
             html += `</div><div style="width:1px; background:var(--border); margin:0 6px; align-self:stretch; flex-shrink:0;"></div><div style="display:grid; grid-template-columns:repeat(4,1fr); gap:3px; flex:1; align-content:start;">`;
             App.data.shiftDefs.sort((a,b)=>a.customOrder-b.customOrder).forEach(s => {
@@ -271,32 +275,36 @@ Object.assign(App.ui, {
                 </div>
                 
                 <!-- MÓDULO 3: CONTROLES DERECHOS (subdividido 70/30) -->
-                <div class="planner-module planner-tools-box">
+                <div style="display:flex; flex-direction:column; gap:8px; align-self:flex-start; width:fit-content;">
+                <div class="planner-module planner-tools-box" style="flex:0 0 auto; height:auto; width:fit-content;">
                     <!-- SUBMÓDULO 70%: BOTONES AUTOMÁTICOS -->
-                    <div class="tools-submodule-auto">
-                        <div class="planner-module-title">⚡ BOTONES AUTOMÁTICOS</div>
-                        <div class="planner-module-content" style="padding:6px;">
-                            <div class="tools-grid">
-                                <div class="tools-column" style="position:relative;">
-                                    <div class="tools-column-title" style="cursor:help;">Algoritmo</div>
-                                    <span onmousedown="document.getElementById('algo-capi').style.display='block'" onmouseup="document.getElementById('algo-capi').style.display='none'" onmouseleave="document.getElementById('algo-capi').style.display='none'" style="padding:4px 6px; border-radius:4px; font-weight:600; font-size:0.56rem; border:1px solid #e2e8f0; display:flex; gap:3px; align-items:center; justify-content:center; white-space:nowrap; min-height:22px; background:white; opacity:0.35; filter:grayscale(1); cursor:help;">🪄 Turno</span>
-                                    <span onmousedown="document.getElementById('algo-capi').style.display='block'" onmouseup="document.getElementById('algo-capi').style.display='none'" onmouseleave="document.getElementById('algo-capi').style.display='none'" style="padding:4px 6px; border-radius:4px; font-weight:600; font-size:0.56rem; border:1px solid #e2e8f0; display:flex; gap:3px; align-items:center; justify-content:center; white-space:nowrap; min-height:22px; background:white; opacity:0.35; filter:grayscale(1); cursor:help;">✨ Día</span>
-                                    <span onmousedown="document.getElementById('algo-capi').style.display='block'" onmouseup="document.getElementById('algo-capi').style.display='none'" onmouseleave="document.getElementById('algo-capi').style.display='none'" style="padding:4px 6px; border-radius:4px; font-weight:600; font-size:0.56rem; border:1px solid #e2e8f0; display:flex; gap:3px; align-items:center; justify-content:center; white-space:nowrap; min-height:22px; background:white; opacity:0.35; filter:grayscale(1); cursor:help;">📅 Semana</span>
+                    <div class="tools-submodule-auto" style="height:auto; display:flex; flex-direction:column;">
+                        <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em;">BOTONES AUTOMÁTICOS</div>
+                        <div class="planner-module-content" style="padding:6px; height:auto; flex:0 0 auto;">
+                            <div class="tools-grid" style="font-size:0.8em; gap:3px; display:flex; width:fit-content;">
+                                <div class="tools-column" style="position:relative; flex:0 0 60px; width:60px;">
+                                    <div class="tools-column-title" style="cursor:help; font-size:0.44rem; letter-spacing:0.06em;">Magic</div>
+                                    <span onmousedown="document.getElementById('algo-capi').style.display='block'" onmouseup="document.getElementById('algo-capi').style.display='none'" onmouseleave="document.getElementById('algo-capi').style.display='none'" style="padding:2px 3px; border-radius:4px; font-weight:600; font-size:0.42rem; border:1px solid #e2e8f0; display:flex; gap:2px; align-items:center; justify-content:center; white-space:nowrap; min-height:18px; background:white; opacity:0.35; filter:grayscale(1); cursor:help; width:100%; box-sizing:border-box; overflow:hidden;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Turno</span>
+                                    <span onmousedown="document.getElementById('algo-capi').style.display='block'" onmouseup="document.getElementById('algo-capi').style.display='none'" onmouseleave="document.getElementById('algo-capi').style.display='none'" style="padding:2px 3px; border-radius:4px; font-weight:600; font-size:0.42rem; border:1px solid #e2e8f0; display:flex; gap:2px; align-items:center; justify-content:center; white-space:nowrap; min-height:18px; background:white; opacity:0.35; filter:grayscale(1); cursor:help; width:100%; box-sizing:border-box; overflow:hidden;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg> Día</span>
+                                    <span onmousedown="document.getElementById('algo-capi').style.display='block'" onmouseup="document.getElementById('algo-capi').style.display='none'" onmouseleave="document.getElementById('algo-capi').style.display='none'" style="padding:2px 3px; border-radius:4px; font-weight:600; font-size:0.42rem; border:1px solid #e2e8f0; display:flex; gap:2px; align-items:center; justify-content:center; white-space:nowrap; min-height:18px; background:white; opacity:0.35; filter:grayscale(1); cursor:help; width:100%; box-sizing:border-box; overflow:hidden;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Semana</span>
                                     <img id="algo-capi" src="data:image/webp;base64,UklGRjYLAABXRUJQVlA4ICoLAADwKwCdASp4AHgAPm0wk0akIyGhLBiqaIANiWgA1bXA/oHXwaD9N5uVXfvH485Q02HZ1OX8wTnSeYD7ZvdL9Gfmif3TrDvQA8ub2aP3c9LvVgWVd7vjp9yyZu9PUd7T/3nlp3q8AJ1HaBd8+I/xAP1I8aLw5vOfYF/KP/a/tXsE/9X+o8/X0R/4f8v8A383/sn/c9bX2Lfur7Jf7Rns2jkFdRmahPWmwTz8gsroBtuGj+39Xn84exdN1DWepB9sZS2Abucb2zLvudBfBb2M9hQpXtTs+IW2pD3zVAfgdRAAZ9XNxe2Qi1oJTdB8FVWFfYmeXlQx6Ji30xbR/Zlqaj2K8H3XQ6BO89RnN1IqV4DDfx1T3l5rPDxj+7a3MZ5CfxwIoTY8UdpJ+g+B9wiP5B/PVTluJNijNdsHEdCm1ywuiwqXXWPP3C9KV54cPyFRVMgLGfIC0F6Oe+bt3JhDLMdOk66933JuOBAA/vZV3D1E5OR3+Pc72e9f1DWKaIIgx+0/M/e+uSrTzH+z/yyLhHG5h/NxkZQ2SkN0DUznjnuolC7y6bBi5deNvIfdmtlDbv7e8wskkSJhvvKsjB0f/WZuGs6RQN5j89is/fRwUL9WW6Jmdrbo79sH732uVZfA2Y2SSDIY7+Pud20BeBPJFsnON/NrdzR/sG0h9QkPcP9lc9kL91Ea8nMMoAtQHdbXGIou/3LxLU6E40Wmw4HgD/qfNHrJZWl8x10LwYK9rYc/lN+uM3bA1MuwT47aKkX7ejQcsVWVwyUtqxQ9CgAPsqzVaJhd0ET3FbFfSwVwaWzFVQOgZj+YqHiMgAi/nIbeO8PpANhtJb4F3fRkwoXoV+yTrSs6LrLGj2L0qcNRq/sBolgUdCATgyBhgfpJ7ab/dgTieQr+ogZzjXn5HqtWo/6IVVkmMvU9MmS21oMLNh6x0te6jEqhoDy7RwIrCrQyapA4iyJK2IH2HtSnGvKJyE7EzaeYmquZuEV9XECugdzgWz3LBrXQo2KVBYiTi30fL3w17T/YI5AYAbcTLhNhmRECBIZ9E6PcH5IAhpHKpGqfP+L7iRT9eMLx+F0I3TtarrUERj96irS+0qYmXgSwk7rzfCMTsaSKXnRL95wGNOECCT9tUCr7JwMwElL19L/NJm2CVnzCYG+A6vhmvpS5CvS65ksVV5sriekCMbqHzYPuJUwn4MZqBhtPMgJAEP3NkKm9epsDib+KWQRBpKxJ2FhkJFH/nGtAu/6lcQdKi+4hQWQ9iqAWNu9Zk2XGGjb+/TrwGr/PgqE70qDi5/ejOAjSitf3EZ2Y2hMVo6ik4PpoeULr/th4cI9sU+BYDC2oTeg/cVS0G+Dmjzw2jUb4Z9LG3i3R5dAHBFbEJafNaDc7RFhhPYjoKQKrkkcOF8TS3PliQCq/mIELkLLRGebdtNiCL1OomMPTkvmhaqTYwgvcwT8Y5+XLdUSnIIID0f+zv9YMbrDXGX7k1uS8uOwFq8eC1NtM3poHEoJtps4aNgGKycZgSYLb1qETiYwLrz1HHiUYFwTSAl81oe8xcoOO+I7RnNZaohh7mOfj2pa7Zq52zk8us0OSG5DMY0bc9cWU9nswtt0h6XhE4ICSnMe565tVKQSnNTe4463luySKnzfHNKo9zbN348k20HP7HJwO67QpzVIUnH0/u/nCHn28mkbbXJ51nH7z8e38QOH3X3wkZCqvhjdyQ7DG3AINjDFCjqXnPhUHtUOL9tPucQQFbhz4Z/piCASHoQ9y0y6tqL0+bjbmiiyNaNSjkHp6TDXZBIzzGR3yf3jYtcb8MpZOTfPFY2OLTSKiPeoAJR8Px1PmZRNPL1SwdxvAcYsCBwbn4iZs79ei9kE0jLPRvVvdF5og//eKXh38tY+3vMWKXU7jOx+QiV0PgnU17jiX6KE2EJCFdlTnuJAIjyRE/VW0DNHRW4HbTmoN5efQSiWSucQwwrgcJF98rfZpgMUUt1SjGkMrUvp79wM35t+CA00ySvDYv3T01D5aq3IZP9D7Gcbd920OeLaFB4KndlbnYXW2O4327lxRN6TFXD3ngP3Xi6A5fAJ85I7IvpCyVM+YfWBfqD65/rxhsG3gNo4ar76tvWtbivSxNDaieNvnfn+2SfTEaIfu1I4XTn0jmN2Dg9BFdZ3vaom707qt6dY29MXEUsYEy1CIHo/iUd0wfbpetpFeI5i0UJYezcVJ7cvCGrZWPmWB0u8QGinNIflulepM3Hab4UDwlkiYJJmVmBGvbL1vf/GFpVJ/QkF9W0KDSUWucg2xU/mvKC2qWjVZ4wte8Bg4jepmDIH5j4pkaezLVLx16lXb4hikNP6kNdP6gAy0ecmSu0WqZLsQOx74WNqBemxWsY34tmavGMrYwbmM/wYYqx6rPRAcfhKnywQrj+2mpxr3V9wwN8cd0iSQn81D4RuhboLhWFqLdEtg4r6FRsiwhXp8HijjuYwX8AC15zwQ3vsoLfxomfvZfWv/R5OK+/b3Rp45ESHS6179lLPvl3spnuQZBjJ33QCTaN93ehNgZUIe9/xWlzHLXVPQrH96kv69jNLc6LEflAdJryBLPll8xXOquo6cthSfM/58+CUKcPjYjeSPnqAr1KZtkbfq0tYlsRR2xNnsEaWerg+kpwFveCreT/j85t0rxNniqh/cmBwCMLaHQN+xRJCg5bJ9OjMsjgBtqgwmFyz4TOy4/eWGg7zmNpkn2QSSlPNejgukjiA2sDIe51jqOVhCE4L1ENcdYq3NWdPHa1Ct78g+j8jO7U9E3tZAoPfquRMPHYQTD2VFC8euY/mO0vxItaZZrJENJ9snQoKfEBb9HnnEPYtcoe0ntkl4DKk2zOkIyX/bldMmEfvEoAzbzNM+xv++gAyctIp5I1aPoCSQtBXjP7f6s/7qBkuTmlaDvEiPrsMMxsSk8Ls4U+DDUBQnbg7YsghFoSScZC4/EeX2EtTDCVfDK+Mb+fQNOBRGHmWWRP9zoimoIdCzAM8krYU3ZNeUEylbinF8k9xJxzP93RsoOj/A2oWukdgQsPkynEgoEMnYH0/ecNLfIHXCBTUka0F874k5BTXck0y3juAjzT/ChyjjEMJLZUyAcexXxHOs7as+Nv3ctD+Lvdnm7EOWk6e4RKxp1RIUcBC38SB0s6r4HFqDG3Ftsrktn/6x0JKyL7RF51iFqFbfADjebwaoP2xQAI+8fSlzDJL0A2hQ1nQA0Lypi6dlhyeNZcKpL5URMQxCd1SCa8eSxc1soBBHOJBwYAtubJGX+jootJeQJwUtGs8FTPjFfJC1I6fENWfNyZU8bRjMn5MfeBydhVVn7ce1L10iC5cpM30GWpC2rGsG2Z1RuvYPnh/ApdhMHGCYDgkgftNz9Brbu/Qy+nvrNawwPLNcS+YaIs/Xflkfmiy4pvpii4APNk6j9J1IvSD+bgo+dP16c3XJ2zJcg7ikwUy/qZ13Do+fAVs5Y9jjgm0oeqgsfgxRMzVypIHVtw3uJh/Er3LiUh/UPBhiT+1Wu4AUXTyS+G6yArSONmK39tVQzyeHwp/BNrF0EawbqtQv+zOG/KTLTrIFLhfEjDVUrFIuEKn7uE7JRgwHxhvEFUbUxAR+iCpYD0dOWtFi6PVulfAYftJGwFTpSnCznJvo/Z3T7lNzvqDISKsHOcMvYjiJNM61L9Ff3zNyNeCo+qj2J25aYb0x3Ix8SELVCG5bb34MZhnSeFNabe2z/HnvEDl7XBMXXG+xoWDLHqkJEjvCJ7AvdXJhersQ2U6qfxrR0XUXO4OvBXDp1gRcluATkMX7rj9fgKhE1EiSAAAAAA==" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-36%);width:73px;height:73px;object-fit:contain;pointer-events:none;display:none;border-radius:10px;border:1.5px solid #cbd5e1;padding:3px;background:white;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
                                 </div>
-                                <div class="tools-column">
-                                    <div class="tools-column-title">Borrar</div>
-                                    <button class="tool-btn-unified tool-eraser ${App.uiState.paintShiftId === 'eraser' ? 'selected' : ''}" onclick="App.logic.setPaint('eraser')" title="Goma de borrar">🧽 Turno</button>
-                                    <button class="tool-btn-unified tool-clear-day" title="Borrar todos los turnos del día" onclick="App.logic.massClearDay()">🗑️ Día</button>
-                                    <button class="tool-btn-unified tool-clear-week" title="Vaciar toda la semana" onclick="App.logic.massClearWeek()">🧹 Semana</button>
+                                <div class="tools-column" style="flex:0 0 60px; width:60px;">
+                                    <div class="tools-column-title" style="font-size:0.44rem; letter-spacing:0.06em;">Borrar</div>
+                                    <button class="tool-btn-unified tool-eraser ${App.uiState.paintShiftId === 'eraser' ? 'selected' : ''}" onclick="App.logic.setPaint('eraser')" title="Goma de borrar" style="padding:2px 3px; font-size:0.42rem; min-height:18px; line-height:1; display:flex; align-items:center; gap:2px; box-sizing:border-box; width:100%;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16l13-13 6 6-3.5 3.5"/><path d="M6.5 17.5l3-3"/></svg> Turno</button>
+                                    <button class="tool-btn-unified tool-clear-day" title="Borrar todos los turnos del día" onclick="App.logic.massClearDay()" style="padding:2px 3px; font-size:0.42rem; min-height:18px; line-height:1; display:flex; align-items:center; gap:2px; box-sizing:border-box; width:100%;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg> Día</button>
+                                    <button class="tool-btn-unified tool-clear-week" title="Vaciar toda la semana" onclick="App.logic.massClearWeek()" style="padding:2px 3px; font-size:0.42rem; min-height:18px; line-height:1; display:flex; align-items:center; gap:2px; box-sizing:border-box; width:100%;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> Semana</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                ${valleModuleHtml}
-                ${vistaModuleHtml}
                 ${dragModuleHtml}
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px; flex:0 0 75px; width:75px;">
+                    ${valleBolsa > 0 ? valleModuleHtml : ''}
+                    ${vistaModuleHtml}
+                </div>
             </div>
             </div>
             </div>`;
@@ -592,6 +600,21 @@ Object.assign(App.ui, {
             
             // Ajustar alturas de wrappers (el scale ya está inline, solo falta la altura)
             adjustWrapperHeights();
+
+        // Ctrl = modo Cambiar (atajo temporal) — registrar una sola vez
+        if(!window._ctrlDragHandler) {
+            window._ctrlDragHandler = true;
+            const _ctrlBs = (active) => 'flex:1; padding:3px 5px; border:none; outline:none; border-radius:8px; font-size:0.62rem; font-weight:700; cursor:pointer; transition:background 0.15s, color 0.15s; white-space:nowrap; background:' + (active ? '#2563eb' : 'transparent') + '; color:' + (active ? 'white' : '#64748b') + ';';
+            const _setCtrlDrag = (isSwap) => {
+                App.uiState.dragMode = isSwap ? 'swap' : 'edit';
+                const editBtn = document.querySelector('[data-drag-mode="edit"]');
+                const swapBtn = document.querySelector('[data-drag-mode="swap"]');
+                if(editBtn) editBtn.style.cssText = _ctrlBs(!isSwap);
+                if(swapBtn) swapBtn.style.cssText = _ctrlBs(isSwap);
+            };
+            document.addEventListener('keydown', e => { if(e.key === 'Control' && !e.repeat) _setCtrlDrag(true); });
+            document.addEventListener('keyup',   e => { if(e.key === 'Control') _setCtrlDrag(false); });
+        }
         },
 
         _renderIndividualGrid: function(weekDays, monday, todayConfig, gridScale) {

@@ -6,6 +6,20 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '02/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Navegador del planificador — marco con borde alrededor de flechas+selector, mes debajo del código WK (detecta cambio de mes y de año)',
+                    '✨ Módulo Valle rediseñado — número grande con barra verde que se vacía hasta 0 y se rellena de rojo al pasarse, tooltip al hover',
+                    '✨ Barra de controles — VISTA y DRAG fusionados en módulo CONTROLES; layout en dos columnas apiladas con Botones Automáticos y Valle',
+                    '✨ Ctrl activa temporalmente el modo Cambiar (drag swap) mientras se mantiene pulsado',
+                    '✨ Iconos SVG minimalistas en CONTROLES y Botones Automáticos (sin emojis)',
+                    '✨ Títulos de módulos más compactos y sin emojis en toda la barra de controles',
+                    '🔧 Drag de timeline y shiftDrop añaden snapshot — el botón Deshacer ahora se activa tras arrastrar',
+                    '🔧 Turno externo arrastrado preserva el flag external → ya no cuenta en el módulo Valle',
+                    '🔧 Fix: Ctrl no mutaba visualmente los botones Editar/Cambiar',
+                ]
+            },
+            {
                 fecha: '01/04/2026 (tarde)', version: 'v1.0',
                 items: [
                     '🔧 Festivos en el tooltip de Balance Semanal ahora muestra todas las fechas correctamente (incluye vacaciones)',
