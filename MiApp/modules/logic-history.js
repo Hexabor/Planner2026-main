@@ -357,6 +357,7 @@ App.logic = {
                 days.forEach(d => App.data.lockedDays[d] = true);
             }
             Safe.save('v40_db', App.data);
+            App.logic.checkAlerts();
             App.ui.renderPlanner(document.getElementById('main-view'));
             const insp = document.getElementById('inspector-content');
             if(insp) App.ui.renderPlannerInspector(insp);
@@ -372,6 +373,7 @@ App.logic = {
             // Recalcular monday para actualizar UI de semana
             const monday = Utils.getMonday(date);
             Safe.save('v40_db', App.data);
+            App.logic.checkAlerts();
             App.ui.renderPlanner(document.getElementById('main-view'));
         },
 

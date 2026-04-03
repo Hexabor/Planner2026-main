@@ -395,8 +395,8 @@
             border: 2px solid #cbd5e1;
             border-radius: 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            width: 1435px; /* Ancho fijo: 395px (columnas fijas) + 1040px (26 slots × 40px) */
-            min-width: 1435px;
+            width: 1465px; /* Ancho fijo: 425px (columnas fijas incl. llave) + 1040px (26 slots × 40px) */
+            min-width: 1465px;
             transform-origin: top left;
             transition: transform 0.2s ease;
             padding: 0;

@@ -831,6 +831,9 @@ Object.assign(App.logic, {
         
         
         barDragStart: function(event, empId, date, barType) {
+            // Bloquear si el día está cerrado
+            if(App.logic.isDayLocked(date)) return;
+
             // VERIFICAR MODO DE DRAG
             const currentMode = App.logic.getCurrentDragMode();
             if(currentMode === 'swap') return; // En modo SWAP, el drag HTML5 se maneja con shiftDragStart
@@ -1443,6 +1446,134 @@ Object.assign(App.logic, {
             // PARTE 5: Detección de traspasos de llaves necesarios — DESACTIVADA
             // El usuario gestiona traspasos manualmente desde el inspector de llaves.
             // Las alertas de cobertura apertura/cierre (PARTE 4) ya cubren lo necesario.
+
+            // PARTE 6: Alertas de cobertura y jornada en días CERRADOS (lockedDays)
+            try {
+                const locked6 = App.data.lockedDays || {};
+                const todayStr6 = new Date().toISOString().slice(0, 10);
+                const lockedDates6 = Object.keys(locked6).filter(d => locked6[d] && d >= todayStr6).sort();
+                const toMin = t => { if (!t) return 0; const p = t.split(':'); return Number(p[0]) * 60 + Number(p[1]); };
+
+                const getWorkShift6 = (empId, date) => {
+                    const sv = (App.data.schedule[date] || {})[empId];
+                    if (!sv) return null;
+                    const sh = Utils.getShift(sv);
+                    if (!sh || sh.fixed || !sh.start || !sh.end) return null;
+                    return sh;
+                };
+
+                for (let di = 0; di < lockedDates6.length; di++) {
+                    const date = lockedDates6[di];
+                    const horario = App.logic._getHorarioDelDia(date);
+                    if (!horario || horario.closed) continue;
+
+                    const activeEmps = App.data.empleados.filter(e => e.active !== false);
+
+                    // Recopilar turnos de trabajo de este día
+                    const working = [];
+                    for (let ei = 0; ei < activeEmps.length; ei++) {
+                        const emp = activeEmps[ei];
+                        const sh = getWorkShift6(emp.id, date);
+                        if (!sh) continue;
+                        const brkS = sh.breakStart ? toMin(sh.breakStart) : -1;
+                        const brkE = sh.breakEnd ? toMin(sh.breakEnd) : -1;
+                        working.push({ empId: emp.id, emp, shift: sh, startMin: toMin(sh.start), endMin: toMin(sh.end), brkS, brkE });
+                    }
+
+                    const storeOpen = toMin(horario.open);
+                    const storeClose = toMin(horario.close);
+
+                    // Checker: cuántos de una lista cubren minuto m (excluyendo descansos)
+                    const countAt = (list, m) => {
+                        let n = 0;
+                        for (let i = 0; i < list.length; i++) {
+                            let wEnd = list[i].endMin;
+                            if (wEnd <= list[i].startMin) wEnd += 24 * 60;
+                            if (list[i].startMin <= m && wEnd > m) {
+                                // Excluir si está en descanso
+                                if (list[i].brkS >= 0 && list[i].brkE >= 0 && m >= list[i].brkS && m < list[i].brkE) continue;
+                                n++;
+                            }
+                        }
+                        return n;
+                    };
+
+                    // 6A: Tramo sin TAG3
+                    const tag3Working = working.filter(w => ['MNG', 'AM', 'SPV'].includes(Utils.getRolEnFecha(w.emp, date)));
+                    if (tag3Working.length === 0 && working.length > 0) {
+                        alerts.push({
+                            title: `👔 Sin TAG3 en todo el día — ${Utils.formatDateES(date)}`,
+                            desc: `Ningún responsable (MNG/AM/SPV) trabaja el ${Utils.formatDateES(date)}. La tienda no tiene cobertura de mando.`,
+                            date
+                        });
+                    } else if (tag3Working.length > 0) {
+                        for (let m = storeOpen; m < storeClose; m += 30) {
+                            if (countAt(tag3Working, m) === 0) {
+                                const hh = String(Math.floor(m / 60)).padStart(2, '0');
+                                const mm = String(m % 60).padStart(2, '0');
+                                alerts.push({
+                                    title: `👔 Tramo sin TAG3 — ${Utils.formatDateES(date)}`,
+                                    desc: `A las ${hh}:${mm} no hay ningún responsable (MNG/AM/SPV) en tienda. Revisa los turnos del equipo TAG3.`,
+                                    date
+                                });
+                                break;
+                            }
+                        }
+                    }
+
+                    // 6B: Solo 1 persona en algún tramo
+                    for (let m = storeOpen; m < storeClose; m += 30) {
+                        const c = countAt(working, m);
+                        if (c === 1) {
+                            const hh = String(Math.floor(m / 60)).padStart(2, '0');
+                            const mm = String(m % 60).padStart(2, '0');
+                            alerts.push({
+                                title: `👤 Solo 1 persona en tienda — ${Utils.formatDateES(date)}`,
+                                desc: `A las ${hh}:${mm} solo hay 1 empleado trabajando. Mínimo recomendado: 2 personas en tienda.`,
+                                date
+                            });
+                            break;
+                        }
+                    }
+
+                    // 6C: Jornada superior a 10 horas
+                    for (let wi = 0; wi < working.length; wi++) {
+                        const w = working[wi];
+                        const hours = Utils.calcHours(w.shift.start, w.shift.end, w.shift.breakStart, w.shift.breakEnd, w.shift.break);
+                        if (hours > 10) {
+                            alerts.push({
+                                title: `⚠️ Jornada excesiva — ${w.emp.nombre}`,
+                                desc: `${w.emp.nombre} tiene ${hours.toFixed(1)}h asignadas el ${Utils.formatDateES(date)} (máximo recomendado: 10h).`,
+                                date, empName: w.emp.nombre
+                            });
+                        }
+                    }
+
+                    // 6D: Descanso mínimo 12h respecto al día anterior
+                    const prevDate6 = new Date(date + 'T12:00:00');
+                    prevDate6.setDate(prevDate6.getDate() - 1);
+                    const prevStr6 = prevDate6.toISOString().slice(0, 10);
+
+                    for (let wi = 0; wi < working.length; wi++) {
+                        const w = working[wi];
+                        const prevShift = getWorkShift6(w.empId, prevStr6);
+                        if (!prevShift) continue;
+                        const prevEnd = toMin(prevShift.end);
+                        const todayStart = toMin(w.shift.start);
+                        const rest = todayStart + 24 * 60 - prevEnd;
+                        if (rest < 12 * 60) {
+                            const restH = (rest / 60).toFixed(1);
+                            alerts.push({
+                                title: `🛌 Descanso insuficiente — ${w.emp.nombre}`,
+                                desc: `${w.emp.nombre} solo descansa ${restH}h entre el ${Utils.formatDateES(prevStr6)} (fin ${prevShift.end}) y el ${Utils.formatDateES(date)} (inicio ${w.shift.start}). Mínimo: 12h.`,
+                                date, empName: w.emp.nombre
+                            });
+                        }
+                    }
+                }
+            } catch(err6) {
+                console.error('[Alertas P6] Error en alertas de cobertura/jornada:', err6);
+            }
 
             return alerts;
         },

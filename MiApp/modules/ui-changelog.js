@@ -6,6 +6,21 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '03/04/2026 (noche 2)', version: 'v1.0',
+                items: [
+                    '✨ Alertas — tramo sin TAG3 en tienda (semanas cerradas)',
+                    '✨ Alertas — solo 1 persona en tienda (semanas cerradas)',
+                    '✨ Alertas — jornada superior a 10h (semanas cerradas)',
+                    '✨ Alertas — descanso insuficiente entre días consecutivos < 12h (semanas cerradas)',
+                    '✨ Alertas — detección correcta de descansos en turnos partidos (excluye break)',
+                    '🔧 Fix: drag/resize de barras ya no funciona en días cerrados',
+                    '🔧 Fix: cerrar/abrir semana ahora recalcula alertas inmediatamente',
+                    '🔧 Fix: alertas de fechas pasadas ya no aparecen',
+                    '🔧 Fix: descanso calculado correctamente (no falsos 0h por normalización errónea)',
+                    '🔧 Fix: ancho del grid del planificador ajustado a 1465px (columna llave no se cortaba)',
+                ]
+            },
+            {
                 fecha: '03/04/2026 (noche)', version: 'v1.0',
                 items: [
                     '✨ Inspector llaves — layout mejorado: 5 días de proyección, sobretítulo con fecha, columnas LIBRA/ABRE/CIERRA más amplias',

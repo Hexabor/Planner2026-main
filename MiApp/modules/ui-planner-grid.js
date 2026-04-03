@@ -31,7 +31,7 @@ Object.assign(App.ui, {
             const availableWidth = c.clientWidth;
             const rightColWidth = 87; // 75px + 12px gap — columna VISTA (+VALLE)
             const controlsScale = Math.min(1, (availableWidth - 40) / (985 + rightColWidth));
-            const gridScale = Math.min(1, (availableWidth - 40) / 1435);
+            const gridScale = Math.min(1, (availableWidth - 40) / 1465);
 
             // Calcular scale basado en el ancho disponible
 
