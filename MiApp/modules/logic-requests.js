@@ -557,9 +557,35 @@ Object.assign(App.logic, {
             App.ui.renderTraspasoInspector(null, fecha);
         },
 
-        traspasoDel: function(id) {
-            if(!confirm('¿Borrar este traspaso?')) return;
-            App.data.traspasoLlaves = (App.data.traspasoLlaves || []).filter(t => t.id !== id);
+        traspasoDel: function(id, isBroken) {
+            const traspasos = App.data.traspasoLlaves || [];
+            const target = traspasos.find(t => t.id === id);
+            if (!target) return;
+
+            if (isBroken) {
+                // Todos los traspasos de la misma llave desde este punto en adelante
+                const mismaLlave = traspasos
+                    .filter(t => t.llaveId === target.llaveId && t.fecha >= target.fecha)
+                    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+                const idsToDelete = [];
+                let found = false;
+                for (const t of mismaLlave) {
+                    if (t.id === id) found = true;
+                    if (found) idsToDelete.push(t.id);
+                }
+                if (idsToDelete.length > 1) {
+                    if (!confirm(`Este traspaso y los ${idsToDelete.length - 1} siguientes de la misma llave están rotos.\n¿Borrar los ${idsToDelete.length} traspasos de golpe?`)) return;
+                    const delSet = new Set(idsToDelete);
+                    App.data.traspasoLlaves = traspasos.filter(t => !delSet.has(t.id));
+                } else {
+                    if (!confirm('¿Borrar este traspaso?')) return;
+                    App.data.traspasoLlaves = traspasos.filter(t => t.id !== id);
+                }
+            } else {
+                if (!confirm('¿Borrar este traspaso?')) return;
+                App.data.traspasoLlaves = traspasos.filter(t => t.id !== id);
+            }
+
             Safe.save('v40_db', App.data);
             App.logic.checkAlerts();
             App.logic._refreshLlaves();

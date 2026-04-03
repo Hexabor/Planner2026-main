@@ -1390,23 +1390,54 @@ Object.assign(App.ui, {
                 return `<td style="padding:6px 8px;font-size:0.75rem;color:#1e293b;text-align:center;font-weight:600;${sep}">${nombre}</td>`;
             };
 
+            // Detectar traspasos con flujo roto: el dador no tiene realmente la llave
+            const brokenIds = new Set();
+            const traspasoPorLlave = {};
+            traspasos.forEach(t => {
+                if (!traspasoPorLlave[t.llaveId]) traspasoPorLlave[t.llaveId] = [];
+                traspasoPorLlave[t.llaveId].push(t);
+            });
+            Object.keys(traspasoPorLlave).forEach(llaveId => {
+                const lista = traspasoPorLlave[llaveId]; // ya ordenados por fecha
+                let broken = false;
+                lista.forEach(t => {
+                    if (broken) {
+                        // Cascada: todos los siguientes de esta llave están afectados
+                        brokenIds.add(t.id);
+                        return;
+                    }
+                    // ¿Quién tiene la llave justo antes de este traspaso?
+                    const titularReal = App.logic.getTitularLlaveInicio
+                        ? App.logic.getTitularLlaveInicio(t.llaveId, t.fecha)
+                        : null;
+                    const dador = t.dadorId || '__TIENDA__';
+                    // Si no hay titular previo (null) y el dador dice ser __TIENDA__, ok (llave en tienda)
+                    // Si el titular previo no coincide con el dador declarado → roto
+                    if (titularReal === null && dador === '__TIENDA__') return; // ok, primer traspaso
+                    if (titularReal !== dador) {
+                        brokenIds.add(t.id);
+                        broken = true;
+                    }
+                });
+            });
+
             const _fila = (t, esPasado) => {
+                const isBroken = brokenIds.has(t.id);
                 const dadorHtml = empName(t.dadorId || '__TIENDA__');
                 const celdasLlaves = llaves.map((l, idx) => _celdaLlave(l.id, t.fecha, idx)).join('');
-                return `<tr style="border-bottom:1px solid #f1f5f9;${esPasado?'opacity:0.65;':''}">
-                    <td style="padding:9px 12px;font-size:0.8rem;color:#475569;white-space:nowrap;">${Utils.formatDateES(t.fecha)}</td>
+                const rowBg = isBroken ? 'background:#fef2f2;' : '';
+                const rowBorder = isBroken ? 'border-left:3px solid #ef4444;' : '';
+                return `<tr style="border-bottom:1px solid #f1f5f9;${esPasado?'opacity:0.65;':''}${rowBg}${rowBorder}" ${isBroken ? 'title="Flujo roto: el entregador no tiene esta llave en esta fecha"' : ''}>
+                    <td style="padding:9px 12px;font-size:0.8rem;color:${isBroken ? '#dc2626' : '#475569'};white-space:nowrap;">${Utils.formatDateES(t.fecha)}${isBroken ? ' ⚠' : ''}</td>
                     <td style="padding:9px 12px;font-size:0.82rem;font-weight:600;color:#1e293b;">${llaveLabel(t.llaveId)}</td>
-                    <td style="padding:9px 12px;font-size:0.82rem;color:#475569;">${dadorHtml}</td>
+                    <td style="padding:9px 12px;font-size:0.82rem;color:${isBroken ? '#dc2626' : '#475569'};">${dadorHtml}</td>
                     <td style="padding:9px 12px;font-size:0.82rem;color:#1e293b;font-weight:600;">${empName(t.receptorId)}</td>
                     ${celdasLlaves}
                     <td style="padding:9px 12px;text-align:right;white-space:nowrap;">
-                        <button onclick="App.llaves._optimizarDesde('${t.fecha}')" title="Optimizar desde aquí" style="background:none;border:none;cursor:pointer;color:#2563eb;padding:2px 4px;vertical-align:middle;">
-                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="none"><polygon points="3,2 14,8 3,14" fill="#2563eb"/></svg>
-                        </button>
                         <button onclick="App.ui.renderTraspasoInspector('${t.id}', '${t.fecha}')" title="Editar" style="background:none;border:none;cursor:pointer;color:#64748b;padding:2px 4px;vertical-align:middle;">
                             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg>
                         </button>
-                        ${!esPasado ? `<button onclick="App.logic.traspasoDel('${t.id}')" title="Borrar" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:13px;padding:2px 4px;vertical-align:middle;">✕</button>` : ''}
+                        ${!esPasado ? `<button onclick="App.logic.traspasoDel('${t.id}'${isBroken ? ', true' : ''})" title="${isBroken ? 'Borrar traspasos rotos' : 'Borrar'}" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:13px;padding:2px 4px;vertical-align:middle;">✕</button>` : ''}
                     </td>
                 </tr>`;
             };
@@ -1501,9 +1532,9 @@ Object.assign(App.ui, {
                 .filter(e => e.active !== false && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, fecha)))
                 .sort((a, b) => a.customOrder - b.customOrder);
 
-            // 6 fechas futuras
+            // 5 fechas futuras
             const futureDates = [];
-            for (let i = 1; i <= 6; i++) {
+            for (let i = 1; i <= 5; i++) {
                 const fd = new Date(dObj); fd.setDate(fd.getDate() + i);
                 futureDates.push(fd.toISOString().slice(0,10));
             }
@@ -1551,7 +1582,11 @@ Object.assign(App.ui, {
                 const tid = App.logic.getTitularLlave(l.id, fecha);
                 const emp = tid && tid !== '__TIENDA__' ? App.data.empleados.find(e => e.id === tid) : null;
                 const titLabel = tid === '__TIENDA__' ? '🏪 Tienda' : (emp ? emp.nombre : '—');
-                return `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:0.8rem;">
+                // Detectar si el titular está ausente hoy (libra, vacaciones, baja...)
+                const isAbsent = emp ? getDayInfo(emp.id, fecha).isLibre : (tid === '__TIENDA__');
+                const absentStyle = isAbsent ? 'background:#f1f5f9;opacity:0.55;border-radius:4px;padding:2px 6px;' : 'padding:2px 6px;';
+                const absentTitle = isAbsent && emp ? ' title="Ausente hoy"' : '';
+                return `<div style="display:flex;align-items:center;gap:6px;font-size:0.8rem;${absentStyle}"${absentTitle}>
                     <span style="font-weight:700;color:#2563eb;width:20px;">L${idx+1}</span>
                     <span style="color:#94a3b8;min-width:64px;">${l.alias || ''}</span>
                     <span style="color:#1e293b;">${titLabel}</span>
@@ -1597,17 +1632,17 @@ Object.assign(App.ui, {
                 const libreLabel = shiftLabel !== '—' ? shiftLabel : 'L';
                 const libreTitle = !isLibreToday ? '' : (shiftLabel !== '—' ? `Libranza (${shiftLabel})` : 'Sin turno asignado');
                 const libreCell = isLibreToday
-                    ? `<span style="display:inline-block;padding:0 3px;background:${shiftColor}22;color:${shiftColor};border-radius:3px;font-size:0.65rem;font-weight:700;">${libreLabel}</span>`
+                    ? `<span style="display:inline-block;padding:2px 6px;background:${shiftColor}22;color:${shiftColor};border-radius:4px;font-size:0.72rem;font-weight:700;">${libreLabel}</span>`
                     : '';
 
                 // Col 4: ABRE
                 const abreCell = opens
-                    ? `<span style="display:inline-block;padding:0 3px;background:#dbeafe;color:#1d4ed8;border-radius:3px;font-size:0.65rem;font-weight:700;">A</span>`
+                    ? `<span style="display:inline-block;padding:2px 6px;background:#dbeafe;color:#1d4ed8;border-radius:4px;font-size:0.72rem;font-weight:700;">A</span>`
                     : '';
 
                 // Col 5: CIERRA
                 const cierraCell = closes
-                    ? `<span style="display:inline-block;padding:0 3px;background:#fef9c3;color:#854d0e;border-radius:3px;font-size:0.65rem;font-weight:700;">C</span>`
+                    ? `<span style="display:inline-block;padding:2px 6px;background:#fef9c3;color:#854d0e;border-radius:4px;font-size:0.72rem;font-weight:700;">C</span>`
                     : '';
 
                 // Cols futuros
@@ -1621,14 +1656,14 @@ Object.assign(App.ui, {
                             if (fSh && fSh.fixed) fLabel = fSh.code;
                         }
                         tooltip = fLabel === 'L' ? 'Sin turno' : `Libranza (${fLabel})`;
-                        content = `<span style="color:#16a34a;font-size:0.65rem;font-weight:600;">${fLabel}</span>`;
+                        content = `<span style="color:#16a34a;font-size:0.72rem;font-weight:600;">${fLabel}</span>`;
                     } else {
                         const parts = [];
-                        if (info.opens)  { parts.push(`<span style="color:#1d4ed8;font-size:0.65rem;font-weight:700;">A</span>`); }
-                        if (info.closes) { parts.push(`<span style="color:#854d0e;font-size:0.65rem;font-weight:700;">C</span>`); }
+                        if (info.opens)  { parts.push(`<span style="color:#1d4ed8;font-size:0.72rem;font-weight:700;">A</span>`); }
+                        if (info.closes) { parts.push(`<span style="color:#854d0e;font-size:0.72rem;font-weight:700;">C</span>`); }
                         if (!parts.length) {
                             tooltip = 'Trabaja (sin apertura ni cierre)';
-                            parts.push(`<span style="color:#94a3b8;font-size:0.7rem;">·</span>`);
+                            parts.push(`<span style="color:#94a3b8;font-size:0.75rem;">·</span>`);
                         } else {
                             tooltip = [info.opens ? 'Abre tienda' : '', info.closes ? 'Cierra tienda' : ''].filter(Boolean).join(' + ');
                         }
@@ -1659,19 +1694,76 @@ Object.assign(App.ui, {
             const covBad = 'display:inline-flex;align-items:center;gap:2px;padding:1px 6px;background:#fee2e2;color:#dc2626;border-radius:4px;font-size:0.68rem;font-weight:700;';
             const covSvgOk  = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#15803d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,8 6.5,11.5 13,4.5"/></svg>';
             const covSvgBad = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>';
+            // Mini llave SVG para cobertura
+            const KEY_MINI = (color) => `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><circle cx="8" cy="15" r="4"/><line x1="11.5" y1="11.5" x2="22" y2="1"/><line x1="18" y1="5" x2="21" y2="2"/><line x1="15" y1="8" x2="18" y2="5"/></svg>`;
+
+            // Estilos gris para días sin gestión de llaves instaurada
+            const covGrey = 'display:inline-flex;align-items:center;gap:2px;padding:1px 6px;background:#f1f5f9;color:#94a3b8;border-radius:4px;font-size:0.68rem;font-weight:700;';
+            const covSvgGrey = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="8" x2="13" y2="8"/></svg>';
+
             let coverageHtml = '';
             if (coverage) {
                 const esHoy = fecha === new Date().toISOString().slice(0,10);
-                // Hoy la apertura ya pasó: solo mostrar si hay cobertura, no alertar si falta
-                const aSpan = esHoy
-                    ? (coverage.hasApertura ? `<span style="${covOk}" title="Un portador de llave abre la tienda">${covSvgOk} Apertura</span>` : '')
-                    : (coverage.hasApertura
-                        ? `<span style="${covOk}" title="Un portador de llave abre la tienda">${covSvgOk} Apertura</span>`
-                        : `<span style="${covBad}" title="Nadie con llave abre la tienda">${covSvgBad} Apertura</span>`);
-                const cSpan = coverage.hasCierre
-                    ? `<span style="${covOk}" title="Un portador de llave cierra la tienda">${covSvgOk} Cierre</span>`
-                    : `<span style="${covBad}" title="Nadie con llave cierra la tienda">${covSvgBad} Cierre</span>`;
-                coverageHtml = (aSpan || cSpan) ? `<div style="display:flex;justify-content:center;gap:8px;margin-bottom:10px;">${aSpan}${cSpan}</div>` : '';
+                const daySched = App.data.schedule[fecha] || {};
+
+                // ¿Hay alguna llave con titular humano al inicio/final del día?
+                const anyHolderInicio = llaves.some(l => {
+                    const tid = App.logic.getTitularLlaveInicio ? App.logic.getTitularLlaveInicio(l.id, fecha) : null;
+                    return tid && tid !== '__TIENDA__';
+                });
+                const anyHolderFin = llaves.some(l => {
+                    const tid = App.logic.getTitularLlave(l.id, fecha);
+                    return tid && tid !== '__TIENDA__';
+                });
+
+                // Llaves que cubren apertura (titular al inicio del día trabaja y abre)
+                const keysApertura = llaves.filter(l => {
+                    const tid = App.logic.getTitularLlaveInicio ? App.logic.getTitularLlaveInicio(l.id, fecha) : App.logic.getTitularLlave(l.id, fecha);
+                    if (!tid || tid === '__TIENDA__') return false;
+                    const sv = daySched[tid];
+                    if (!sv) return false;
+                    const sh = Utils.getShift(sv);
+                    return sh && !sh.fixed && sh.start === horario.open;
+                });
+
+                // Llaves que cubren cierre (titular al final del día trabaja y cierra)
+                const keysCierre = llaves.filter(l => {
+                    const tid = App.logic.getTitularLlave(l.id, fecha);
+                    if (!tid || tid === '__TIENDA__') return false;
+                    const sv = daySched[tid];
+                    if (!sv) return false;
+                    const sh = Utils.getShift(sv);
+                    return sh && !sh.fixed && sh.end === horario.close;
+                });
+
+                const aKeysHtml = keysApertura.length > 0
+                    ? `<div style="display:flex;justify-content:center;gap:1px;margin-top:2px;">${keysApertura.map(() => KEY_MINI('#15803d')).join('')}</div>` : '';
+                const cKeysHtml = keysCierre.length > 0
+                    ? `<div style="display:flex;justify-content:center;gap:1px;margin-top:2px;">${keysCierre.map(() => KEY_MINI('#15803d')).join('')}</div>` : '';
+
+                // Apertura: gris si no hay gestión instaurada, verde/rojo si sí
+                let aSpan;
+                if (!anyHolderInicio) {
+                    aSpan = `<div style="text-align:center;"><span style="${covGrey}" title="Sin gestión de llaves para apertura">${covSvgGrey} Apertura</span></div>`;
+                } else if (esHoy) {
+                    aSpan = coverage.hasApertura ? `<div style="text-align:center;"><span style="${covOk}" title="Un portador de llave abre la tienda">${covSvgOk} Apertura</span>${aKeysHtml}</div>` : '';
+                } else {
+                    aSpan = coverage.hasApertura
+                        ? `<div style="text-align:center;"><span style="${covOk}" title="Un portador de llave abre la tienda">${covSvgOk} Apertura</span>${aKeysHtml}</div>`
+                        : `<div style="text-align:center;"><span style="${covBad}" title="Nadie con llave abre la tienda">${covSvgBad} Apertura</span></div>`;
+                }
+
+                // Cierre: gris si no hay gestión instaurada, verde/rojo si sí
+                let cSpan;
+                if (!anyHolderFin) {
+                    cSpan = `<div style="text-align:center;"><span style="${covGrey}" title="Sin gestión de llaves para cierre">${covSvgGrey} Cierre</span></div>`;
+                } else {
+                    cSpan = coverage.hasCierre
+                        ? `<div style="text-align:center;"><span style="${covOk}" title="Un portador de llave cierra la tienda">${covSvgOk} Cierre</span>${cKeysHtml}</div>`
+                        : `<div style="text-align:center;"><span style="${covBad}" title="Nadie con llave cierra la tienda">${covSvgBad} Cierre</span></div>`;
+                }
+
+                coverageHtml = (aSpan || cSpan) ? `<div style="display:flex;justify-content:center;gap:12px;margin-bottom:10px;">${aSpan}${cSpan}</div>` : '';
             }
 
             // Form: opciones de llave y receptor
@@ -1709,20 +1801,26 @@ Object.assign(App.ui, {
                     <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-bottom:4px;">Equipo TAG3</div>
                     <table style="border-collapse:collapse;width:100%;table-layout:fixed;">
                         <colgroup>
-                            <col style="width:68px;">
-                            <col style="width:26px;">
-                            <col style="width:24px;">
-                            <col style="width:22px;">
-                            <col style="width:22px;">
+                            <col style="width:56px;">
+                            <col style="width:28px;">
+                            <col style="width:38px;">
+                            <col style="width:38px;">
+                            <col style="width:38px;">
                             <col style="width:2px;">
-                            <col><col><col><col><col><col>
+                            <col style="width:28px;"><col style="width:28px;"><col style="width:28px;"><col style="width:28px;"><col style="width:28px;">
                         </colgroup>
-                        <thead><tr>
+                        <thead>
+                        <tr>
+                            <th colspan="5" style="padding:1px 2px;text-align:center;font-size:0.6rem;font-weight:700;color:#64748b;border-bottom:none;letter-spacing:.03em;">${DIAS[dObj.getDay()]} ${dObj.getDate()} ${MESES[dObj.getMonth()]}</th>
+                            <th style="border-bottom:none;"></th>
+                            <th colspan="${futureDates.length}" style="padding:1px 2px;text-align:center;font-size:0.6rem;font-weight:600;color:#94a3b8;border-bottom:none;">Próximos</th>
+                        </tr>
+                        <tr>
                             <th style="${thS}text-align:left;padding-left:2px;"></th>
                             <th style="${thS}" title="Llaves">🔑</th>
-                            <th style="${thS}" title="Libra">LIB</th>
-                            <th style="${thS}" title="Abre tienda">ABR</th>
-                            <th style="${thS}" title="Cierra tienda">CIE</th>
+                            <th style="${thS}" title="Libra">LIBRA</th>
+                            <th style="${thS}" title="Abre tienda">ABRE</th>
+                            <th style="${thS}" title="Cierra tienda">CIERRA</th>
                             ${sepTh}
                             ${futureHeaders}
                         </tr></thead>

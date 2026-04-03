@@ -43,6 +43,9 @@
                 <input type="checkbox" id="cb-exp-schedule" checked style="width:16px; height:16px;"> <span style="font-weight:600;">📅 Planificación (Cuadrante asignado)</span>
             </label>
             <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-exp-keys" checked style="width:16px; height:16px;"> <span style="font-weight:600;">🔑 Traspasos de Llaves</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
                 <input type="checkbox" id="cb-exp-config" checked style="width:16px; height:16px;"> <span style="font-weight:600;">🏢 Configuración Base de Tienda</span>
             </label>
         </div>
@@ -76,6 +79,9 @@
             </label>
             <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
                 <input type="checkbox" id="cb-drv-schedule" checked style="width:16px; height:16px;"> <span style="font-weight:600;">📅 Planificación (Cuadrante asignado)</span>
+            </label>
+            <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-drv-keys" checked style="width:16px; height:16px;"> <span style="font-weight:600;">🔑 Traspasos de Llaves</span>
             </label>
             <label class="checkbox-wrapper" style="padding:10px; margin-bottom:0;">
                 <input type="checkbox" id="cb-drv-config" checked style="width:16px; height:16px;"> <span style="font-weight:600;">🏢 Configuración Base de Tienda</span>
@@ -114,6 +120,9 @@
             </label>
             <label class="checkbox-wrapper" id="wrap-imp-schedule" style="padding:10px; margin-bottom:0;">
                 <input type="checkbox" id="cb-imp-schedule" style="width:16px; height:16px;"> <span style="font-weight:600;">📅 Planificación</span>
+            </label>
+            <label class="checkbox-wrapper" id="wrap-imp-keys" style="padding:10px; margin-bottom:0;">
+                <input type="checkbox" id="cb-imp-keys" style="width:16px; height:16px;"> <span style="font-weight:600;">🔑 Traspasos de Llaves</span>
             </label>
             <label class="checkbox-wrapper" id="wrap-imp-config" style="padding:10px; margin-bottom:0;">
                 <input type="checkbox" id="cb-imp-config" style="width:16px; height:16px;"> <span style="font-weight:600;">🏢 Configuración Base</span>
@@ -336,6 +345,8 @@ App.io = {
                 exportData.recurringRequests = App.data.recurringRequests || [];
                 exportData.lockedDays = App.data.lockedDays || {};
                 exportData.eventos = App.data.eventos || [];
+            }
+            if(document.getElementById('cb-exp-keys').checked) {
                 exportData.traspasoLlaves = App.data.traspasoLlaves || [];
             }
             
@@ -400,6 +411,7 @@ App.io = {
                     const hasTeam = imported.empleados && imported.empleados.length > 0;
                     const hasShifts = imported.shiftDefs && imported.shiftDefs.length > 0;
                     const hasSchedule = imported.schedule && Object.keys(imported.schedule).length > 0;
+                    const hasKeys = imported.traspasoLlaves && imported.traspasoLlaves.length > 0;
                     const hasConfig = imported.storeConfig && imported.storeConfig.base && Object.keys(imported.storeConfig.base).length > 0;
                     const hasHolidays = imported.storeConfig && imported.storeConfig.holidays && imported.storeConfig.holidays.length > 0;
                     const hasSpecial = imported.storeConfig && imported.storeConfig.special && imported.storeConfig.special.length > 0;
@@ -411,6 +423,7 @@ App.io = {
                     updateCB('team', hasTeam);
                     updateCB('shifts', hasShifts);
                     updateCB('schedule', hasSchedule);
+                    updateCB('keys', hasKeys);
                     updateCB('config', hasConfig);
                     updateCB('holidays', hasHolidays || hasOldHolidays);
                     updateCB('special', hasSpecial || hasOldSpecial);
@@ -470,8 +483,11 @@ App.io = {
                 if(data.recurringRequests) App.data.recurringRequests = data.recurringRequests;
                 if(data.lockedDays) App.data.lockedDays = data.lockedDays;
                 if(data.eventos) App.data.eventos = data.eventos;
-                if(data.traspasoLlaves) App.data.traspasoLlaves = data.traspasoLlaves;
                 affected.push("Planificación y Solicitudes");
+            }
+            if(document.getElementById('cb-imp-keys').checked && !document.getElementById('cb-imp-keys').disabled) {
+                App.data.traspasoLlaves = data.traspasoLlaves;
+                affected.push("Traspasos de Llaves");
             }
             if(document.getElementById('cb-imp-config').checked && !document.getElementById('cb-imp-config').disabled) {
                 App.data.storeConfig.base = data.storeConfig.base;

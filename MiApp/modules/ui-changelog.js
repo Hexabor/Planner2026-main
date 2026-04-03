@@ -6,6 +6,20 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '03/04/2026 (noche)', version: 'v1.0',
+                items: [
+                    '✨ Inspector llaves — layout mejorado: 5 días de proyección, sobretítulo con fecha, columnas LIBRA/ABRE/CIERRA más amplias',
+                    '✨ Inspector llaves — llavecitas verdes bajo los badges de cobertura apertura/cierre',
+                    '✨ Inspector llaves — días sin gestión de llaves instaurada en gris (no rojo)',
+                    '✨ Inspector llaves — llaves ausentes sombreadas con tooltip "Ausente hoy"',
+                    '✨ Traspasos — detección visual de flujo roto (fondo rojo, borde, icono ⚠) con cascada',
+                    '✨ Traspasos — borrado en cascada de traspasos rotos con confirmación',
+                    '✨ Export/Import — casilla independiente "🔑 Traspasos de Llaves" en los 3 modales (local, Drive, import)',
+                    '🔧 Fix: export modular Drive nunca incluía traspasoLlaves (bug crítico)',
+                    '🔧 Fix: botón "Optimizar desde aquí" eliminado de filas de traspaso (feature en desarrollo)',
+                ]
+            },
+            {
                 fecha: '03/04/2026 (tarde)', version: 'v1.0',
                 items: [
                     '✨ Análisis — barras de objetivo por facturación superpuestas en Horas Semanales (naranja = objetivo, rojo = exceso)',
