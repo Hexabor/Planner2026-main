@@ -33,7 +33,10 @@ Object.assign(App.ui, {
                                 <span style="font-size:0.9rem;"><strong>Marcar días sin turno como "L" (Libre)</strong></span>
                             </label>
                             <p style="color:#64748b; font-size:0.82em; margin:5px 0 0 24px;">
-                                Recomendado para semanas ya cerradas.
+                                Recomendado para semanas ya cerradas. Los días configurados como festivo en el Planner se marcarán automáticamente como <strong>"F"</strong> en lugar de "L".
+                            </p>
+                            <p style="color:#b45309; font-size:0.78em; margin:6px 0 0 24px;">
+                                ⚠️ Vacaciones, bajas y permisos solo se distinguen de las libranzas si tienen su letra correspondiente (V, B, P) en el documento original. Si no, el Planner las interpretará como libranzas. Para evitarlo, asegúrate de poner a cada día sin turno su letra en el Eficiente antes de copiar, o bien impórtalas así y edítalas después en el Planner.
                             </p>
                         </div>
                         

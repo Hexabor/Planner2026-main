@@ -6,6 +6,17 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '03/04/2026 (tarde)', version: 'v1.0',
+                items: [
+                    '✨ Análisis — barras de objetivo por facturación superpuestas en Horas Semanales (naranja = objetivo, rojo = exceso)',
+                    '✨ admin-config.js — archivo dedicado para configuración de administrador (facturación, próximamente festivos por CCAA)',
+                    '✨ Facturación — selector de semana de inicio al importar datos + advertencia de edición solo admin',
+                    '✨ Importación ROTA — días festivos sin turno se marcan como F (no L) + advertencia sobre V/B/P',
+                    '✨ Análisis — persistencia del rango de semanas en localStorage',
+                    '🔧 Fix: barras de objetivo no aparecían por desalineación de fechas UTC vs local',
+                ]
+            },
+            {
                 fecha: '03/04/2026 (mañana)', version: 'v1.0',
                 items: [
                     '✨ Home como mapa — subtiles con circuito animado (chispas, tronco, ramas) al hover en cada módulo',

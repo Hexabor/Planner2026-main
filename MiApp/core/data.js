@@ -103,6 +103,12 @@ const App = {
         if(!App.data.traspasoLlaves) App.data.traspasoLlaves = [];
         if(!App.data.dismissedAlerts) App.data.dismissedAlerts = [];
 
+        // Facturación: siempre desde ADMIN_CONFIG (override local con clave si existe)
+        if(typeof ADMIN_CONFIG !== 'undefined' && ADMIN_CONFIG.facturacion) {
+            try { const ov = JSON.parse(localStorage.getItem('v40_facturacion_override')); if(ov && ov.length > 0) App.data.config.facturacion = ov; else App.data.config.facturacion = ADMIN_CONFIG.facturacion; }
+            catch(e) { App.data.config.facturacion = ADMIN_CONFIG.facturacion; }
+        }
+
         // Limpiar campo legacy emp.llaveId si quedara de versiones anteriores
         App.data.empleados.forEach(e => { delete e.llaveId; });
 

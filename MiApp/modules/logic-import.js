@@ -1059,14 +1059,14 @@ Object.assign(App.logic, {
                     }
                 });
                 
-                // Si markFree está activo, marcar como L a los que no tienen turno
+                // Si markFree está activo, marcar como L a los que no tienen turno (F si es festivo)
                 if (markFree) {
+                    const esFestivo = (App.data.storeConfig.holidays || []).some(h => h.date === day.date);
                     Object.values(empMap).forEach(empId => {
                         if (!assignedEmps.has(empId)) {
                             const emp = App.data.empleados.find(e => e.id === empId);
-                            // Solo marcar si activo Y vigente en esa fecha
                             if (emp && emp.active !== false && Utils.empleadoVigenteEnFecha(emp, day.date)) {
-                                App.data.schedule[day.date][empId] = 'fixed_L';
+                                App.data.schedule[day.date][empId] = esFestivo ? 'fixed_F' : 'fixed_L';
                                 freesMarked++;
                             }
                         }

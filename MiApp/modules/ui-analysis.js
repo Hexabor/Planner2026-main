@@ -244,6 +244,9 @@ Object.assign(App.ui, {
             // ─── TAB 2: HORAS SEMANALES ──────────────────────────────────────
             } else if(tab === 'horas') {
                 if(!App.uiState.analisisHorasStart) {
+                    try { const saved = JSON.parse(localStorage.getItem('v40_analisisHoras')); if(saved) { App.uiState.analisisHorasStart = saved.start; App.uiState.analisisHorasEnd = saved.end; } } catch(e){}
+                }
+                if(!App.uiState.analisisHorasStart) {
                     App.uiState.analisisHorasStart = fyStart;
                     App.uiState.analisisHorasEnd   = fyEnd;
                 }
@@ -274,21 +277,50 @@ Object.assign(App.ui, {
                     return { monday, worked: Math.round(worked*10)/10 };
                 });
 
-                const maxH = Math.max(...weekData.map(w=>w.worked), 1);
-                const chartH = 200;
-                const barW = Math.max(14, Math.min(40, Math.floor(860 / Math.max(weeks.length,1)) - 4));
-                const totalW = weeks.length * (barW + 4) + 60;
+                // ── Horas objetivo por facturación ──
+                const fact = App.data.config.facturacion || [];
+                const factTotal = fact.reduce((s,v) => s+v, 0);
+                const wsDate = App.data.config.weekStart || '2025-12-29';
+                let targetByWeek = {};
+                if(factTotal > 0 && fact.length > 0) {
+                    const horasAnuales = emps.reduce((s, emp) => {
+                        if(emp.contratos && emp.contratos.length > 0) {
+                            const ultimo = [...emp.contratos].sort((a,b) => b.desde.localeCompare(a.desde))[0];
+                            return s + (ultimo.horas || 0);
+                        }
+                        return s + (emp.contrato || 0);
+                    }, 0) * 52;
+                    // Usar misma lógica que weeks para generar claves alineadas
+                    let fCur = new Date(Utils.getMonday(wsDate)+'T00:00:00');
+                    fact.forEach((val) => {
+                        const key = fCur.toISOString().slice(0,10);
+                        targetByWeek[key] = Math.round(val / factTotal * horasAnuales * 10) / 10;
+                        fCur.setDate(fCur.getDate() + 7);
+                    });
+                }
 
-                const svgBars = weekData.map((w,i) => {
-                    const x = 40 + i*(barW+4);
+                const maxTarget = Object.values(targetByWeek).length > 0 ? Math.max(...Object.values(targetByWeek)) : 0;
+                const maxH = Math.max(...weekData.map(w=>w.worked), maxTarget, 1);
+                const chartH = 200;
+                const barW = Math.max(8, Math.min(40, Math.floor(1200 / Math.max(weeks.length,1)) - 3));
+                const totalW = weeks.length * (barW + 3) + 60;
+
+                let svgTargets = '', svgBlue = '', svgOverlines = '', svgLabels = '';
+                weekData.forEach((w,i) => {
+                    const x = 40 + i*(barW+3);
                     const wH = Math.round(w.worked/maxH*chartH);
+                    const target = targetByWeek[w.monday] || 0;
+                    const tH = target > 0 ? Math.round(target/maxH*chartH) : 0;
                     const wkLabel = Utils.getWeekCode(w.monday).replace(/.*WK/,'W');
-                    return `
-                        <rect x="${x}" y="${chartH-wH+10}" width="${barW}" height="${wH}" fill="#3b82f6" rx="2" opacity="0.85"/>
-                        <text x="${x+barW/2}" y="${chartH+22}" text-anchor="middle" font-size="${barW>20?9:7}" fill="#94a3b8" font-family="monospace">${wkLabel}</text>
-                        ${w.worked>0?`<text x="${x+barW/2}" y="${chartH-wH+7}" text-anchor="middle" font-size="8" fill="#3b82f6" font-weight="700">${w.worked}</text>`:''}
-                    `;
-                }).join('');
+                    if(tH > 0) svgTargets += `<rect x="${x}" y="${chartH-tH+10}" width="${barW}" height="${tH}" fill="#f59e0b" rx="2" opacity="0.18"/>`;
+                    if(tH > 0 && wH <= tH) svgTargets += `<line x1="${x}" y1="${chartH-tH+10}" x2="${x+barW}" y2="${chartH-tH+10}" stroke="#f59e0b" stroke-width="1.5" opacity="0.6"/>`;
+                    svgBlue += `<rect x="${x}" y="${chartH-wH+10}" width="${barW}" height="${wH}" fill="#3b82f6" rx="2" opacity="0.55"/>`;
+                    if(tH > 0 && wH > tH) svgOverlines += `<line x1="${x}" y1="${chartH-tH+10}" x2="${x+barW}" y2="${chartH-tH+10}" stroke="#ef4444" stroke-width="2" opacity="0.85"/>`;
+                    svgLabels += `<text x="${x+barW/2}" y="${chartH+22}" text-anchor="middle" font-size="${barW>16?8:6}" fill="#94a3b8" font-family="monospace">${wkLabel}</text>`;
+                    if(w.worked>0) svgLabels += `<text x="${x+barW/2}" y="${chartH-wH+7}" text-anchor="middle" font-size="7" fill="#3b82f6" font-weight="700">${w.worked}</text>`;
+                    if(tH > 0) svgLabels += `<text x="${x+barW/2}" y="${chartH-tH-8}" text-anchor="middle" font-size="7.5" fill="#f59e0b" font-weight="600">${Math.round(target)}</text>`;
+                });
+                const svgBars = svgTargets + svgBlue + svgOverlines + svgLabels;
 
                 const yLabels = [0, 0.25, 0.5, 0.75, 1].map(pct => {
                     const val = Math.round(maxH*pct);
@@ -303,9 +335,9 @@ Object.assign(App.ui, {
                 body = `
                 <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Desde</div>
-                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisHorasStart=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(startISO)}</select></div>
+                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisHorasStart=this.value;localStorage.setItem('v40_analisisHoras',JSON.stringify({start:App.uiState.analisisHorasStart,end:App.uiState.analisisHorasEnd}));App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(startISO)}</select></div>
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Hasta</div>
-                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisHorasEnd=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(endISO)}</select></div>
+                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisHorasEnd=this.value;localStorage.setItem('v40_analisisHoras',JSON.stringify({start:App.uiState.analisisHorasStart,end:App.uiState.analisisHorasEnd}));App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(endISO)}</select></div>
                 </div>
 
                 <div style="display:flex;gap:12px;margin-bottom:16px;">
@@ -316,8 +348,13 @@ Object.assign(App.ui, {
                     </div>`).join('')}
                 </div>
 
-                <div style="background:white;border:1px solid var(--border);border-radius:10px;padding:20px;overflow-x:auto;">
-                    <svg width="${Math.max(totalW, 400)}" height="${chartH+40}" style="display:block;">
+                ${Object.keys(targetByWeek).length > 0 ? `<div style="display:flex;gap:16px;align-items:center;margin-bottom:12px;font-size:0.75rem;color:#64748b;">
+                    <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:#3b82f6;border-radius:2px;opacity:0.85;"></span> Horas asignadas</span>
+                    <span style="display:flex;align-items:center;gap:5px;"><span style="display:inline-block;width:12px;height:12px;background:#f59e0b;border-radius:2px;opacity:0.25;border-top:2px solid rgba(245,158,11,0.6);"></span> Objetivo por facturación</span>
+                </div>` : ''}
+
+                <div style="background:white;border:1px solid var(--border);border-radius:10px;padding:20px;">
+                    <svg width="100%" viewBox="0 -20 ${Math.max(totalW, 400)} ${chartH+60}" preserveAspectRatio="xMinYMid meet" style="display:block;">
                         ${yLabels}
                         ${svgBars}
                     </svg>
@@ -416,7 +453,7 @@ Object.assign(App.ui, {
             }
 
             c.innerHTML = `
-            <div style="padding:20px 24px;max-width:1100px;">
+            <div style="padding:20px 24px;max-width:1400px;">
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
                     <h2 style="margin:0;font-size:1.2rem;font-weight:700;color:#1e293b;">Análisis</h2>
                 </div>

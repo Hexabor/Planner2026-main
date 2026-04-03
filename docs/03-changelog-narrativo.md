@@ -1,0 +1,156 @@
+# Planner 2026 — Historia del desarrollo
+
+Changelog narrativo, desde los cimientos hasta el estado actual. Pensado para entender cómo ha crecido la herramienta y por qué se tomó cada decisión.
+
+---
+
+## Fase 1: Los cimientos (4 marzo 2026 — v41.93)
+
+### Vista individual del planificador
+Se crea una segunda vista del planificador: en vez del grid grupal (todos los empleados × 7 días), una tabla día a día para un solo empleado, con timeline visual. Permite copiar y pegar semanas enteras. Es la primera vez que se puede ver el planning "desde los ojos" de un empleado concreto.
+
+### Panel de domingos y festivos
+Quinta pestaña del inspector. Muestra la rotación de fines de semana en 12 semanas con una columna de totales (Σ) y umbrales para detectar desequilibrios. Los festivos durante vacaciones se empiezan a contabilizar correctamente como disfrutados.
+
+---
+
+## Fase 2: Importación inteligente (5-7 marzo 2026 — v41.94/v41.95)
+
+### Replicador de semanas
+Modal con vista previa que permite copiar una semana y pegarla en otras. Detecta conflictos (días con turnos ya asignados) y los muestra de forma navegable. Doble confirmación para evitar accidentes.
+
+### Importación desde ROTA/Eficiente
+Rediseño completo del flujo de importación. Se copia y pega desde Excel y Planner lo parsea, detectando automáticamente empleados y turnos. Si un nombre no coincide, ofrece opciones: crear nuevo, renombrar existente, mapear a otro o ignorar. Se resolvió un bug crítico donde los empleados renombrados desaparecían silenciosamente.
+
+---
+
+## Fase 3: Google Drive y protección de datos (18-20 marzo 2026 — v41.96 a v41.98)
+
+### Integración con Google Drive
+El cambio más importante para la fiabilidad. Los datos dejan de vivir solo en localStorage (volátil, un borrado de caché lo destruye todo) y se sincronizan con Google Drive. Auto-guardado cada 30 minutos, backup manual con un clic, y backups preventivos antes de cualquier acción destructiva.
+
+### Sistema de backups preventivos
+Antes de 6 acciones peligrosas (resetear, vaciar, replicar, borrar empleado, importar, cargar backup) se guarda automáticamente una copia en Drive. Red de seguridad invisible.
+
+### Módulo VISTA
+El planificador gana opciones de visualización: Grupo/Individual, Junto/Separado (inspector visible o no), Color/Monocromo. El modo monocromo es útil para imprimir en blanco y negro.
+
+### Ajustes manuales de horas
+Nueva pestaña en el inspector de empleado para registrar ajustes: horas extra, ausencias parciales, desplazamientos. Cada ajuste tiene fecha, horas, signo (+/-) y motivo. Se integra en el cálculo de desvío.
+
+### Módulo Valle
+Indicador visual del consumo de horas en franja valle (14:00-17:00). Un círculo SVG que se llena de verde y pasa a rojo cuando se supera la bolsa semanal. Configurable desde Configuración.
+
+---
+
+## Fase 4: Eventos y diseño visual (20-22 marzo 2026 — v1.0)
+
+### Eventos extra
+Nueva categoría de datos: cursos de formación, visitas a otras tiendas, mentorías, reuniones. Se gestionan desde Gestión diaria (entonces "Peticiones") y aparecen como overlay rojo en el grid del planificador. También tienen badge en la vista de presentación.
+
+### Configuración rediseñada
+De una página larga a 5 pestañas horizontales: General, Valle, Facturación, Backups, Peligro. Mucho más organizado y navegable.
+
+### Pantalla de Novedades
+El changelog se hace accesible desde dentro de la app, con un botón en el header. Cada entrada muestra la fecha, versión y lista de cambios con iconos (✨ nuevo, 🔧 arreglo).
+
+### Reorganización de la navegación
+La barra lateral se reordena siguiendo una lógica de flujo de trabajo: Home → Planificador → ingredientes (Plantilla, Peticiones, Turnos, Calendario) → revisión (Análisis, Presentación) → datos (Importar, Exportar) → Alertas → Configuración.
+
+---
+
+## Fase 5: Balance y equilibrio (24-30 marzo 2026)
+
+### Balance Semanal mejorado
+El inspector del planificador gana columnas de desvío acumulado y festivos pendientes, con tooltips que muestran las fechas exactas. Los cuadraditos del grid muestran las horas de cada día con colores adaptativos. Se añaden filtros a las peticiones y eventos.
+
+### Equilibrio de turnos
+Nuevo modo en el análisis: ¿Cómo se distribuyen los tipos de turno entre los empleados? Se puede ver en semanas cerradas o en un rango personalizable. Permite detectar si alguien siempre trabaja mañanas y otro siempre tardes.
+
+### Rotación ampliada
+La rotación de fines de semana pasa de 12 a 14 semanas, dando una visión más completa del equilibrio.
+
+---
+
+## Fase 6: Presentación y navegación (1 abril 2026)
+
+### Vista de presentación
+Dos vistas para imprimir o generar PDF:
+- **Semanal**: cuadrante completo de la semana, festivos en rojo/blanco, domingos en violeta/blanco. Navegador con flechas simples y dobles (±1 y ±4 semanas).
+- **Mensual**: vista de un mes completo para un empleado, con horas en cada celda y días de meses adyacentes atenuados. Selectores apilados de Mes/Año/Empleado.
+
+### Festivos durante vacaciones
+Resolución de un caso edge: si un festivo cae durante las vacaciones de alguien, no se "absorbe" — queda como estado especial con badge púrpura y posibilidad de asignar recuperación.
+
+---
+
+## Fase 7: Controles del planificador (2 abril 2026)
+
+### Rediseño de controles
+La barra de controles del planificador se reorganiza completamente. Drag y Vista se fusionan en un módulo CONTROLES con layout en dos columnas. El navegador semanal se compacta: muestra solo el código de semana (2026WK14), con flechas para saltar ±1 y ±4 semanas. El módulo Valle se rediseña con número grande y barra visual verde→rojo.
+
+### Ctrl para swap temporal
+Mantener pulsada la tecla Ctrl activa temporalmente el modo "Cambiar" en drag & drop (intercambiar dos turnos), sin cambiar el botón activo. Al soltar Ctrl, vuelve al modo anterior. Mucho más ágil que ir cambiando de modo manualmente.
+
+### Iconos SVG
+Se eliminan los emojis de toda la barra de controles y se sustituyen por iconos SVG minimalistas y consistentes. Un paso hacia un diseño más profesional.
+
+---
+
+## Fase 8: Gestión de llaves (2-3 abril 2026)
+
+### El problema
+En una tienda retail, las llaves físicas son críticas. Hay 2-3 llaves y 4-5 empleados TAG3 (Manager, Assistant Manager, Supervisores) que pueden tenerlas. Siempre tiene que haber alguien con llave a la apertura y al cierre. Cuando un TAG3 tiene libranza, hay que traspasar la llave. Es un puzle logístico que hasta ahora se resolvía mentalmente.
+
+### Modelo de datos
+Se crea `traspasoLlaves[]`: un historial de traspasos con fecha, llave, quién entrega, quién recibe. Las llaves nacen en tienda (`__TIENDA__`). Una persona solo puede tener una llave a la vez; la tienda puede tener varias.
+
+### Interfaz
+- **Configuración**: toggle para activar/desactivar, crear/borrar llaves con alias personalizado (ej: "Capibatido", "Capimochila", "Panda")
+- **Gestión diaria → Llaves**: estado actual, tabla de traspasos próximos, archivo histórico, botón "+ Nuevo traspaso"
+- **Grid del planificador**: iconos SVG junto al nombre (llave, flecha roja entrega, flecha verde recibe, icono tienda)
+- **Presentación → Llaves**: vista imprimible con date picker y columnas Entrega/Llave/Recibe
+- **Inspector del planificador**: tabla TAG3 con proyección a 6 días, indicadores de cobertura apertura/cierre
+
+### Alertas de llaves
+El sistema genera alertas cuando detecta que un día de una semana cerrada no tiene cobertura de llave a la apertura o al cierre. Ventana de 21 días.
+
+### Optimizador (en desarrollo)
+Se intentó crear un algoritmo automático para sugerir traspasos óptimos. El problema resultó ser más complejo de lo esperado (múltiples llaves compiten por los mismos TAG3, decisiones encadenadas, visión global necesaria). Actualmente marcado como "en obras" con un capibara de easter egg. La gestión manual funciona bien.
+
+---
+
+## Fase 9: Pulido y mapa (3 abril 2026)
+
+### Bug del backup de Drive
+Se descubre que los backups de Drive estaban perdiendo los últimos ~4KB del JSON (incluyendo `traspasoLlaves` y `dismissedAlerts`). La causa: la construcción del body multipart como string concatenada con `.join('\r\n')` truncaba silenciosamente payloads grandes. Se resuelve cambiando a `Blob`, que maneja cada parte por separado sin pérdida.
+
+### Export/Import local
+Se descubre que el export modular (JSON local) nunca incluía `traspasoLlaves`. Se añade a la categoría "Planificación" tanto en exportación como en importación.
+
+### Renombrado: Gestión diaria
+El módulo "Peticiones" se renombra a "Gestión diaria", reflejando mejor su contenido actual (solicitudes + eventos + llaves). La pestaña interna pasa a llamarse "Solicitudes". Se actualiza menú, home, tooltip y todas las referencias.
+
+### Home como mapa
+El Home se transforma en un mapa interactivo de la aplicación. Al hacer hover sobre cualquier módulo, aparecen sus submódulos como rectángulos conectados por un circuito animado:
+- Primero se dibuja una línea horizontal desde el módulo hacia un tronco vertical
+- Luego el tronco se extiende hacia arriba y abajo
+- Finalmente, ramas se extienden del tronco a cada submódulo
+- Todo el recorrido lleva una chispa naranja que viaja por las líneas
+
+El efecto es puramente visual y de navegación — convierte la pantalla de inicio en un mapa que explica la estructura de la herramienta sin necesidad de documentación.
+
+---
+
+## Resumen de evolución
+
+| Fecha | Hito |
+|-------|------|
+| Nov 2025 | Inicio del proyecto, primeras versiones |
+| 4-7 Mar | Cimientos: vista individual, importación, replicador |
+| 18-20 Mar | Google Drive, backups, protección de datos |
+| 20-22 Mar | Eventos, configuración, changelog, navegación |
+| 24-30 Mar | Balance, equilibrio, filtros |
+| 1 Abr | Presentación imprimible (semanal + mensual) |
+| 2 Abr | Controles del planificador, Ctrl swap, gestión de llaves |
+| 3 Abr | Fix backup Drive, mapa del Home, Gestión diaria |

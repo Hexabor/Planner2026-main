@@ -8,6 +8,7 @@ Object.assign(App.ui, {
             
             // Funciones para la facturación
             window.mostrarEditorFacturacion = function() {
+                if(!confirm('⚠️ Estos datos son compartidos por todas las tiendas.\n\nSolo deben ser editados por el equipo de administración u operaciones.\n\n¿Continuar?')) return;
                 document.getElementById('vista-facturacion').style.display = 'none';
                 document.getElementById('editor-facturacion').style.display = 'block';
             };
@@ -17,11 +18,15 @@ Object.assign(App.ui, {
             };
             window.guardarFacturacion = function() {
                 let texto = document.getElementById('input-facturacion').value;
+                let startWk = parseInt(document.getElementById('fact-start-week').value) || 1;
                 let arrayNumeros = texto.split('\n')
                     .map(linea => linea.trim()).filter(linea => linea !== '')
                     .map(linea => { let sinPuntos = linea.replace(/\./g, ''); let formatoJS = sinPuntos.replace(/,/g, '.'); let numLimpio = formatoJS.replace(/[^\d.-]/g, ''); return parseFloat(numLimpio); })
                     .filter(num => !isNaN(num));
-                App.data.config.facturacion = arrayNumeros;
+                // Rellenar con ceros las semanas anteriores al inicio
+                const padding = new Array(Math.max(0, startWk - 1)).fill(0);
+                App.data.config.facturacion = [...padding, ...arrayNumeros];
+                localStorage.setItem('v40_facturacion_override', JSON.stringify(App.data.config.facturacion));
                 Safe.save('v40_db', App.data);
                 App.router.go('config');
             };
@@ -169,8 +174,12 @@ Object.assign(App.ui, {
                 let listaHtml = '<p style="color:#94a3b8; font-size:0.85rem; padding:20px 0;">No hay datos de facturación cargados.</p>';
                 let chartHtml = '';
                 let textoParaEditor = '';
+                let factStartWk = 1;
                 if(App.data.config.facturacion && App.data.config.facturacion.length > 0) {
-                    textoParaEditor = App.data.config.facturacion.join('\n');
+                    // Detectar padding de ceros al inicio
+                    const firstNonZero = App.data.config.facturacion.findIndex(v => v > 0);
+                    factStartWk = firstNonZero >= 0 ? firstNonZero + 1 : 1;
+                    textoParaEditor = App.data.config.facturacion.slice(Math.max(0, firstNonZero)).join('\n');
                     listaHtml = '<div style="max-height:200px; overflow-y:auto; background:white; border:1px solid #cbd5e1; border-radius:6px; padding:10px; display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px;">';
                     let maxFact = Math.max(...App.data.config.facturacion);
                     let barras = '', labels = '';
@@ -211,12 +220,22 @@ Object.assign(App.ui, {
                         </div>
                         <div id="editor-facturacion" style="display:none;">
                             <h3 style="margin:0 0 12px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">Editar datos de facturación</h3>
-                            <label style="display:block; margin-bottom:8px; font-size:0.82rem; color:#475569;"><strong>Pega la columna del Excel (Z2:Z54)</strong></label>
+                            <div style="display:flex; gap:16px; align-items:flex-end; margin-bottom:12px;">
+                                <div style="flex:1;">
+                                    <label style="display:block; margin-bottom:4px; font-size:0.82rem; color:#475569;"><strong>Pega la columna del Excel</strong></label>
+                                </div>
+                                <div>
+                                    <label style="display:block; margin-bottom:4px; font-size:0.75rem; color:#64748b;">Semana de inicio</label>
+                                    <select id="fact-start-week" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem;">
+                                        ${Array.from({length:53},(_,i)=>`<option value="${i+1}"${i+1===factStartWk?' selected':''}>WK${String(i+1).padStart(2,'0')}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
                             <textarea id="input-facturacion" rows="12"
                                 style="width:100%; resize:vertical; padding:12px; font-family:monospace; font-size:0.9rem; border:2px solid #3b82f6; border-radius:6px; background:#f8fafc; box-sizing:border-box;"
                                 placeholder="Ejemplo:\n1.500.000,50\n45.000\n...">${textoParaEditor}</textarea>
                             <div style="display:flex; gap:12px; margin-top:16px;">
-                                <button class="btn" style="flex:2; background:#10b981; color:white; padding:10px; border:none; border-radius:6px; font-weight:700;" onclick="window.guardarFacturacion()">💾 Guardar</button>
+                                <button class="btn" style="flex:2; background:#10b981; color:white; padding:10px; border:none; border-radius:6px; font-weight:700;" onclick="window.guardarFacturacion()">Guardar</button>
                                 <button class="btn" style="flex:1; background:#e2e8f0; color:#475569; padding:10px; border:none; border-radius:6px;" onclick="window.cancelarEditorFacturacion()">Cancelar</button>
                             </div>
                         </div>
