@@ -6,6 +6,29 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '03/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Inspector de llaves — tabla TAG3 con columnas Nombre, Llave (réplica grid), LIB, ABR, CIE + 6 días de proyección',
+                    '✨ Inspector de llaves — indicador de cobertura apertura/cierre por día (check verde / X rojo)',
+                    '✨ Inspector de llaves — persistencia del día al cambiar de vista y volver',
+                    '✨ Inspector de llaves — tooltips en todas las celdas (apertura, cierre, libranza, turno sin cobertura)',
+                    '✨ Presentación llaves — duración configurable (7–90 días) con selector + landscape al imprimir',
+                    '✨ Optimizador de llaves — panel "en obras" con capibara easter egg (base64 webp)',
+                    '🔧 Fix: alertas fantasma en Home — el contador ahora excluye alertas ignoradas',
+                    '🔧 Fix: alertas de sugerencia de traspaso eliminadas — la gestión manual cubre ese caso',
+                    '🔧 Proyección futura — libranzas en verde, punto gris para turnos sin apertura/cierre, separador visual',
+                    '🔧 Presentación llaves — contenedor ampliado a 900px, márgenes simétricos en PDF',
+                ]
+            },
+            {
+                fecha: '02/04/2026 (noche v2)', version: 'v1.0',
+                items: [
+                    '✨ Optimizador — sección "Punto de partida": fecha de inicio y titular inicial por llave configurables',
+                    '✨ Optimizador — botón "Resetear todos los traspasos" (acción destructiva con confirmación)',
+                    '🔧 Fix: fecha del optimizador usa hora local en lugar de UTC (ya no muestra el día anterior en UTC+2)',
+                ]
+            },
+            {
                 fecha: '02/04/2026 (noche)', version: 'v1.0',
                 items: [
                     '✨ Optimizador de llaves movido a Peticiones → Llaves; panel de accesos rápidos en Alertas',
