@@ -106,6 +106,9 @@ const App = {
         // Limpiar campo legacy emp.llaveId si quedara de versiones anteriores
         App.data.empleados.forEach(e => { delete e.llaveId; });
 
+        // Migrar traspasos con dadorId null → __TIENDA__
+        App.data.traspasoLlaves.forEach(t => { if(t.dadorId === null || t.dadorId === undefined) t.dadorId = '__TIENDA__'; });
+
         // Purga: eliminar traspasos > 60 días, preservando siempre el más reciente por llave
         const _purgeDate = new Date(); _purgeDate.setDate(_purgeDate.getDate() - 60);
         const _purgeDateStr = _purgeDate.toISOString().slice(0,10);

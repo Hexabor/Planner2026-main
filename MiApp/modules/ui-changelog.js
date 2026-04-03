@@ -6,6 +6,21 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '03/04/2026 (mañana)', version: 'v1.0',
+                items: [
+                    '✨ Home como mapa — subtiles con circuito animado (chispas, tronco, ramas) al hover en cada módulo',
+                    '✨ Módulo "Peticiones" renombrado a "Gestión diaria" — menú, home, título, tooltip y referencias',
+                    '✨ Pestaña "Peticiones" dentro del módulo renombrada a "Solicitudes"',
+                    '✨ Botón "+ Nuevo traspaso" en la vista principal de llaves',
+                    '✨ Editor de traspasos mejorado — muestra explícitamente quién entrega, dropdown de llave sin ambigüedad',
+                    '✨ Estado inicial de llaves — las llaves nuevas nacen en tienda, no "sin asignar"',
+                    '🔧 Fix: backup Drive truncado — subida multipart cambiada de string a Blob (perdía ~4KB al final)',
+                    '🔧 Fix: export/import local JSON — traspasoLlaves ahora se incluye en la categoría Planificación',
+                    '🔧 Fix: editar traspaso ya no confunde dador/receptor (excluye el propio traspaso al calcular titular)',
+                    '🔧 Migración automática: traspasos con dadorId null → __TIENDA__',
+                ]
+            },
+            {
                 fecha: '03/04/2026', version: 'v1.0',
                 items: [
                     '✨ Inspector de llaves — tabla TAG3 con columnas Nombre, Llave (réplica grid), LIB, ABR, CIE + 6 días de proyección',

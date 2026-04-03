@@ -1207,10 +1207,11 @@ Object.assign(App.logic, {
         },
 
         // ── HELPERS GESTIÓN DE LLAVES ─────────────────────────────────────────
-        getTitularLlave: function(llaveId, dateStr) {
+        getTitularLlave: function(llaveId, dateStr, excludeId) {
             // Devuelve el empId titular de la llave en esa fecha, o null
+            // excludeId: excluir un traspaso concreto (para edición)
             const traspasos = (App.data.traspasoLlaves || [])
-                .filter(t => t.llaveId === llaveId && t.fecha <= dateStr)
+                .filter(t => t.llaveId === llaveId && t.fecha <= dateStr && (!excludeId || t.id !== excludeId))
                 .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creadoEn.localeCompare(a.creadoEn));
             return traspasos.length > 0 ? traspasos[0].receptorId : null;
         },

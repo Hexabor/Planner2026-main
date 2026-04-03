@@ -336,10 +336,10 @@ Object.assign(App.ui, {
                     if(llaveActual) {
                         const idx = (App.data.config.llaves || []).indexOf(llaveActual);
                         return `<p style="margin:0;font-size:12px;font-weight:600;color:#15803d;">Llave ${idx+1}${llaveActual.alias ? ' · ' + llaveActual.alias : ''}</p>
-                                <p style="margin:4px 0 0;font-size:10px;color:#64748b;">Gestiona los traspasos en <button type="button" onclick="App.uiState.reqSection='llaves'; App.router.go('peticiones')" style="background:none;border:none;color:#2563eb;cursor:pointer;font-size:10px;text-decoration:underline;padding:0;">Peticiones → Llaves</button></p>`;
+                                <p style="margin:4px 0 0;font-size:10px;color:#64748b;">Gestiona los traspasos en <button type="button" onclick="App.uiState.reqSection='llaves'; App.router.go('requests')" style="background:none;border:none;color:#2563eb;cursor:pointer;font-size:10px;text-decoration:underline;padding:0;">Gestión diaria → Llaves</button></p>`;
                     }
                     return `<p style="margin:0;font-size:11px;color:#94a3b8;">Sin llave asignada actualmente.</p>
-                            <p style="margin:4px 0 0;font-size:10px;color:#64748b;">Asigna una en <button type="button" onclick="App.uiState.reqSection='llaves'; App.router.go('peticiones')" style="background:none;border:none;color:#2563eb;cursor:pointer;font-size:10px;text-decoration:underline;padding:0;">Peticiones → Llaves</button></p>`;
+                            <p style="margin:4px 0 0;font-size:10px;color:#64748b;">Asigna una en <button type="button" onclick="App.uiState.reqSection='llaves'; App.router.go('requests')" style="background:none;border:none;color:#2563eb;cursor:pointer;font-size:10px;text-decoration:underline;padding:0;">Gestión diaria → Llaves</button></p>`;
                 })()}
             </div>` : ''}
 

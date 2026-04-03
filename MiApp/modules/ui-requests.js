@@ -341,8 +341,10 @@ Object.assign(App.ui, {
                 </button>`;
             };
             const llavesTab = App.data.config.llavesActivo ? `${tabBtn('llaves', ICO.key, 'Llaves')}` : '';
-            const sectionBar = `<div id="req-section-bar" style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:9px;width:fit-content;margin-bottom:14px;">
-                ${tabBtn('individual', ICO.list,   'Peticiones')}
+            const sectionBar = `
+            <h2 style="margin:0 0 10px;font-size:1.15rem;font-weight:700;color:#1e293b;">Gestión diaria</h2>
+            <div id="req-section-bar" style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:9px;width:fit-content;margin-bottom:14px;">
+                ${tabBtn('individual', ICO.list,   'Solicitudes')}
                 ${tabBtn('recurring',  ICO.repeat, 'Recurrentes')}
                 ${tabBtn('eventos',    ICO.event,  'Eventos')}
                 ${llavesTab}
@@ -1389,7 +1391,7 @@ Object.assign(App.ui, {
             };
 
             const _fila = (t, esPasado) => {
-                const dadorHtml = t.dadorId ? empName(t.dadorId) : '<span style="color:#94a3b8;font-style:italic;">asignación inicial</span>';
+                const dadorHtml = empName(t.dadorId || '__TIENDA__');
                 const celdasLlaves = llaves.map((l, idx) => _celdaLlave(l.id, t.fecha, idx)).join('');
                 return `<tr style="border-bottom:1px solid #f1f5f9;${esPasado?'opacity:0.65;':''}">
                     <td style="padding:9px 12px;font-size:0.8rem;color:#475569;white-space:nowrap;">${Utils.formatDateES(t.fecha)}</td>
@@ -1445,10 +1447,14 @@ Object.assign(App.ui, {
                     <div style="display:flex;flex-wrap:wrap;gap:8px;">
                         ${llaves.map((l, idx) => {
                             const titularId = App.logic.getTitularLlave(l.id, hoy);
-                            const titular = titularId ? App.data.empleados.find(e => e.id === titularId) : null;
-                            return `<div style="padding:6px 12px;background:white;border-radius:6px;border:1px solid ${titular?'#bbf7d0':'#e2e8f0'};font-size:0.82rem;">
+                            const esPersona = titularId && titularId !== '__TIENDA__';
+                            const titular = esPersona ? App.data.empleados.find(e => e.id === titularId) : null;
+                            const nombre = titular ? titular.nombre : 'En tienda';
+                            const color = titular ? '#059669' : '#f59e0b';
+                            const border = titular ? '#bbf7d0' : '#fef3c7';
+                            return `<div style="padding:6px 12px;background:white;border-radius:6px;border:1px solid ${border};font-size:0.82rem;">
                                 <span style="font-weight:700;color:#334155;">Llave ${idx+1}${l.alias?' · '+l.alias:''}</span>
-                                <span style="color:${titular?'#059669':'#94a3b8'};margin-left:6px;">${titular ? '● '+titular.nombre : 'Sin asignar'}</span>
+                                <span style="color:${color};margin-left:6px;">● ${nombre}</span>
                             </div>`;
                         }).join('')}
                     </div>
@@ -1458,8 +1464,10 @@ Object.assign(App.ui, {
             c.innerHTML = sectionBar + `
                 <div style="max-width:800px;margin:0 auto;">
                     <div id="llaves-optimizer-wrapper">${App.llaves._renderPanel()}</div>
-                    <div style="margin-bottom:14px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                         <h3 style="margin:0;font-size:1rem;font-weight:700;color:#1e293b;">🔑 Traspasos de llave</h3>
+                        <button onclick="App.ui.renderDayInspector('${hoy}')"
+                            style="padding:7px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;font-size:0.82rem;cursor:pointer;">+ Nuevo traspaso</button>
                     </div>
                     ${estadoActualHtml}
                     ${proximosHtml}
@@ -1774,12 +1782,14 @@ Object.assign(App.ui, {
                 .map(e => `<option value="${e.id}"${editData && editData.receptorId === e.id ? ' selected' : ''}>${e.nombre}</option>`).join('');
 
             const llaveOpts = llaves.map((l, idx) => {
-                const titularId = App.logic.getTitularLlave(l.id, fechaRef);
-                const titular = titularId ? App.data.empleados.find(e => e.id === titularId) : null;
-                const label = `Llave ${idx+1}${l.alias?' · '+l.alias:''} — ${titular ? titular.nombre : 'Sin titular'}`;
+                const label = `Llave ${idx+1}${l.alias?' · '+l.alias:''}`;
                 const sel = editData && editData.llaveId === l.id ? ' selected' : '';
                 return `<option value="${l.id}"${sel}>${label}</option>`;
             }).join('');
+
+            // Mostrar quién entrega (dador del traspaso)
+            const dadorId = editData ? editData.dadorId : null;
+            const dadorName = dadorId === '__TIENDA__' ? '🏪 Tienda' : (dadorId ? (App.data.empleados.find(e => e.id === dadorId)?.nombre || '—') : '—');
 
             const dateOnChange = `document.getElementById('tr-fecha').value=this.dataset.isoValue; App.ui.renderTraspasoInspector('${id}', this.dataset.isoValue);`;
 
@@ -1800,12 +1810,14 @@ Object.assign(App.ui, {
                         <label>Llave</label>
                         <select id="tr-llaveId">${llaveOpts}</select>
                     </div>
+                    <div style="margin-bottom:14px;padding:8px 12px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;font-size:0.82rem;">
+                        <span style="color:#64748b;">Entrega:</span> <span style="font-weight:600;color:#1e293b;">${dadorName}</span>
+                    </div>
                     <div class="form-group">
                         <label>Recibe la llave</label>
                         <select id="tr-receptorId">${tag3Opts}</select>
                     </div>
-                    <p style="font-size:0.78rem;color:#94a3b8;margin:8px 0 16px;">El titular en la fecha seleccionada queda registrado automáticamente como quien entrega.</p>
-                    <button class="btn btn-primary" onclick="App.logic.traspasoUpdate('${id}', document.getElementById('tr-llaveId').value, document.getElementById('tr-fecha').value, document.getElementById('tr-receptorId').value)">💾 Guardar cambios</button>
+                    <button class="btn btn-primary" onclick="App.logic.traspasoUpdate('${id}', document.getElementById('tr-llaveId').value, document.getElementById('tr-fecha').value, document.getElementById('tr-receptorId').value)">Guardar cambios</button>
                 </div>`;
         }
 

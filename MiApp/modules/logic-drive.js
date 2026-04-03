@@ -348,15 +348,13 @@ App.drive = {
     _uploadFile: function(filename, content, folderId, onSuccess, onError) {
         const metadata = { name: filename, parents: [folderId], mimeType: 'application/json' };
         const boundary = 'drive_boundary_314159265';
-        const body = [
-            `--${boundary}`,
-            'Content-Type: application/json; charset=UTF-8', '',
+        const body = new Blob([
+            `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
             JSON.stringify(metadata),
-            `--${boundary}`,
-            'Content-Type: application/json', '',
+            `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n`,
             content,
-            `--${boundary}--`
-        ].join('\r\n');
+            `\r\n--${boundary}--`
+        ]);
 
         fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
             method: 'POST',

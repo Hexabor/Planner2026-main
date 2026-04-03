@@ -401,19 +401,29 @@ Object.assign(App.logic, {
 
     llaveAdd: function() {
         if(!App.data.config.llaves) App.data.config.llaves = [];
+        if(!App.data.traspasoLlaves) App.data.traspasoLlaves = [];
         const id = 'llave_' + Date.now();
         App.data.config.llaves.push({ id, alias: '' });
+        // Estado inicial: la tienda tiene la llave
+        App.data.traspasoLlaves.push({
+            id: 'tr_' + Date.now(),
+            llaveId: id, dadorId: '__TIENDA__', receptorId: '__TIENDA__',
+            fecha: new Date().toISOString().slice(0, 10),
+            source: 'manual', creadoEn: new Date().toISOString()
+        });
         Safe.save('v40_db', App.data);
         App.router.go('config');
     },
 
     llaveDel: function(llaveId) {
-        const portador = App.data.empleados.find(e => e.llaveId === llaveId);
-        if(portador) {
-            alert(`No se puede eliminar: la llave está asignada a ${portador.nombre}. Desasígnala primero desde el inspector del empleado.`);
+        const titular = App.logic.getTitularLlave(llaveId, new Date().toISOString().slice(0, 10));
+        if(titular && titular !== '__TIENDA__') {
+            const emp = App.data.empleados.find(e => e.id === titular);
+            alert(`No se puede eliminar: la llave está asignada a ${emp ? emp.nombre : 'alguien'}. Devuélvela a tienda primero.`);
             return;
         }
         App.data.config.llaves = (App.data.config.llaves || []).filter(l => l.id !== llaveId);
+        App.data.traspasoLlaves = (App.data.traspasoLlaves || []).filter(t => t.llaveId !== llaveId);
         Safe.save('v40_db', App.data);
         App.router.go('config');
     },

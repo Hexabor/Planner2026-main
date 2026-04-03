@@ -45,14 +45,22 @@ Object.assign(App.ui, {
             };
 
             // Constructor de Tile adaptado para modo Espejo (align)
-            const tile = (id, iconName, label, dataPill='', badge=false, accent='#2563eb', align='left') => `
+            const tile = (id, iconName, label, dataPill='', badge=false, accent='#2563eb', align='left', subtiles='') => `
                 <button class="home-tile ${align === 'right' ? 'home-tile-right' : ''}" onclick="App.router.go('${id}')" style="--accent:${accent};">
                     <div class="home-tile-icon" style="background:${accent}15; color:${accent};">${icon(iconName, 20, 2)}</div>
                     <div class="home-tile-text">
                         <span class="home-tile-label">${label}</span>
                         ${dataPill ? `<span class="home-tile-pill ${badge?'has-badge':''}">${dataPill}</span>` : ''}
                     </div>
+                    ${subtiles}
                 </button>`;
+
+            const subtiles = (subs) => {
+                const h = 38, gap = 4, single = subs.length === 1;
+                const wires = subs.map((_,i) => `<span class="home-wire${single?' home-wire-solo':''}" style="top:${i*(h+gap)+h/2}px;"></span>`).join('');
+                const boxes = subs.map(s => `<div class="home-subtile">${s}</div>`).join('');
+                return `<div class="home-subtiles${single?' home-subtiles-solo':''}">${wires}${boxes}</div>`;
+            };
 
             // Constructor de Grupo adaptado para modo Espejo
             const group = (title, tiles, align='left') => `
@@ -231,6 +239,112 @@ Object.assign(App.ui, {
                     box-shadow: 0 10px 25px rgba(0,0,0,0.05);
                     transform: translateY(-2px);
                 }
+                .home-tile .home-subtiles {
+                    position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
+                    flex-direction: column; gap: 4px;
+                    pointer-events: none;
+                    display: flex;
+                }
+                .home-tile:hover .home-subtiles { pointer-events: auto; }
+                .home-subtile {
+                    opacity: 0; transition: opacity 0.08s ease;
+                }
+                .home-tile:hover .home-subtile { opacity: 1; transition: opacity 0.6s ease 0.7s; }
+                .home-tile:not(.home-tile-right) .home-subtiles { right: calc(100% + 48px); align-items: stretch; }
+                .home-tile.home-tile-right .home-subtiles { left: calc(100% + 48px); align-items: stretch; }
+                .home-subtile {
+                    position: relative;
+                    padding: 10px 28px; border-radius: 10px; border: 1px solid #e2e8f0;
+                    background: #f8fafc; font-size: 0.88rem; font-weight: 600; color: #94a3b8;
+                    cursor: default; white-space: nowrap; text-align: center;
+                }
+
+                /* ── Conectores tipo circuito ── */
+
+                /* Puente horizontal: tile → tronco (mitad del gap) */
+                .home-tile:not(.home-tile-right) .home-subtiles::after {
+                    content: ''; position: absolute;
+                    top: 50%;
+                    left: calc(100% + 24px); width: 24px; height: 1.5px;
+                    background: #cbd5e1; transform-origin: right;
+                    transform: translateY(-50%) scaleX(0); opacity: 0;
+                }
+                /* Tronco vertical: une las ramas */
+                .home-tile:not(.home-tile-right) .home-subtiles::before {
+                    content: ''; position: absolute;
+                    left: calc(100% + 24px); width: 1.5px;
+                    top: 19px; bottom: 19px;
+                    background: #cbd5e1; transform: scaleY(0); transform-origin: center; opacity: 0;
+                }
+                /* Ramas horizontales: tronco → cada subtile (spans dentro del contenedor) */
+                .home-tile:not(.home-tile-right) .home-wire {
+                    position: absolute;
+                    left: calc(100% + 0.5px); width: 24px; height: 1.5px;
+                    background: #cbd5e1; transform: translateY(-50%) scaleX(0); transform-origin: right; opacity: 0;
+                }
+
+                /* Columna derecha: espejo */
+                .home-tile.home-tile-right .home-subtiles::after {
+                    content: ''; position: absolute;
+                    top: 50%;
+                    right: calc(100% + 23px); width: 24px; height: 1.5px;
+                    background: #cbd5e1; transform-origin: left;
+                    transform: translateY(-50%) scaleX(0); opacity: 0;
+                }
+                .home-tile.home-tile-right .home-subtiles::before {
+                    content: ''; position: absolute;
+                    right: calc(100% + 23px); width: 1.5px;
+                    top: 19px; bottom: 19px;
+                    background: #cbd5e1; transform: scaleY(0); transform-origin: center; opacity: 0;
+                }
+                /* Caso solo: 1 subtile → línea recta sin tronco */
+                .home-subtiles-solo::before, .home-subtiles-solo::after { display: none !important; }
+
+                .home-tile.home-tile-right .home-wire {
+                    position: absolute;
+                    right: calc(100% - 0.5px); width: 25px; height: 1.5px;
+                    background: #cbd5e1; transform: translateY(-50%) scaleX(0); transform-origin: left; opacity: 0;
+                }
+
+                /* Animaciones secuenciales: tile → tronco → ramas */
+                .home-tile:hover .home-subtiles::after {
+                    animation: circuit-draw 0.35s cubic-bezier(0.4,0,0.2,1) 0s forwards;
+                }
+                .home-tile:hover .home-subtiles::before {
+                    animation: circuit-trunk 0.35s cubic-bezier(0.4,0,0.2,1) 0.25s forwards;
+                }
+                .home-tile:hover .home-wire { animation: circuit-draw 0.3s cubic-bezier(0.4,0,0.2,1) forwards; }
+                .home-tile:hover .home-wire:nth-of-type(1) { animation-delay: 0.5s; }
+                .home-tile:hover .home-wire:nth-of-type(2) { animation-delay: 0.4s; }
+                .home-tile:hover .home-wire:nth-of-type(3) { animation-delay: 0.6s; }
+                .home-tile:hover .home-wire:nth-of-type(4) { animation-delay: 0.7s; }
+
+                @keyframes circuit-draw {
+                    0%   { opacity: 1; transform: translateY(-50%) scaleX(0); box-shadow: 0 0 6px 2px rgba(245,158,11,0.8); }
+                    70%  { box-shadow: 0 0 4px 1px rgba(245,158,11,0.4); }
+                    100% { opacity: 1; transform: translateY(-50%) scaleX(1); box-shadow: none; }
+                }
+                @keyframes circuit-trunk {
+                    0%   { opacity: 1; transform: scaleY(0); box-shadow: 0 0 6px 2px rgba(245,158,11,0.8); }
+                    70%  { box-shadow: 0 0 4px 1px rgba(245,158,11,0.4); }
+                    100% { opacity: 1; transform: scaleY(1); box-shadow: none; }
+                }
+                /* Animaciones columna derecha (usan mismos keyframes, transform-origin las espeja) */
+                .home-tile.home-tile-right:hover .home-subtiles::after {
+                    animation: circuit-draw 0.35s cubic-bezier(0.4,0,0.2,1) 0s forwards;
+                }
+                .home-tile.home-tile-right:hover .home-subtiles::before {
+                    animation: circuit-trunk 0.35s cubic-bezier(0.4,0,0.2,1) 0.25s forwards;
+                }
+                .home-tile.home-tile-right:hover .home-wire { animation: circuit-draw 0.3s cubic-bezier(0.4,0,0.2,1) forwards; }
+                .home-tile.home-tile-right:hover .home-wire:nth-of-type(1) { animation-delay: 0.5s; }
+                .home-tile.home-tile-right:hover .home-wire:nth-of-type(2) { animation-delay: 0.4s; }
+                .home-tile.home-tile-right:hover .home-wire:nth-of-type(3) { animation-delay: 0.6s; }
+                .home-tile.home-tile-right:hover .home-wire:nth-of-type(4) { animation-delay: 0.7s; }
+
+                /* Caso solo: 1 subtile → línea recta completa sin tronco */
+                .home-tile.home-tile-right .home-wire.home-wire-solo { width: 48px !important; }
+                .home-tile:hover .home-wire.home-wire-solo { animation-delay: 0s !important; animation-duration: 0.5s !important; }
                 .home-tile-icon {
                     width: 40px; height: 40px;
                     border-radius: 10px;
@@ -349,13 +463,17 @@ Object.assign(App.ui, {
 
                 <div class="home-col-left">
                     ${group('Ingredientes',
-                        tile('empleados', 'users', 'Plantilla', `${activeEmps} activos`, false, '#2563eb', 'left') +
-                        tile('requests',  'inbox', 'Peticiones', pendingReqs > 0 ? `${pendingReqs} por revisar` : 'Todo al día', pendingReqs > 0, '#f59e0b', 'left'),
+                        tile('empleados', 'users', 'Plantilla', `${activeEmps} activos`, false, '#2563eb', 'left',
+                            subtiles(['Contratos', 'Desvíos', 'Festivos', 'Preferencias'])) +
+                        tile('requests',  'inbox', 'Gestión diaria', pendingReqs > 0 ? `${pendingReqs} por revisar` : 'Todo al día', pendingReqs > 0, '#f59e0b', 'left',
+                            subtiles(App.data.config.llavesActivo ? ['Solicitudes', 'Eventos', 'Llaves'] : ['Solicitudes', 'Eventos'])),
                         'left'
                     )}
                     ${group('Catálogos',
-                        tile('shifts',  'palette', 'Turnos', `${shiftCount} turnos base`, false, '#8b5cf6', 'left') +
-                        tile('calendario', 'calendar-range', 'Calendario', 'Festivos y cierres', false, '#10b981', 'left'),
+                        tile('shifts',  'palette', 'Turnos', `${shiftCount} turnos base`, false, '#8b5cf6', 'left',
+                            subtiles(['Paleta de turnos', 'Edición de turnos', 'Turnos Ad Hoc'])) +
+                        tile('calendario', 'calendar-range', 'Calendario', 'Festivos y cierres', false, '#10b981', 'left',
+                            subtiles(['Horarios de tienda', 'Festivos', 'Bloqueos'])),
                         'left'
                     )}
                 </div>
@@ -375,13 +493,17 @@ Object.assign(App.ui, {
 
                 <div class="home-col-right">
                     ${group('Revisión',
-                        tile('analisis', 'bar-chart-2', 'Análisis', 'Desvíos y métricas', false, '#3b82f6', 'right') +
-                        tile('presentacion', 'printer', 'Presentación', 'Vista PDF e impresión', false, '#64748b', 'right'),
+                        tile('analisis', 'bar-chart-2', 'Análisis', 'Desvíos y métricas', false, '#3b82f6', 'right',
+                            subtiles(['Turnos vs Facturación', 'Equilibrio de turnos', 'Turnos más usados'])) +
+                        tile('presentacion', 'printer', 'Presentación', 'Vista PDF e impresión', false, '#64748b', 'right',
+                            subtiles(App.data.config.llavesActivo ? ['Semanal grupo', 'Mensual individual', 'Traspasos de llaves'] : ['Semanal grupo', 'Mensual individual'])),
                         'right'
                     )}
                     ${group('Datos',
-                        tile('export', 'upload', 'Exportar', 'Excel y Calendar', false, '#059669', 'right') +
-                        tile('import', 'download', 'Importar', 'Desde el eficiente', false, '#94a3b8', 'right'),
+                        tile('export', 'upload', 'Exportar', 'Excel y Calendar', false, '#059669', 'right',
+                            subtiles(['Hacia Eficiente', 'Hacia Calendar', 'Master Data'])) +
+                        tile('import', 'download', 'Importar', 'Desde el eficiente', false, '#94a3b8', 'right',
+                            subtiles(['Desde Rota Eficiente'])),
                         'right'
                     )}
                 </div>
@@ -493,7 +615,7 @@ Object.assign(App.ui, {
                     '<button onclick="App.router.go(\'planificador\')" ' +
                         'style="padding:5px 14px;border-radius:6px;border:1px solid #e2e8f0;background:white;font-size:0.8rem;cursor:pointer;">📅 Planificador</button>' +
                     '<button onclick="App.router.go(\'requests\')" ' +
-                        'style="padding:5px 14px;border-radius:6px;border:1px solid #e2e8f0;background:white;font-size:0.8rem;cursor:pointer;">📋 Peticiones</button>' +
+                        'style="padding:5px 14px;border-radius:6px;border:1px solid #e2e8f0;background:white;font-size:0.8rem;cursor:pointer;">📋 Gestión diaria</button>' +
                     '<button onclick="App.router.go(\'config\')" ' +
                         'style="padding:5px 14px;border-radius:6px;border:1px solid #e2e8f0;background:white;font-size:0.8rem;cursor:pointer;">⚙️ Config</button>' +
                 '</div>' +
