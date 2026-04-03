@@ -5,7 +5,8 @@
 Object.assign(App.ui, {
         renderHome: function(c) {
             const alerts = App.logic.getAlerts();
-            const alertCount = alerts.length;
+            const dismissed = App.data.dismissedAlerts || [];
+            const alertCount = alerts.filter(a => !dismissed.includes(a.title + '||' + (a.date || ''))).length;
             const pendingReqs = App.data.requests.filter(r => r.status === 'pending' && !r.archived).length;
             const wkCode = Utils.getWeekCode(App.uiState.currentDate);
             const storeNombre = App.data.storeConfig?.nombre || 'Mi Tienda';

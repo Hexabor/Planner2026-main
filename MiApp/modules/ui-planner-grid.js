@@ -468,7 +468,8 @@ Object.assign(App.ui, {
                     const KEY_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><circle cx="8" cy="15" r="4"/><line x1="11.5" y1="11.5" x2="22" y2="1"/><line x1="18" y1="5" x2="21" y2="2"/><line x1="15" y1="8" x2="18" y2="5"/></svg>';
                     const ARW_OUT = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#ef4444" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><line x1="2" y1="8" x2="13" y2="8"/><polyline points="9 4 13 8 9 12"/></svg>';
                     const ARW_IN  = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="#22c55e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><line x1="14" y1="8" x2="3" y2="8"/><polyline points="7 4 3 8 7 12"/></svg>';
-                    const recibe      = App.data.traspasoLlaves.some(t => t.receptorId === e.id && t.fecha === date);
+                    // dadorId:null = ancla de inicio (sin flecha); excluirla de recibe/entrega
+                    const recibe      = App.data.traspasoLlaves.some(t => t.receptorId === e.id && t.dadorId != null && t.fecha === date);
                     const entrega     = App.data.traspasoLlaves.some(t => t.dadorId    === e.id && t.fecha === date);
                     const dejaTienda  = App.data.traspasoLlaves.some(t => t.dadorId === e.id && t.receptorId === '__TIENDA__' && t.fecha === date);
                     const cogeTienda  = App.data.traspasoLlaves.some(t => t.receptorId === e.id && t.dadorId === '__TIENDA__' && t.fecha === date);

@@ -276,7 +276,7 @@ Object.assign(App.ui, {
             }
 
             if(pv === 'llaves') {
-                html += `<div style="max-width:640px;margin:0 auto;">
+                html += `<div style="max-width:900px;margin:0 auto;">
                     <h3 style="margin:0 0 16px;font-size:1rem;font-weight:700;color:#1e293b;">🔑 Cambios de llave programados</h3>
                     ${App.ui._renderLlavesPresView()}
                 </div>`;
@@ -290,7 +290,7 @@ Object.assign(App.ui, {
             const pv = App.uiState.presView || 'semanal';
             let styleEl = document.getElementById('print-orientation-style');
             if(!styleEl) { styleEl = document.createElement('style'); styleEl.id='print-orientation-style'; document.head.appendChild(styleEl); }
-            styleEl.textContent = (pv === 'semanal'
+            styleEl.textContent = (pv === 'semanal' || pv === 'llaves'
                 ? '@page { size: A4 landscape; margin: 8mm; }'
                 : '@page { size: A4 portrait;  margin: 10mm; }')
                 + ' * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }';
@@ -299,10 +299,12 @@ Object.assign(App.ui, {
 
         _renderLlavesPresView: function() {
             const hoy = new Date().toISOString().slice(0,10);
-            // Fecha de inicio configurable — por defecto hoy
+            // Fecha de inicio y duración configurables
             if(!App.uiState.llavesPresDesde) App.uiState.llavesPresDesde = hoy;
+            if(!App.uiState.llavesPresDias)  App.uiState.llavesPresDias  = 15;
             const desde = App.uiState.llavesPresDesde;
-            const limite = new Date(desde + 'T12:00:00'); limite.setDate(limite.getDate() + 15);
+            const dias  = App.uiState.llavesPresDias;
+            const limite = new Date(desde + 'T12:00:00'); limite.setDate(limite.getDate() + dias);
             const limiteStr = limite.toISOString().slice(0,10);
             const llaves = App.data.config.llaves || [];
             const _refresh = "App.ui.renderPresentacion(document.querySelector('.main-scroll'))";
@@ -337,10 +339,17 @@ Object.assign(App.ui, {
                 return `${DAY_NAMES[dt.getDay()]} ${parseInt(day)}/${String(dt.getMonth()+1).padStart(2,'0')}`;
             };
 
-            const navegador = `<div class="no-print" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            const diasOpts = [7,15,21,30,45,60,90].map(d =>
+                `<option value="${d}" ${d === dias ? 'selected' : ''}>${d} días</option>`
+            ).join('');
+            const navegador = `<div class="no-print" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
                 <span style="font-size:0.82rem;font-weight:600;color:#475569;">Desde</span>
                 ${Utils.getDateInputHTML('llaves-pres-desde', desde, `App.uiState.llavesPresDesde=this.dataset.isoValue; ${_refresh}`)}
-                <span style="font-size:0.78rem;color:#94a3b8;">→ 15 días → ${Utils.formatDateES(limiteStr)}</span>
+                <select onchange="App.uiState.llavesPresDias=+this.value; ${_refresh}"
+                    style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.82rem;color:#334155;cursor:pointer;">
+                    ${diasOpts}
+                </select>
+                <span style="font-size:0.78rem;color:#94a3b8;">→ ${Utils.formatDateES(limiteStr)}</span>
             </div>`;
 
             if(fechas.length === 0) {

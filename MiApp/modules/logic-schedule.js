@@ -1439,91 +1439,9 @@ Object.assign(App.logic, {
                 });
             }
 
-            // PARTE 5: Detección de traspasos de llaves necesarios
-            // La lógica correcta: buscar el último día viable para el traspaso
-            // ANTES del primer fallo de cobertura que involucra al portador
-            if(hasLlaves || hasKeyHolders) {
-                const _hoy2 = new Date(); _hoy2.setHours(0,0,0,0);
-                const _limite2 = new Date(_hoy2); _limite2.setDate(_limite2.getDate() + 21);
-                const lockedDays2 = App.data.lockedDays || {};
-
-                const todosLosDiasCerrados = Object.keys(lockedDays2)
-                    .filter(d => lockedDays2[d])
-                    .sort();
-
-                const diasEnRango = todosLosDiasCerrados.filter(d => {
-                    const t = new Date(d + 'T12:00:00');
-                    return t >= _hoy2 && t <= _limite2;
-                });
-
-                const _trabajaReal2 = (empId, date) => {
-                    const shiftId = (App.data.schedule[date] || {})[empId];
-                    if(!shiftId) return false;
-                    const shift = Utils.getShift(shiftId);
-                    return shift && !shift.fixed;
-                };
-
-                const hoyStr = new Date().toISOString().slice(0,10);
-                const tag3Ids = App.data.empleados
-                    .filter(e => e.active !== false && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, hoyStr)))
-                    .map(e => e.id);
-
-                // Iterar por llave (no por emp.llaveId — ahora es dinámico)
-                (App.data.config.llaves || []).forEach((llave, llaveIdx) => {
-                    const llaveLabel = `Llave ${llaveIdx + 1}${llave.alias ? ' (' + llave.alias + ')' : ''}`;
-
-                    // Titular actual de la llave
-                    const titularId = App.logic.getTitularLlave(llave.id, hoyStr);
-                    const emp = titularId ? App.data.empleados.find(e => e.id === titularId) : null;
-                    if(!emp) return; // sin titular conocido
-
-                    // Primer día del rango donde el titular no trabaja
-                    const primerFallo = diasEnRango.find(d => {
-                        // También comprobar que ese día la llave sigue siendo del mismo titular
-                        const titularEnFecha = App.logic.getTitularLlave(llave.id, d);
-                        return titularEnFecha === emp.id && !_trabajaReal2(emp.id, d);
-                    });
-                    if(!primerFallo) return;
-
-                    // Buscar hacia atrás el último día viable para el traspaso
-                    const diasAnteriores = todosLosDiasCerrados
-                        .filter(d => d < primerFallo)
-                        .reverse();
-
-                    let encontrado = false;
-                    for(const dia of diasAnteriores) {
-                        if(!_trabajaReal2(emp.id, dia)) continue;
-                        const receptores = tag3Ids
-                            .filter(id => id !== emp.id && _trabajaReal2(id, dia))
-                            .map(id => App.data.empleados.find(e => e.id === id)?.nombre)
-                            .filter(Boolean);
-
-                        if(receptores.length > 0) {
-                            alerts.push({
-                                title: `📋 Traspaso de ${llaveLabel} — ${Utils.formatDateES(dia)}`,
-                                desc: `${emp.nombre} no trabaja a partir del ${Utils.formatDateES(primerFallo)}. Traspaso posible el ${Utils.formatDateES(dia)} a: ${receptores.join(', ')}.`,
-                                date: dia
-                            });
-                        } else {
-                            alerts.push({
-                                title: `⚠️ Traspaso de ${llaveLabel} imposible — antes del ${Utils.formatDateES(primerFallo)}`,
-                                desc: `${emp.nombre} no trabaja a partir del ${Utils.formatDateES(primerFallo)} y no hay ningún otro TAG3 trabajando los días previos para recoger la llave.`,
-                                date: dia
-                            });
-                        }
-                        encontrado = true;
-                        break;
-                    }
-
-                    if(!encontrado) {
-                        alerts.push({
-                            title: `⚠️ Traspaso de ${llaveLabel} imposible — antes del ${Utils.formatDateES(primerFallo)}`,
-                            desc: `${emp.nombre} no trabaja a partir del ${Utils.formatDateES(primerFallo)} y no hay días previos cerrados donde pueda hacer el traspaso.`,
-                            date: primerFallo
-                        });
-                    }
-                });
-            }
+            // PARTE 5: Detección de traspasos de llaves necesarios — DESACTIVADA
+            // El usuario gestiona traspasos manualmente desde el inspector de llaves.
+            // Las alertas de cobertura apertura/cierre (PARTE 4) ya cubren lo necesario.
 
             return alerts;
         },

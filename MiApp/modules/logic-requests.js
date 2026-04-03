@@ -519,8 +519,8 @@ Object.assign(App.logic, {
                     l.id !== llaveId && App.logic.getTitularLlave(l.id, fecha) === receptorId
                 );
                 if(otraLlave) {
-                    const idx = (App.data.config.llaves || []).findIndex(l => l.id === otraLlave.id);
-                    if(!confirm(`⚠️ ${App.data.empleados.find(e=>e.id===receptorId)?.nombre} ya tiene la Llave ${idx+1} en esa fecha.\n¿Crear el traspaso igualmente?`)) return;
+                    const otraIdx = (App.data.config.llaves || []).findIndex(l => l.id === otraLlave.id);
+                    return alert(`⚠️ ${App.data.empleados.find(e=>e.id===receptorId)?.nombre} ya tiene la Llave ${otraIdx+1} en esa fecha. No se puede asignar dos llaves a la misma persona.`);
                 }
             }
             if(!App.data.traspasoLlaves) App.data.traspasoLlaves = [];
@@ -529,6 +529,28 @@ Object.assign(App.logic, {
                 llaveId, dadorId, receptorId, fecha,
                 creadoEn: new Date().toISOString()
             });
+            Safe.save('v40_db', App.data);
+            App.logic.checkAlerts();
+            App.logic._refreshLlaves();
+            App.ui.renderTraspasoInspector(null, fecha);
+        },
+
+        traspasoUpdate: function(id, llaveId, fecha, receptorId) {
+            if(!llaveId || !fecha || !receptorId) return alert('Faltan datos obligatorios.');
+            const idx = (App.data.traspasoLlaves || []).findIndex(t => t.id === id);
+            if(idx < 0) return alert('Traspaso no encontrado.');
+            const dadorId = App.logic.getTitularLlave(llaveId, fecha) || null;
+            if(dadorId === receptorId) return alert('El receptor ya tiene esta llave en esa fecha.');
+            if(receptorId !== '__TIENDA__') {
+                const otraLlave = (App.data.config.llaves || []).find(l =>
+                    l.id !== llaveId && App.logic.getTitularLlave(l.id, fecha) === receptorId
+                );
+                if(otraLlave) {
+                    const otraIdx = (App.data.config.llaves || []).findIndex(l => l.id === otraLlave.id);
+                    return alert(`⚠️ ${App.data.empleados.find(e=>e.id===receptorId)?.nombre} ya tiene la Llave ${otraIdx+1} en esa fecha. No se puede asignar dos llaves a la misma persona.`);
+                }
+            }
+            App.data.traspasoLlaves[idx] = { ...App.data.traspasoLlaves[idx], llaveId, fecha, dadorId, receptorId };
             Safe.save('v40_db', App.data);
             App.logic.checkAlerts();
             App.logic._refreshLlaves();
