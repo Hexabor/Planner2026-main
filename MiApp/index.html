@@ -345,6 +345,8 @@ App.io = {
                 exportData.recurringRequests = App.data.recurringRequests || [];
                 exportData.lockedDays = App.data.lockedDays || {};
                 exportData.eventos = App.data.eventos || [];
+                exportData.libranzaPlans = App.data.libranzaPlans || [];
+                exportData.vacacionesPlans = App.data.vacacionesPlans || [];
             }
             if(document.getElementById('cb-exp-keys').checked) {
                 exportData.traspasoLlaves = App.data.traspasoLlaves || [];
@@ -483,6 +485,8 @@ App.io = {
                 if(data.recurringRequests) App.data.recurringRequests = data.recurringRequests;
                 if(data.lockedDays) App.data.lockedDays = data.lockedDays;
                 if(data.eventos) App.data.eventos = data.eventos;
+                if(data.libranzaPlans) App.data.libranzaPlans = data.libranzaPlans;
+                if(data.vacacionesPlans) App.data.vacacionesPlans = data.vacacionesPlans;
                 affected.push("Planificación y Solicitudes");
             }
             if(document.getElementById('cb-imp-keys').checked && !document.getElementById('cb-imp-keys').disabled) {

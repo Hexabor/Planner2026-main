@@ -278,7 +278,7 @@ Object.assign(App.ui, {
                     ${!showArchived ? '<button onclick="App.logic.reqSelect(null)" style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;border:none;background:#2563eb;color:white;font-size:0.82rem;font-weight:600;cursor:pointer;">' + ICO.plus + ' Nueva solicitud</button>' : ''}
                 </div>`;
 
-            const ALL_TYPES = ['VAC','LIB','HRL','AP','BAJ'];
+            const ALL_TYPES = ['LIB','HRL','AP','BAJ'];
             const activeFilter = App.uiState.reqTypeFilter || ALL_TYPES;
             const allTypesActive = ALL_TYPES.every(t => activeFilter.includes(t));
             const empFilter = App.uiState.reqEmpFilter || 'todos';
@@ -321,40 +321,62 @@ Object.assign(App.ui, {
 
         renderRequests: function(c) {
             if (!c) return;
-            const section = App.uiState.reqSection || 'individual';
+            const section = App.uiState.reqSection || 'solicitudes';
+            // Migrar clave antigua
+            if (section === 'individual' || section === 'recurring') App.uiState.reqSection = 'solicitudes';
+            const subSection = App.uiState.reqSubSection || 'puntuales';
+
             const ico = (path, size=16) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
             const ICO = {
-                list:   ico('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>'),
-                repeat: ico('<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>'),
+                solicitudes: ico('<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'),
                 event:  ico('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/>'),
                 key:    ico('<circle cx="8" cy="15" r="4"/><line x1="11.5" y1="11.5" x2="22" y2="1"/><line x1="18" y1="5" x2="21" y2="2"/><line x1="15" y1="8" x2="18" y2="5"/>'),
             };
 
-            const tabBtn = (key, icoHtml, label) => {
-                const active = section === key;
+            // --- Botones principales (3 grandes) ---
+            const mainBtn = (key, icoHtml, label) => {
+                const active = (App.uiState.reqSection || 'solicitudes') === key;
                 return `<button onclick="App.uiState.reqSection='${key}'; App.ui.renderRequests(document.querySelector('.main-scroll'))"
-                    style="display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:6px;border:none;
-                           font-size:0.82rem;font-weight:600;cursor:pointer;
-                           background:${active?'white':'transparent'};color:${active?'#1e293b':'#64748b'};
-                           box-shadow:${active?'0 1px 4px rgba(0,0,0,0.1)':'none'};">
+                    style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:7px;border:1.5px solid ${active?'#2563eb':'#e2e8f0'};
+                           font-size:0.8rem;font-weight:600;cursor:pointer;
+                           background:${active?'#eff6ff':'white'};color:${active?'#2563eb':'#64748b'};
+                           transition:all 0.15s;">
                     ${icoHtml} ${label}
                 </button>`;
             };
-            const llavesTab = App.data.config.llavesActivo ? `${tabBtn('llaves', ICO.key, 'Llaves')}` : '';
-            const sectionBar = `
-            <h2 style="margin:0 0 10px;font-size:1.15rem;font-weight:700;color:#1e293b;">Gestión diaria</h2>
-            <div id="req-section-bar" style="display:flex;gap:4px;background:#f1f5f9;padding:4px;border-radius:9px;width:fit-content;margin-bottom:14px;">
-                ${tabBtn('individual', ICO.list,   'Solicitudes')}
-                ${tabBtn('recurring',  ICO.repeat, 'Recurrentes')}
-                ${tabBtn('eventos',    ICO.event,  'Eventos')}
-                ${llavesTab}
-            </div>`;
+            const llavesBtn = App.data.config.llavesActivo ? mainBtn('llaves', ICO.key, 'Llaves') : '';
 
-            if (section === 'recurring') {
-                this.renderRecurringList(c, sectionBar);
-                this.renderRecurringInspector(App.uiState.recurringSelectedId);
-                return;
-            }
+            // --- Sub-tabs dentro de Solicitudes ---
+            const subTab = (key, label) => {
+                const active = subSection === key;
+                return `<button onclick="App.uiState.reqSubSection='${key}'; App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                    style="padding:3px 10px;border-radius:14px;border:1px solid ${active?'#2563eb':'#e2e8f0'};
+                           font-size:0.7rem;font-weight:600;cursor:pointer;
+                           background:${active?'#eff6ff':'white'};color:${active?'#2563eb':'#94a3b8'};">
+                    ${label}
+                </button>`;
+            };
+            const subBarContent = (App.uiState.reqSection || 'solicitudes') === 'solicitudes'
+                ? `${subTab('puntuales', 'Puntuales')}${subTab('periodicas', 'Periódicas')}${subTab('libranzas', 'Libranzas')}${subTab('vacaciones', 'Vacaciones')}`
+                : '';
+
+            const mainBar = `
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#1e293b;flex-shrink:0;">Gestión diaria</h2>
+                    <div style="display:flex;gap:6px;">
+                        ${mainBtn('solicitudes', ICO.solicitudes, 'Solicitudes')}
+                        ${mainBtn('eventos', ICO.event, 'Eventos')}
+                        ${llavesBtn}
+                    </div>
+                </div>
+                ${subBarContent ? `<div style="display:flex;gap:4px;margin-right:auto;margin-left:40px;">${subBarContent}</div>` : ''}
+            </div>
+            <div style="height:1px;background:#e2e8f0;margin:10px 0 12px;"></div>`;
+
+            // Construir sectionBar completo (subBar ya integrado en mainBar)
+            const sectionBar = mainBar;
+            const subBar = '';
 
             if (section === 'eventos') {
                 this._renderEventos(c, sectionBar);
@@ -368,11 +390,29 @@ Object.assign(App.ui, {
                 return;
             }
 
+            // --- SOLICITUDES DE STAFF ---
+            if (subSection === 'periodicas') {
+                this.renderRecurringList(c, sectionBar + subBar);
+                this.renderRecurringInspector(App.uiState.recurringSelectedId);
+                return;
+            }
+
+            if (subSection === 'libranzas') {
+                this._renderLibranzas(c, sectionBar + subBar);
+                return;
+            }
+
+            if (subSection === 'vacaciones') {
+                this._renderPlanGeneric(c, sectionBar + subBar, 'vacaciones');
+                return;
+            }
+
+            // --- Puntuales (por defecto) ---
             // Forzar flex-column en el contenedor padre para fill-height
             if (c.parentElement) c.parentElement.style.cssText += ';display:flex;flex-direction:column;';
             c.style.cssText = 'display:flex;flex-direction:column;height:100%;min-height:0;padding:16px 16px 0 16px;box-sizing:border-box;';
 
-            c.innerHTML = sectionBar + `
+            c.innerHTML = sectionBar + subBar + `
                 <div id="req-fixed" style="flex-shrink:0;max-width:680px;margin:0 auto;width:100%;"></div>
                 <div id="req-module" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;padding-bottom:16px;"></div>`;
 
@@ -392,7 +432,7 @@ Object.assign(App.ui, {
             const showArchived = App.uiState.reqShowArchived;
             const sk  = App.uiState.reqSortKey  || 'start';
             const sd  = App.uiState.reqSortDir === 'asc' ? 1 : -1;
-            const activeFilter = App.uiState.reqTypeFilter || ['VAC','LIB','HRL','AP','BAJ'];
+            const activeFilter = App.uiState.reqTypeFilter || ['LIB','HRL','AP','BAJ'];
             const ico = (path, size=16) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
             const TYPE_ICO = {
                 VAC: ico('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>'),
@@ -497,7 +537,7 @@ Object.assign(App.ui, {
                 App.uiState.reqCalCursoY = cursoY;
             }
             const showArchived  = App.uiState.reqShowArchived;
-            const activeFilter  = App.uiState.reqTypeFilter || ['VAC','LIB','HRL','AP','BAJ'];
+            const activeFilter  = App.uiState.reqTypeFilter || ['LIB','HRL','AP','BAJ'];
 
             const rangeStart = `${cursoY}-03-01`;
             const rangeEnd   = `${cursoY+1}-02-${new Date(cursoY+1, 2, 0).getDate()}`;
@@ -649,7 +689,6 @@ Object.assign(App.ui, {
                 <div class="form-group">
                     <label>Tipo de Ausencia</label>
                     <select id="rq-type" onchange="App.ui.reqTypeToggle(this.value)">
-                        <option value="VAC" ${r.type==='VAC'?'selected':''}>🏖️ Vacaciones (VAC)</option>
                         <option value="LIB" ${r.type==='LIB'?'selected':''}>🏠 Día Libre / Petición (LIB)</option>
                         <option value="BAJ" ${r.type==='BAJ'?'selected':''}>🏥 Baja Médica (BAJ)</option>
                         <option value="AP"  ${r.type==='AP' ?'selected':''}>📋 Asuntos Propios (AP)</option>
@@ -1271,6 +1310,922 @@ Object.assign(App.ui, {
                 }
             };
             setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+        },
+
+        _renderLibranzas: function(c, sectionBar) {
+            if (c.parentElement) c.parentElement.style.cssText += ';display:flex;flex-direction:column;';
+            c.style.cssText = 'padding:16px;overflow-y:auto;box-sizing:border-box;scrollbar-gutter:stable;';
+
+            if (!App.data.libranzaPlans) App.data.libranzaPlans = [];
+            if (!App.uiState.libranzas) App.uiState.libranzas = { mode: 'list', empId: null, selected: [], year: new Date().getFullYear(), editId: null };
+            const st = App.uiState.libranzas;
+
+            if (st.mode === 'calendar') {
+                this._renderLibranzasCalendar(c, sectionBar);
+            } else {
+                this._renderLibranzasList(c, sectionBar);
+            }
+        },
+
+        _renderLibranzasList: function(c, sectionBar) {
+            const plans = App.data.libranzaPlans || [];
+            const todayStr = new Date().toISOString().slice(0,10);
+
+            let html = sectionBar + `<div style="max-width:680px;margin:0 auto;width:100%;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <span style="font-size:0.82rem;color:#64748b;font-weight:500;">${plans.length} plan${plans.length!==1?'es':''}</span>
+                    <button onclick="App.uiState.libranzas.mode='calendar';App.uiState.libranzas.selected=[];App.uiState.libranzas.editId=null;App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                        style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;border:none;
+                               background:#2563eb;color:white;font-size:0.82rem;font-weight:600;cursor:pointer;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Nuevo plan
+                    </button>
+                </div>`;
+
+            if (plans.length === 0) {
+                html += `<div style="text-align:center;padding:50px;border:2px dashed #e2e8f0;border-radius:8px;color:#94a3b8;">
+                    <div style="font-size:2.5rem;margin-bottom:12px;">📋</div>
+                    <div style="font-weight:600;margin-bottom:6px;">No hay planes de libranza</div>
+                    <div style="font-size:0.85rem;">Crea un plan para asignar días libres a un empleado.</div>
+                </div>`;
+            } else {
+                html += `<div style="display:flex;flex-direction:column;gap:8px;">`;
+                plans.slice().sort((a,b) => b.createdAt.localeCompare(a.createdAt)).forEach(p => {
+                    const emp = App.data.empleados.find(e => e.id === p.empId);
+                    const empName = emp ? emp.nombre : '(eliminado)';
+                    const futureDates = p.dates.filter(d => d >= todayStr);
+                    const pastDates = p.dates.filter(d => d < todayStr);
+                    const dateRange = p.dates.length > 0 ? `${Utils.formatDateES(p.dates[0])} → ${Utils.formatDateES(p.dates[p.dates.length-1])}` : '';
+                    // Contar revocadas
+                    let revokedCount = 0;
+                    if (p.applied) {
+                        p.dates.forEach(d => {
+                            const sv = (App.data.schedule[d] || {})[p.empId];
+                            if (!sv) { revokedCount++; return; }
+                            const sh = Utils.getShift(sv);
+                            if (!sh || !sh.fixed || (sh.code !== 'L' && sh.code !== 'F')) revokedCount++;
+                        });
+                    }
+                    let appliedBadge = '';
+                    if (!p.applied) {
+                        appliedBadge = `<span style="padding:2px 8px;background:#fef3c7;color:#92400e;border-radius:4px;font-size:0.68rem;font-weight:700;">Pendiente</span>`;
+                    } else if (revokedCount > 0) {
+                        appliedBadge = `<span style="padding:2px 8px;background:#fee2e2;color:#dc2626;border-radius:4px;font-size:0.68rem;font-weight:700;">${revokedCount} revocada${revokedCount !== 1 ? 's' : ''}</span>`;
+                    } else {
+                        appliedBadge = `<span style="padding:2px 8px;background:#dcfce7;color:#15803d;border-radius:4px;font-size:0.68rem;font-weight:700;">Aplicado</span>`;
+                    }
+
+                    html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;cursor:pointer;transition:box-shadow 0.15s;"
+                        onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-weight:700;font-size:0.88rem;color:#1e293b;">${empName}</span>
+                                ${appliedBadge}
+                            </div>
+                            <div style="display:flex;gap:4px;">
+                                ${!p.applied ? `<button onclick="event.stopPropagation();App.ui._libranzaPlanApply('${p.id}')" title="Aplicar al planificador" style="background:none;border:none;cursor:pointer;color:#16a34a;padding:2px 4px;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </button>` : ''}
+                                <button onclick="event.stopPropagation();App.ui._libranzaPlanEdit('${p.id}')" title="Editar" style="background:none;border:none;cursor:pointer;color:#64748b;padding:2px 4px;">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg>
+                                </button>
+                                <button onclick="event.stopPropagation();App.ui._libranzaPlanDel('${p.id}')" title="Eliminar" style="background:none;border:none;cursor:pointer;color:#ef4444;padding:2px 4px;">✕</button>
+                            </div>
+                        </div>
+                        <div style="font-size:0.78rem;color:#64748b;">${p.dates.length} día${p.dates.length!==1?'s':''} · ${dateRange}</div>
+                        ${pastDates.length > 0 && futureDates.length > 0 ? `<div style="font-size:0.7rem;color:#94a3b8;margin-top:2px;">${futureDates.length} pendiente${futureDates.length!==1?'s':''}, ${pastDates.length} pasado${pastDates.length!==1?'s':''}</div>` : ''}
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+            html += `</div>`;
+
+            c.innerHTML = html;
+            const insp = document.getElementById('inspector-content');
+            if (insp) insp.innerHTML = '';
+        },
+
+        _renderLibranzasCalendar: function(c, sectionBar) {
+            const st = App.uiState.libranzas;
+            if (!st.empId && App.data.empleados.length > 0) st.empId = App.data.empleados.filter(e => e.active !== false).sort((a,b) => a.customOrder - b.customOrder)[0]?.id || null;
+
+            const DIAS_H = ['L','M','X','J','V','S','D'];
+            const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            const holidays = new Set((App.data.storeConfig.holidays || []).map(h => h.date));
+
+            const empOpts = App.data.empleados
+                .filter(e => e.active !== false)
+                .sort((a,b) => a.customOrder - b.customOrder)
+                .map(e => `<option value="${e.id}" ${e.id === st.empId ? 'selected' : ''}>${e.nombre}</option>`).join('');
+
+            // Detectar fechas revocadas: están en el plan aplicado pero ya no tienen L/F en schedule
+            const editingPlan = st.editId ? (App.data.libranzaPlans || []).find(p => p.id === st.editId) : null;
+            const revokedSet = new Set();
+            if (editingPlan && editingPlan.applied) {
+                editingPlan.dates.forEach(d => {
+                    const sv = (App.data.schedule[d] || {})[st.empId];
+                    if (!sv) { revokedSet.add(d); return; }
+                    const sh = Utils.getShift(sv);
+                    if (!sh || !sh.fixed || (sh.code !== 'L' && sh.code !== 'F')) revokedSet.add(d);
+                });
+            }
+
+            const buildMonth = (year, month) => {
+                const first = new Date(year, month, 1);
+                let startDow = first.getDay();
+                startDow = startDow === 0 ? 6 : startDow - 1;
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                let cells = '';
+                for (let i = 0; i < startDow; i++) cells += `<div style="width:28px;height:24px;"></div>`;
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                    const isSelected = st.selected.includes(iso);
+                    const isRevoked = revokedSet.has(iso);
+                    const isHoliday = holidays.has(iso);
+                    const isSun = new Date(year, month, d).getDay() === 0;
+                    const isPast = iso < new Date().toISOString().slice(0,10);
+                    let bg = 'white', color = '#1e293b', border = '1px solid #e2e8f0', title = '';
+                    if (isSelected && isRevoked) {
+                        bg = '#ef4444'; color = 'white'; border = '1px solid #dc2626';
+                        title = 'title="Revocada — esta libranza fue concedida pero se modificó posteriormente"';
+                    } else if (isSelected) {
+                        bg = '#2563eb'; color = 'white'; border = '1px solid #2563eb';
+                    } else if (isHoliday) {
+                        bg = '#fef3c7'; color = '#92400e'; border = '1px solid #fcd34d';
+                    } else if (isSun) { color = '#7c3aed'; }
+                    if (isPast && !isRevoked) { bg = isSelected ? '#93c5fd' : '#f8fafc'; color = isSelected ? 'white' : '#cbd5e1'; }
+                    const cursor = isPast ? 'default' : 'pointer';
+                    const onclick = isPast ? '' : `onclick="App.ui._libranzaToggle('${iso}', this)"`;
+                    cells += `<div ${onclick} ${title} style="width:28px;height:24px;display:flex;align-items:center;justify-content:center;
+                        font-size:0.72rem;font-weight:${isSelected?'700':'500'};border-radius:4px;cursor:${cursor};
+                        background:${bg};color:${color};border:${border};transition:all 0.1s;">${d}</div>`;
+                }
+                return `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px;">
+                    <div style="text-align:center;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:6px;">${MESES[month]} ${year}</div>
+                    <div style="display:grid;grid-template-columns:repeat(7,28px);gap:2px;justify-content:center;">
+                        ${DIAS_H.map(d => `<div style="width:28px;text-align:center;font-size:0.6rem;font-weight:700;color:#94a3b8;">${d}</div>`).join('')}
+                        ${cells}
+                    </div>
+                </div>`;
+            };
+
+            let monthsHtml = '';
+            for (let m = 0; m < 12; m++) monthsHtml += buildMonth(st.year, m);
+
+            const count = st.selected.filter(d => d >= new Date().toISOString().slice(0,10)).length;
+            const countFestivos = st.selected.filter(d => holidays.has(d)).length;
+            const countRevoked = revokedSet.size;
+
+            let summaryContent = '';
+            if (count > 0) {
+                let info = `${count} día${count !== 1 ? 's' : ''}`;
+                if (countRevoked > 0) info += ` · <span style="color:#ef4444;font-weight:700;">${countRevoked} revocada${countRevoked !== 1 ? 's' : ''}</span>`;
+                if (countFestivos > 0) info += ` (${countFestivos} festivo → F)`;
+                summaryContent = `<span style="font-size:0.78rem;font-weight:600;color:#1e293b;">${info}</span>
+                    <div style="display:flex;gap:4px;">
+                        <button onclick="App.ui._libranzaClear()" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;font-size:0.72rem;font-weight:600;cursor:pointer;">Limpiar</button>
+                        <button onclick="App.ui._libranzaSavePlan()" style="padding:4px 10px;border:none;border-radius:5px;background:#2563eb;color:white;font-size:0.72rem;font-weight:700;cursor:pointer;">${st.editId ? 'Guardar cambios' : 'Crear plan'}</button>
+                    </div>`;
+            } else {
+                summaryContent = `<span style="font-size:0.78rem;color:#94a3b8;">Selecciona los días de libranza en el calendario</span>`;
+            }
+
+            c.innerHTML = sectionBar + `
+                <div style="max-width:980px;margin:0 auto;width:100%;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;height:34px;">
+                        <button onclick="App.uiState.libranzas.mode='list';App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                            style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;flex-shrink:0;">◀ Volver</button>
+                        <select onchange="App.uiState.libranzas.empId=this.value; App.uiState.libranzas.selected=[]; App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                            style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.78rem;color:#1e293b;max-width:120px;flex-shrink:0;">${empOpts}</select>
+                        <div id="libranza-summary" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex:1;padding:5px 10px;background:${count > 0 ? '#eff6ff' : '#f8fafc'};border:1px solid ${count > 0 ? '#bfdbfe' : '#e2e8f0'};border-radius:6px;height:100%;box-sizing:border-box;">
+                            ${summaryContent}
+                        </div>
+                        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
+                            <button onclick="App.uiState.libranzas.year--;App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                                style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;">◀</button>
+                            <span style="font-size:0.82rem;font-weight:700;color:#1e293b;min-width:40px;text-align:center;">${st.year}</span>
+                            <button onclick="App.uiState.libranzas.year++;App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                                style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;">▶</button>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+                        ${monthsHtml}
+                    </div>
+                </div>`;
+
+            const insp = document.getElementById('inspector-content');
+            if (insp) insp.innerHTML = '';
+        },
+
+        _libranzaToggle: function(iso, el) {
+            const sel = App.uiState.libranzas.selected;
+            const idx = sel.indexOf(iso);
+            const holidays = new Set((App.data.storeConfig.holidays || []).map(h => h.date));
+            if (idx >= 0) {
+                sel.splice(idx, 1);
+                const isHoliday = holidays.has(iso);
+                const isSun = new Date(iso + 'T12:00:00').getDay() === 0;
+                el.style.background = isHoliday ? '#fef3c7' : 'white';
+                el.style.color = isHoliday ? '#92400e' : (isSun ? '#7c3aed' : '#1e293b');
+                el.style.border = isHoliday ? '1px solid #fcd34d' : '1px solid #e2e8f0';
+                el.style.fontWeight = '500';
+            } else {
+                sel.push(iso);
+                sel.sort();
+                el.style.background = '#2563eb';
+                el.style.color = 'white';
+                el.style.border = '1px solid #2563eb';
+                el.style.fontWeight = '700';
+            }
+            const count = sel.filter(d => d >= new Date().toISOString().slice(0,10)).length;
+            const summaryEl = document.getElementById('libranza-summary');
+            if (summaryEl) {
+                const editId = App.uiState.libranzas.editId;
+                if (count > 0) {
+                    const countF = sel.filter(d => holidays.has(d)).length;
+                    let info = `${count} día${count !== 1 ? 's' : ''} seleccionado${count !== 1 ? 's' : ''}`;
+                    if (countF > 0) info += ` (${countF} festivo → F)`;
+                    summaryEl.innerHTML = `<span style="font-size:0.78rem;font-weight:600;color:#1e293b;">${info}</span>
+                        <div style="display:flex;gap:4px;">
+                            <button onclick="App.ui._libranzaClear()" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;font-size:0.72rem;font-weight:600;cursor:pointer;">Limpiar</button>
+                            <button onclick="App.ui._libranzaSavePlan()" style="padding:4px 10px;border:none;border-radius:5px;background:#2563eb;color:white;font-size:0.72rem;font-weight:700;cursor:pointer;">${editId ? 'Guardar cambios' : 'Crear plan'}</button>
+                        </div>`;
+                    summaryEl.style.background = '#eff6ff';
+                    summaryEl.style.borderColor = '#bfdbfe';
+                } else {
+                    summaryEl.innerHTML = `<span style="font-size:0.78rem;color:#94a3b8;">Selecciona los días de libranza en el calendario</span>`;
+                    summaryEl.style.background = '#f8fafc';
+                    summaryEl.style.borderColor = '#e2e8f0';
+                }
+            }
+        },
+
+        _libranzaClear: function() {
+            App.uiState.libranzas.selected = [];
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        _libranzaSavePlan: function() {
+            const st = App.uiState.libranzas;
+            const emp = App.data.empleados.find(e => e.id === st.empId);
+            if (!emp) return;
+            const todayStr = new Date().toISOString().slice(0,10);
+            const dates = st.selected.filter(d => d >= todayStr).sort();
+            if (dates.length === 0) { alert('No hay días futuros seleccionados.'); return; }
+
+            if (!App.data.libranzaPlans) App.data.libranzaPlans = [];
+
+            if (st.editId) {
+                // Editar plan existente
+                const plan = App.data.libranzaPlans.find(p => p.id === st.editId);
+                if (plan) {
+                    plan.empId = st.empId;
+                    plan.dates = dates;
+                    plan.applied = false; // resetear al editar
+                }
+            } else {
+                // Crear nuevo
+                App.data.libranzaPlans.push({
+                    id: 'lp_' + Date.now(),
+                    empId: st.empId,
+                    dates,
+                    createdAt: new Date().toISOString(),
+                    applied: false
+                });
+            }
+
+            Safe.save('v40_db', App.data);
+            st.mode = 'list';
+            st.selected = [];
+            st.editId = null;
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        _libranzaPlanEdit: function(planId) {
+            const plan = (App.data.libranzaPlans || []).find(p => p.id === planId);
+            if (!plan) return;
+            const st = App.uiState.libranzas;
+            st.mode = 'calendar';
+            st.empId = plan.empId;
+            st.selected = [...plan.dates];
+            st.editId = plan.id;
+            st.year = plan.dates[0] ? parseInt(plan.dates[0].slice(0,4)) : new Date().getFullYear();
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        _libranzaPlanDel: function(planId) {
+            if (!confirm('¿Eliminar este plan de libranzas?')) return;
+            App.data.libranzaPlans = (App.data.libranzaPlans || []).filter(p => p.id !== planId);
+            Safe.save('v40_db', App.data);
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        _libranzaPlanApply: function(planId) {
+            const plan = (App.data.libranzaPlans || []).find(p => p.id === planId);
+            if (!plan) return;
+            const emp = App.data.empleados.find(e => e.id === plan.empId);
+            if (!emp) return;
+
+            const todayStr = new Date().toISOString().slice(0,10);
+            const dates = plan.dates.filter(d => d >= todayStr);
+            if (dates.length === 0) { alert('No quedan días futuros en este plan.'); return; }
+
+            const holidays = new Set((App.data.storeConfig.holidays || []).map(h => h.date));
+            const fixedL = App.data.fixedShifts.find(s => s.code === 'L');
+            const fixedF = App.data.fixedShifts.find(s => s.code === 'F');
+
+            // Detectar conflictos
+            const conflicts = [];
+            dates.forEach(d => {
+                const sv = (App.data.schedule[d] || {})[emp.id];
+                if (sv) {
+                    const sh = Utils.getShift(sv);
+                    if (sh && !sh.fixed) {
+                        conflicts.push({ date: d, shift: sh });
+                    }
+                }
+            });
+
+            if (conflicts.length > 0) {
+                const lista = conflicts.map(cf => `• ${Utils.formatDateES(cf.date)} — ${cf.shift.code || cf.shift.start + '–' + cf.shift.end}`).join('\n');
+                if (!confirm(`⚠️ ${conflicts.length} día${conflicts.length !== 1 ? 's' : ''} ya tiene${conflicts.length !== 1 ? 'n' : ''} turno:\n\n${lista}\n\n[Aceptar] → Sobreescribir\n[Cancelar] → Cancelar`)) return;
+            }
+
+            let countL = 0, countF = 0;
+            const countFestivos = dates.filter(d => holidays.has(d)).length;
+            if (countFestivos > 0) {
+                alert(`ℹ️ ${countFestivos} día${countFestivos !== 1 ? 's' : ''} coincide${countFestivos !== 1 ? 'n' : ''} con festivo y se marcarán como F en lugar de L.`);
+            }
+
+            dates.forEach(d => {
+                if (!App.data.schedule[d]) App.data.schedule[d] = {};
+                if (holidays.has(d)) {
+                    App.data.schedule[d][emp.id] = fixedF.id;
+                    countF++;
+                } else {
+                    App.data.schedule[d][emp.id] = fixedL.id;
+                    countL++;
+                }
+            });
+
+            plan.applied = true;
+            Safe.save('v40_db', App.data);
+            App.logic.checkAlerts();
+
+            alert(`✅ Plan aplicado para ${emp.nombre}:\n• ${countL} día${countL !== 1 ? 's' : ''} → L\n${countF > 0 ? `• ${countF} día${countF !== 1 ? 's' : ''} → F (festivo)\n` : ''}`);
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        // ============================================================
+        // PLAN GENÉRICO (vacaciones) — reutilizable
+        // ============================================================
+        _planConfig: function(type) {
+            if (type === 'vacaciones') return {
+                dataKey: 'vacacionesPlans', uiKey: 'vacacionesPlan', shiftCode: 'V',
+                label: 'vacaciones', emoji: '🏖️', color: '#a855f7',
+                idPrefix: 'vp_', badge: 'Vacaciones'
+            };
+            return null;
+        },
+
+        _renderPlanGeneric: function(c, sectionBar, type) {
+            if (c.parentElement) c.parentElement.style.cssText += ';display:flex;flex-direction:column;';
+            c.style.cssText = 'padding:16px;overflow-y:auto;box-sizing:border-box;scrollbar-gutter:stable;';
+            const cfg = this._planConfig(type);
+            if (!App.data[cfg.dataKey]) App.data[cfg.dataKey] = [];
+            if (!App.uiState[cfg.uiKey]) App.uiState[cfg.uiKey] = { mode: 'list', empId: null, selected: [], year: new Date().getFullYear(), editId: null };
+            const st = App.uiState[cfg.uiKey];
+            if (st.mode === 'calendar') this._renderPlanCalendar(c, sectionBar, type);
+            else if (st.mode === 'global') this._renderPlanGlobal(c, sectionBar, type);
+            else this._renderPlanList(c, sectionBar, type);
+        },
+
+        _renderPlanList: function(c, sectionBar, type) {
+            const cfg = this._planConfig(type);
+            const plans = App.data[cfg.dataKey] || [];
+            const todayStr = new Date().toISOString().slice(0,10);
+            const uiKey = cfg.uiKey;
+
+            // Detectar empleados con múltiples planes (para botón fusionar)
+            const empPlanCount = {};
+            plans.forEach(p => { empPlanCount[p.empId] = (empPlanCount[p.empId] || 0) + 1; });
+            const hasDuplicates = Object.values(empPlanCount).some(c => c > 1);
+
+            let html = sectionBar + `<div style="max-width:680px;margin:0 auto;width:100%;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <span style="font-size:0.82rem;color:#64748b;font-weight:500;">${plans.length} plan${plans.length!==1?'es':''}</span>
+                    <div style="display:flex;gap:6px;">
+                        ${(plans.length > 0 || (type === 'vacaciones' && this._getOrphanVacDays().length > 0)) ? `<button onclick="App.uiState.${uiKey}.mode='global';App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                            style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;border:1px solid #e2e8f0;
+                                   background:white;color:#64748b;font-size:0.82rem;font-weight:600;cursor:pointer;">
+                            📅 Vista global
+                        </button>` : ''}
+                        ${hasDuplicates ? `<button onclick="App.ui._planMergeAll('${type}')"
+                            style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;border:1px solid #e2e8f0;
+                                   background:white;color:#64748b;font-size:0.82rem;font-weight:600;cursor:pointer;">
+                            🔗 Fusionar
+                        </button>` : ''}
+                        <button onclick="App.uiState.${uiKey}.mode='calendar';App.uiState.${uiKey}.selected=[];App.uiState.${uiKey}.editId=null;App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                            style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;border:none;
+                                   background:#2563eb;color:white;font-size:0.82rem;font-weight:600;cursor:pointer;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Nuevo plan
+                        </button>
+                    </div>
+                </div>`;
+
+            if (plans.length === 0) {
+                html += `<div style="text-align:center;padding:50px;border:2px dashed #e2e8f0;border-radius:8px;color:#94a3b8;">
+                    <div style="font-size:2.5rem;margin-bottom:12px;">${cfg.emoji}</div>
+                    <div style="font-weight:600;margin-bottom:6px;">No hay planes de ${cfg.label}</div>
+                    <div style="font-size:0.85rem;">Crea un plan para asignar ${cfg.label} a un empleado.</div>
+                </div>`;
+            } else {
+                html += `<div style="display:flex;flex-direction:column;gap:8px;">`;
+                plans.slice().sort((a,b) => b.createdAt.localeCompare(a.createdAt)).forEach(p => {
+                    const emp = App.data.empleados.find(e => e.id === p.empId);
+                    const empName = emp ? emp.nombre : '(eliminado)';
+                    const dateRange = p.dates.length > 0 ? `${Utils.formatDateES(p.dates[0])} → ${Utils.formatDateES(p.dates[p.dates.length-1])}` : '';
+                    let revokedCount = 0;
+                    if (p.applied) {
+                        p.dates.forEach(d => {
+                            const sv = (App.data.schedule[d] || {})[p.empId];
+                            if (!sv) { revokedCount++; return; }
+                            const sh = Utils.getShift(sv);
+                            if (!sh || !sh.fixed || sh.code !== cfg.shiftCode) revokedCount++;
+                        });
+                    }
+                    let badge = '';
+                    if (!p.applied) badge = `<span style="padding:2px 8px;background:#fef3c7;color:#92400e;border-radius:4px;font-size:0.68rem;font-weight:700;">Pendiente</span>`;
+                    else if (revokedCount > 0) badge = `<span style="padding:2px 8px;background:#fee2e2;color:#dc2626;border-radius:4px;font-size:0.68rem;font-weight:700;">${revokedCount} revocada${revokedCount!==1?'s':''}</span>`;
+                    else badge = `<span style="padding:2px 8px;background:#dcfce7;color:#15803d;border-radius:4px;font-size:0.68rem;font-weight:700;">Aplicado</span>`;
+
+                    html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;cursor:pointer;transition:box-shadow 0.15s;"
+                        onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-weight:700;font-size:0.88rem;color:#1e293b;">${empName}</span>
+                                ${badge}
+                            </div>
+                            <div style="display:flex;gap:4px;">
+                                ${!p.applied ? `<button onclick="event.stopPropagation();App.ui._planApply('${type}','${p.id}')" title="Aplicar" style="background:none;border:none;cursor:pointer;color:#16a34a;padding:2px 4px;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                </button>` : ''}
+                                <button onclick="event.stopPropagation();App.ui._planEdit('${type}','${p.id}')" title="Editar" style="background:none;border:none;cursor:pointer;color:#64748b;padding:2px 4px;">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3-9 9H2v-3L11 2z"/></svg>
+                                </button>
+                                <button onclick="event.stopPropagation();App.ui._planDel('${type}','${p.id}')" title="Eliminar" style="background:none;border:none;cursor:pointer;color:#ef4444;padding:2px 4px;">✕</button>
+                            </div>
+                        </div>
+                        <div style="font-size:0.78rem;color:#64748b;">${p.dates.length} día${p.dates.length!==1?'s':''} · ${dateRange}</div>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
+            // Planes virtuales (V del schedule sin plan) — solo vacaciones
+            if (type === 'vacaciones') {
+                const orphans = this._getOrphanVacDays();
+                if (orphans.length > 0) {
+                    html += `<div style="margin-top:16px;padding-top:12px;border-top:1px dashed #e2e8f0;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                            <span style="font-size:0.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;">Del planificador (sin plan asociado)</span>
+                            <button onclick="App.ui._planAbsorbOrphans()"
+                                style="padding:4px 12px;border:1px solid #c4b5fd;border-radius:6px;background:#faf5ff;color:#7c3aed;font-size:0.72rem;font-weight:600;cursor:pointer;">
+                                🔗 Incorporar a planes
+                            </button>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:6px;">`;
+                    orphans.forEach(p => {
+                        const emp = App.data.empleados.find(e => e.id === p.empId);
+                        const empName = emp ? emp.nombre : '?';
+                        const dateRange = `${Utils.formatDateES(p.dates[0])} → ${Utils.formatDateES(p.dates[p.dates.length-1])}`;
+                        html += `<div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:10px 14px;opacity:0.8;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                                <span style="font-weight:600;font-size:0.85rem;color:#7c3aed;">${empName}</span>
+                                <span style="padding:2px 8px;background:#f3e8ff;color:#7c3aed;border-radius:4px;font-size:0.65rem;font-weight:700;">Planificador</span>
+                            </div>
+                            <div style="font-size:0.75rem;color:#64748b;">${p.dates.length} día${p.dates.length!==1?'s':''} · ${dateRange}</div>
+                        </div>`;
+                    });
+                    html += `</div></div>`;
+                }
+            }
+
+            html += `</div>`;
+            c.innerHTML = html;
+            const insp = document.getElementById('inspector-content');
+            if (insp) insp.innerHTML = '';
+        },
+
+        _renderPlanCalendar: function(c, sectionBar, type) {
+            const cfg = this._planConfig(type);
+            const st = App.uiState[cfg.uiKey];
+            if (!st.empId && App.data.empleados.length > 0) st.empId = App.data.empleados.filter(e => e.active !== false).sort((a,b) => a.customOrder - b.customOrder)[0]?.id || null;
+
+            const DIAS_H = ['L','M','X','J','V','S','D'];
+            const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+            const empOpts = App.data.empleados
+                .filter(e => e.active !== false).sort((a,b) => a.customOrder - b.customOrder)
+                .map(e => `<option value="${e.id}" ${e.id === st.empId ? 'selected' : ''}>${e.nombre}</option>`).join('');
+
+            // Revocadas
+            const editingPlan = st.editId ? (App.data[cfg.dataKey] || []).find(p => p.id === st.editId) : null;
+            const revokedSet = new Set();
+            if (editingPlan && editingPlan.applied) {
+                editingPlan.dates.forEach(d => {
+                    const sv = (App.data.schedule[d] || {})[st.empId];
+                    if (!sv) { revokedSet.add(d); return; }
+                    const sh = Utils.getShift(sv);
+                    if (!sh || !sh.fixed || sh.code !== cfg.shiftCode) revokedSet.add(d);
+                });
+            }
+
+            const buildMonth = (year, month) => {
+                const first = new Date(year, month, 1);
+                let startDow = first.getDay();
+                startDow = startDow === 0 ? 6 : startDow - 1;
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                let cells = '';
+                for (let i = 0; i < startDow; i++) cells += `<div style="width:28px;height:24px;"></div>`;
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                    const isSelected = st.selected.includes(iso);
+                    const isRevoked = revokedSet.has(iso);
+                    const isSun = new Date(year, month, d).getDay() === 0;
+                    const isPast = iso < new Date().toISOString().slice(0,10);
+                    let bg = 'white', color = '#1e293b', border = '1px solid #e2e8f0', title = '';
+                    if (isSelected && isRevoked) { bg = '#ef4444'; color = 'white'; border = '1px solid #dc2626'; title = `title="Revocada — estas ${cfg.label} fueron concedidas pero se modificaron"`; }
+                    else if (isSelected) { bg = cfg.color; color = 'white'; border = `1px solid ${cfg.color}`; }
+                    else if (isSun) { color = '#7c3aed'; }
+                    if (isPast && !isRevoked) { bg = isSelected ? cfg.color + '88' : '#f8fafc'; color = isSelected ? 'white' : '#cbd5e1'; }
+                    const cursor = isPast ? 'default' : 'pointer';
+                    const onclick = isPast ? '' : `onclick="App.ui._planToggle('${type}','${iso}', this)"`;
+                    cells += `<div ${onclick} ${title} style="width:28px;height:24px;display:flex;align-items:center;justify-content:center;
+                        font-size:0.72rem;font-weight:${isSelected?'700':'500'};border-radius:4px;cursor:${cursor};
+                        background:${bg};color:${color};border:${border};transition:all 0.1s;">${d}</div>`;
+                }
+                return `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px;">
+                    <div style="text-align:center;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:6px;">${MESES[month]} ${year}</div>
+                    <div style="display:grid;grid-template-columns:repeat(7,28px);gap:2px;justify-content:center;">
+                        ${DIAS_H.map(d => `<div style="width:28px;text-align:center;font-size:0.6rem;font-weight:700;color:#94a3b8;">${d}</div>`).join('')}
+                        ${cells}
+                    </div>
+                </div>`;
+            };
+
+            let monthsHtml = '';
+            for (let m = 0; m < 12; m++) monthsHtml += buildMonth(st.year, m);
+
+            const count = st.selected.filter(d => d >= new Date().toISOString().slice(0,10)).length;
+            const countRevoked = revokedSet.size;
+            let summaryContent = '';
+            if (count > 0) {
+                let info = `${count} día${count !== 1 ? 's' : ''}`;
+                if (countRevoked > 0) info += ` · <span style="color:#ef4444;font-weight:700;">${countRevoked} revocada${countRevoked !== 1 ? 's' : ''}</span>`;
+                summaryContent = `<span style="font-size:0.78rem;font-weight:600;color:#1e293b;">${info}</span>
+                    <div style="display:flex;gap:4px;">
+                        <button onclick="App.ui._planClear('${type}')" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;font-size:0.72rem;font-weight:600;cursor:pointer;">Limpiar</button>
+                        <button onclick="App.ui._planSave('${type}')" style="padding:4px 10px;border:none;border-radius:5px;background:${cfg.color};color:white;font-size:0.72rem;font-weight:700;cursor:pointer;">${st.editId ? 'Guardar' : 'Crear plan'}</button>
+                    </div>`;
+            } else {
+                summaryContent = `<span style="font-size:0.78rem;color:#94a3b8;">Selecciona los días de ${cfg.label} en el calendario</span>`;
+            }
+
+            c.innerHTML = sectionBar + `
+                <div style="max-width:980px;margin:0 auto;width:100%;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;height:34px;">
+                        <button onclick="App.uiState.${cfg.uiKey}.mode='list';App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                            style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;flex-shrink:0;">◀ Volver</button>
+                        <select onchange="App.uiState.${cfg.uiKey}.empId=this.value;App.uiState.${cfg.uiKey}.selected=[];App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                            style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.78rem;color:#1e293b;max-width:120px;flex-shrink:0;">${empOpts}</select>
+                        <div id="plan-summary-${type}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex:1;padding:5px 10px;background:${count > 0 ? '#f5f3ff' : '#f8fafc'};border:1px solid ${count > 0 ? '#c4b5fd' : '#e2e8f0'};border-radius:6px;height:100%;box-sizing:border-box;">
+                            ${summaryContent}
+                        </div>
+                        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
+                            <button onclick="App.uiState.${cfg.uiKey}.year--;App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                                style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;">◀</button>
+                            <span style="font-size:0.82rem;font-weight:700;color:#1e293b;min-width:40px;text-align:center;">${st.year}</span>
+                            <button onclick="App.uiState.${cfg.uiKey}.year++;App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                                style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;">▶</button>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">${monthsHtml}</div>
+                </div>`;
+            const insp = document.getElementById('inspector-content');
+            if (insp) insp.innerHTML = '';
+        },
+
+        _planToggle: function(type, iso, el) {
+            const cfg = this._planConfig(type);
+            const sel = App.uiState[cfg.uiKey].selected;
+            const idx = sel.indexOf(iso);
+            if (idx >= 0) { sel.splice(idx, 1); el.style.background = 'white'; el.style.color = '#1e293b'; el.style.border = '1px solid #e2e8f0'; el.style.fontWeight = '500'; }
+            else { sel.push(iso); sel.sort(); el.style.background = cfg.color; el.style.color = 'white'; el.style.border = `1px solid ${cfg.color}`; el.style.fontWeight = '700'; }
+            // Actualizar summary inline
+            const count = sel.filter(d => d >= new Date().toISOString().slice(0,10)).length;
+            const summaryEl = document.getElementById(`plan-summary-${type}`);
+            if (summaryEl) {
+                const editId = App.uiState[cfg.uiKey].editId;
+                if (count > 0) {
+                    summaryEl.innerHTML = `<span style="font-size:0.78rem;font-weight:600;color:#1e293b;">${count} día${count !== 1 ? 's' : ''}</span>
+                        <div style="display:flex;gap:4px;">
+                            <button onclick="App.ui._planClear('${type}')" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;font-size:0.72rem;font-weight:600;cursor:pointer;">Limpiar</button>
+                            <button onclick="App.ui._planSave('${type}')" style="padding:4px 10px;border:none;border-radius:5px;background:${cfg.color};color:white;font-size:0.72rem;font-weight:700;cursor:pointer;">${editId ? 'Guardar' : 'Crear plan'}</button>
+                        </div>`;
+                    summaryEl.style.background = '#f5f3ff'; summaryEl.style.borderColor = '#c4b5fd';
+                } else {
+                    summaryEl.innerHTML = `<span style="font-size:0.78rem;color:#94a3b8;">Selecciona los días de ${cfg.label} en el calendario</span>`;
+                    summaryEl.style.background = '#f8fafc'; summaryEl.style.borderColor = '#e2e8f0';
+                }
+            }
+        },
+
+        _planClear: function(type) { const cfg = this._planConfig(type); App.uiState[cfg.uiKey].selected = []; App.ui.renderRequests(document.querySelector('.main-scroll')); },
+
+        _planSave: function(type) {
+            const cfg = this._planConfig(type);
+            const st = App.uiState[cfg.uiKey];
+            const emp = App.data.empleados.find(e => e.id === st.empId);
+            if (!emp) return;
+            const dates = st.selected.slice().sort();
+            if (dates.length === 0) { alert('No hay días seleccionados.'); return; }
+            if (!App.data[cfg.dataKey]) App.data[cfg.dataKey] = [];
+            if (st.editId) {
+                const plan = App.data[cfg.dataKey].find(p => p.id === st.editId);
+                if (plan) {
+                    plan.empId = st.empId;
+                    plan.dates = dates;
+                    // Mantener applied si todas las fechas ya tienen el turno correcto en schedule
+                    if (plan.applied) {
+                        const allApplied = dates.every(d => {
+                            const sv = (App.data.schedule[d] || {})[st.empId];
+                            const sh = sv ? Utils.getShift(sv) : null;
+                            return sh && sh.fixed && sh.code === cfg.shiftCode;
+                        });
+                        plan.applied = allApplied;
+                    }
+                }
+            } else {
+                App.data[cfg.dataKey].push({ id: cfg.idPrefix + Date.now(), empId: st.empId, dates, createdAt: new Date().toISOString(), applied: false });
+            }
+            Safe.save('v40_db', App.data);
+            st.mode = 'list'; st.selected = []; st.editId = null;
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        _planEdit: function(type, planId) {
+            const cfg = this._planConfig(type);
+            const plan = (App.data[cfg.dataKey] || []).find(p => p.id === planId);
+            if (!plan) return;
+            const st = App.uiState[cfg.uiKey];
+            st.mode = 'calendar'; st.empId = plan.empId; st.selected = [...plan.dates]; st.editId = plan.id;
+            st.year = plan.dates[0] ? parseInt(plan.dates[0].slice(0,4)) : new Date().getFullYear();
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        _planDel: function(type, planId) {
+            const cfg = this._planConfig(type);
+            if (!confirm(`¿Eliminar este plan de ${cfg.label}?`)) return;
+            App.data[cfg.dataKey] = (App.data[cfg.dataKey] || []).filter(p => p.id !== planId);
+            Safe.save('v40_db', App.data);
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        _planApply: function(type, planId) {
+            const cfg = this._planConfig(type);
+            const plan = (App.data[cfg.dataKey] || []).find(p => p.id === planId);
+            if (!plan) return;
+            const emp = App.data.empleados.find(e => e.id === plan.empId);
+            if (!emp) return;
+            const dates = plan.dates.filter(d => d >= new Date().toISOString().slice(0,10));
+            if (dates.length === 0) { alert('No quedan días futuros en este plan.'); return; }
+            const fixedShift = App.data.fixedShifts.find(s => s.code === cfg.shiftCode);
+            // Conflictos
+            const conflicts = [];
+            dates.forEach(d => {
+                const sv = (App.data.schedule[d] || {})[emp.id];
+                if (sv) { const sh = Utils.getShift(sv); if (sh && !sh.fixed) conflicts.push({ date: d, shift: sh }); }
+            });
+            if (conflicts.length > 0) {
+                const lista = conflicts.map(cf => `• ${Utils.formatDateES(cf.date)} — ${cf.shift.code || cf.shift.start + '–' + cf.shift.end}`).join('\n');
+                if (!confirm(`⚠️ ${conflicts.length} día${conflicts.length !== 1 ? 's' : ''} ya tiene${conflicts.length !== 1 ? 'n' : ''} turno:\n\n${lista}\n\n[Aceptar] → Sobreescribir\n[Cancelar] → Cancelar`)) return;
+            }
+            dates.forEach(d => {
+                if (!App.data.schedule[d]) App.data.schedule[d] = {};
+                App.data.schedule[d][emp.id] = fixedShift.id;
+            });
+            plan.applied = true;
+            Safe.save('v40_db', App.data);
+            App.logic.checkAlerts();
+            alert(`✅ ${cfg.badge} aplicadas para ${emp.nombre}: ${dates.length} día${dates.length !== 1 ? 's' : ''} → ${cfg.shiftCode}`);
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        // Helper: ¿este día+empleado pertenece a un plan genérico aplicado?
+        _isPlanDay: function(type, empId, date) {
+            const cfg = this._planConfig(type);
+            if (!cfg || !App.data[cfg.dataKey]) return null;
+            return App.data[cfg.dataKey].find(p => p.applied && p.empId === empId && p.dates.includes(date)) || null;
+        },
+
+        // Escanear schedule para V no cubiertas por ningún plan
+        _getOrphanVacDays: function() {
+            const plans = App.data.vacacionesPlans || [];
+            const planDates = new Set();
+            plans.forEach(p => p.dates.forEach(d => planDates.add(p.empId + '|' + d)));
+            const byEmp = {};
+            Object.keys(App.data.schedule || {}).forEach(date => {
+                const day = App.data.schedule[date];
+                Object.keys(day).forEach(empId => {
+                    const sv = day[empId];
+                    const sh = Utils.getShift(sv);
+                    if (sh && sh.fixed && sh.code === 'V' && !planDates.has(empId + '|' + date)) {
+                        if (!byEmp[empId]) byEmp[empId] = [];
+                        byEmp[empId].push(date);
+                    }
+                });
+            });
+            // Devolver como pseudo-planes
+            return Object.keys(byEmp).map(empId => ({
+                id: '__orphan_' + empId,
+                empId,
+                dates: byEmp[empId].sort(),
+                applied: true,
+                virtual: true,
+                createdAt: '2000-01-01'
+            }));
+        },
+
+        _planAbsorbOrphans: function() {
+            const orphans = this._getOrphanVacDays();
+            if (orphans.length === 0) { alert('No hay vacaciones huérfanas.'); return; }
+            if (!App.data.vacacionesPlans) App.data.vacacionesPlans = [];
+            let absorbed = 0;
+            orphans.forEach(orph => {
+                // Buscar plan existente del empleado
+                const existing = App.data.vacacionesPlans.find(p => p.empId === orph.empId);
+                if (existing) {
+                    // Fusionar fechas
+                    const merged = [...new Set([...existing.dates, ...orph.dates])].sort();
+                    existing.dates = merged;
+                    existing.applied = true;
+                } else {
+                    // Crear plan nuevo
+                    App.data.vacacionesPlans.push({
+                        id: 'vp_absorbed_' + Date.now() + '_' + orph.empId,
+                        empId: orph.empId,
+                        dates: orph.dates,
+                        createdAt: new Date().toISOString(),
+                        applied: true
+                    });
+                }
+                absorbed += orph.dates.length;
+            });
+            Safe.save('v40_db', App.data);
+            alert(`✅ ${absorbed} día${absorbed !== 1 ? 's' : ''} de ${orphans.length} empleado${orphans.length !== 1 ? 's' : ''} incorporados a sus planes de vacaciones.`);
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        _planMergeAll: function(type) {
+            const cfg = this._planConfig(type);
+            const plans = App.data[cfg.dataKey] || [];
+            const byEmp = {};
+            plans.forEach(p => {
+                if (!byEmp[p.empId]) byEmp[p.empId] = [];
+                byEmp[p.empId].push(p);
+            });
+            let mergedCount = 0;
+            Object.keys(byEmp).forEach(empId => {
+                const group = byEmp[empId];
+                if (group.length <= 1) return;
+                // Fusionar todas las fechas, deduplicar, ordenar
+                const allDates = [...new Set(group.flatMap(p => p.dates))].sort();
+                const anyApplied = group.some(p => p.applied);
+                // Conservar el más antiguo como base
+                const base = group.sort((a,b) => a.createdAt.localeCompare(b.createdAt))[0];
+                base.dates = allDates;
+                base.applied = anyApplied;
+                // Eliminar los demás
+                const idsToRemove = new Set(group.filter(p => p.id !== base.id).map(p => p.id));
+                App.data[cfg.dataKey] = App.data[cfg.dataKey].filter(p => !idsToRemove.has(p.id));
+                mergedCount += idsToRemove.size;
+            });
+            if (mergedCount === 0) { alert('No hay planes duplicados para fusionar.'); return; }
+            Safe.save('v40_db', App.data);
+            alert(`✅ ${mergedCount} plan${mergedCount !== 1 ? 'es' : ''} fusionado${mergedCount !== 1 ? 's' : ''}. Cada empleado tiene ahora un único plan.`);
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        _renderPlanGlobal: function(c, sectionBar, type) {
+            const cfg = this._planConfig(type);
+            const plans = App.data[cfg.dataKey] || [];
+            const st = App.uiState[cfg.uiKey];
+            if (!st.year) st.year = new Date().getFullYear();
+
+            const DIAS_H = ['L','M','X','J','V','S','D'];
+            const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            const _rerender = `App.ui.renderRequests(document.querySelector('.main-scroll'))`;
+
+            // Colores por empleado
+            const EMP_COLORS = ['#2563eb','#7c3aed','#0891b2','#dc2626','#d97706','#16a34a','#db2777','#4f46e5','#0d9488','#b91c1c','#ca8a04','#059669'];
+            const activeEmps = App.data.empleados.filter(e => e.active !== false).sort((a,b) => a.customOrder - b.customOrder);
+            const empColorMap = {};
+            activeEmps.forEach((e, i) => { empColorMap[e.id] = EMP_COLORS[i % EMP_COLORS.length]; });
+
+            // Incluir huérfanos en vacaciones
+            const allPlans = type === 'vacaciones' ? [...plans, ...this._getOrphanVacDays()] : plans;
+
+            // Índice: fecha → [{ empId, color, nombre }]  (deduplicar por empId+fecha)
+            const dateIndex = {};
+            const _seen = new Set();
+            allPlans.forEach(p => {
+                const emp = App.data.empleados.find(e => e.id === p.empId);
+                const color = empColorMap[p.empId] || '#94a3b8';
+                const nombre = emp ? emp.nombre : '?';
+                p.dates.forEach(d => {
+                    const key = p.empId + '|' + d;
+                    if (_seen.has(key)) return;
+                    _seen.add(key);
+                    if (!dateIndex[d]) dateIndex[d] = [];
+                    dateIndex[d].push({ empId: p.empId, color, nombre });
+                });
+            });
+
+            const buildMonth = (year, month) => {
+                const first = new Date(year, month, 1);
+                let startDow = first.getDay();
+                startDow = startDow === 0 ? 6 : startDow - 1;
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                let cells = '';
+                for (let i = 0; i < startDow; i++) cells += `<div style="width:28px;height:24px;"></div>`;
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                    const entries = dateIndex[iso] || [];
+                    const isSun = new Date(year, month, d).getDay() === 0;
+                    let bg = 'white', color = isSun ? '#7c3aed' : '#1e293b', border = '1px solid #e2e8f0', title = '';
+                    if (entries.length === 1) {
+                        bg = entries[0].color + '22'; border = `2px solid ${entries[0].color}`;
+                        color = entries[0].color; title = `title="${entries[0].nombre}"`;
+                    } else if (entries.length > 1) {
+                        // Múltiples empleados — gradiente
+                        const names = entries.map(e => e.nombre).join(', ');
+                        bg = `linear-gradient(135deg, ${entries.map((e,i) => e.color + ' ' + Math.round(i/entries.length*100) + '%, ' + e.color + ' ' + Math.round((i+1)/entries.length*100) + '%').join(', ')})`;
+                        color = 'white'; border = '2px solid #475569';
+                        title = `title="${entries.length} personas: ${names}"`;
+                    }
+                    cells += `<div ${title} style="width:28px;height:24px;display:flex;align-items:center;justify-content:center;
+                        font-size:0.72rem;font-weight:${entries.length > 0 ? '700' : '500'};border-radius:4px;
+                        background:${bg};color:${color};border:${border};">${d}</div>`;
+                }
+                return `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px;">
+                    <div style="text-align:center;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:6px;">${MESES[month]} ${year}</div>
+                    <div style="display:grid;grid-template-columns:repeat(7,28px);gap:2px;justify-content:center;">
+                        ${DIAS_H.map(d => `<div style="width:28px;text-align:center;font-size:0.6rem;font-weight:700;color:#94a3b8;">${d}</div>`).join('')}
+                        ${cells}
+                    </div>
+                </div>`;
+            };
+
+            let monthsHtml = '';
+            for (let m = 0; m < 12; m++) monthsHtml += buildMonth(st.year, m);
+
+            // Leyenda de empleados (incluyendo huérfanos)
+            const empsWithPlans = [...new Set(allPlans.map(p => p.empId))];
+            const legend = empsWithPlans.map(eid => {
+                const emp = App.data.empleados.find(e => e.id === eid);
+                const color = empColorMap[eid] || '#94a3b8';
+                const totalDays = allPlans.filter(p => p.empId === eid).reduce((s, p) => s + p.dates.length, 0);
+                return `<div style="display:flex;align-items:center;gap:6px;">
+                    <div style="width:12px;height:12px;border-radius:3px;background:${color};flex-shrink:0;"></div>
+                    <span style="font-size:0.78rem;color:#1e293b;font-weight:600;">${emp ? emp.nombre : '?'}</span>
+                    <span style="font-size:0.7rem;color:#94a3b8;">${totalDays}d</span>
+                </div>`;
+            }).join('');
+
+            c.innerHTML = sectionBar + `
+                <div style="max-width:980px;margin:0 auto;width:100%;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                        <button onclick="App.uiState.${cfg.uiKey}.mode='list';${_rerender}"
+                            style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;">◀ Volver</button>
+                        <div style="display:flex;align-items:center;gap:3px;">
+                            <button onclick="App.uiState.${cfg.uiKey}.year--;${_rerender}"
+                                style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;">◀</button>
+                            <span style="font-size:0.82rem;font-weight:700;color:#1e293b;min-width:40px;text-align:center;">${st.year}</span>
+                            <button onclick="App.uiState.${cfg.uiKey}.year++;${_rerender}"
+                                style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;">▶</button>
+                        </div>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:10px 20px;margin-bottom:12px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+                        ${legend}
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+                        ${monthsHtml}
+                    </div>
+                </div>`;
+            const insp = document.getElementById('inspector-content');
+            if (insp) insp.innerHTML = '';
         },
 
         _renderEventos: function(c, sectionBar) {

@@ -357,6 +357,12 @@ const Utils = {
         return `${year}WK${String(week).padStart(2, '0')}`;
     },
     
+    addWeeks: function(mondayIso, n) {
+        const d = new Date(mondayIso + 'T12:00:00');
+        d.setDate(d.getDate() + n * 7);
+        return d.toISOString().slice(0, 10);
+    },
+
     getWeekLabel: function(iso) {
         const weekCode = this.getWeekCode(iso);
         const d = new Date(iso);

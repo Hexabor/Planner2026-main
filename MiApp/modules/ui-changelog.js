@@ -6,6 +6,28 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '05/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Gestión diaria — reestructuración: 3 botones principales (Solicitudes/Eventos/Llaves) + sub-tabs (Puntuales/Periódicas/Libranzas/Vacaciones)',
+                    '✨ Plan de libranzas — calendario anual 12 meses, selección de días, detección de conflictos, festivos → F',
+                    '✨ Plan de vacaciones — misma estructura, color púrpura, siempre V',
+                    '✨ Vacaciones — vista global con calendario anual de todos los empleados (colores por persona)',
+                    '✨ Vacaciones — fusión de planes duplicados del mismo empleado',
+                    '✨ Vacaciones — incorporación de V huérfanas del planificador a planes existentes',
+                    '✨ Vacaciones — detección de revocaciones (fechas en rojo al editar plan)',
+                    '✨ Protección — aviso al sobreescribir libranza o vacaciones de un plan solicitado por el staff',
+                    '✨ Inspector planner — nueva pestaña "Semanas": vista de 20 semanas de un empleado con balance',
+                    '✨ Análisis — nueva pestaña "Vista de Semanas" con tabla centrada y dots grandes',
+                    '✨ Utils.addWeeks — helper para navegación por semanas',
+                    '🔧 Migración automática: requests VAC → vacacionesPlans (transparente con backups)',
+                    '🔧 VAC eliminado de solicitudes puntuales (ahora solo en Plan de vacaciones)',
+                    '🔧 Export/Import incluye libranzaPlans y vacacionesPlans en categoría Planificación',
+                    '🔧 Fix: editar plan aplicado ya no resetea a Pendiente si las fechas siguen aplicadas',
+                    '🔧 Fix: guardar plan ya no descarta fechas pasadas (vacaciones disfrutadas se conservan)',
+                    '🔧 Pestañas inspector reordenadas: Gráficos/Balance/Fines/Eventos/Festivos/Equilibrio/Semanas',
+                ]
+            },
+            {
                 fecha: '03/04/2026 (noche 2)', version: 'v1.0',
                 items: [
                     '✨ Alertas — tramo sin TAG3 en tienda (semanas cerradas)',

@@ -11,7 +11,7 @@ Object.assign(App.ui, {
 
             const tabBar = `
                 <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content;margin-bottom:20px;">
-                    ${[['horas','Horas Semanales'],['equilibrio','Equilibrio de Turnos'],['ranking','Turnos Más Usados']].map(([id,label])=>`
+                    ${[['horas','Horas Semanales'],['equilibrio','Equilibrio de Turnos'],['ranking','Turnos Más Usados'],['semanas','Vista de Semanas']].map(([id,label])=>`
                     <button onclick="${setTab(id)}" style="padding:8px 18px;border:none;cursor:pointer;font-size:0.8rem;font-weight:600;
                         background:${tab===id?'#1e293b':'white'};color:${tab===id?'white':'#64748b'};border-right:1px solid var(--border);">${label}</button>`).join('')}
                 </div>`;
@@ -450,6 +450,123 @@ Object.assign(App.ui, {
                         }).join('')}
                     </div>`
                 }`;
+            }
+
+            // ─── TAB 4: VISTA DE SEMANAS ─────────────────────────────────────
+            if(tab === 'semanas') {
+                const NUM_WEEKS = 20;
+                if (!App.uiState.analisisSemanasEmpId) {
+                    const first = emps[0];
+                    App.uiState.analisisSemanasEmpId = first ? first.id : null;
+                }
+                if (!App.uiState.analisisSemanasStart) App.uiState.analisisSemanasStart = Utils.getMonday(new Date().toISOString().slice(0,10));
+
+                const emp = App.data.empleados.find(e => e.id === App.uiState.analisisSemanasEmpId);
+                const _rerender = `App.ui.renderAnalisis(document.querySelector('.main-scroll'))`;
+                const f1 = n => Math.round(n * 10) / 10;
+
+                if (!emp) {
+                    body = '<div style="padding:40px;text-align:center;color:#94a3b8;">No hay empleados activos</div>';
+                } else {
+                    const startMonday = App.uiState.analisisSemanasStart;
+                    const empOpts = emps.map(e => `<option value="${e.id}" ${e.id === emp.id ? 'selected' : ''}>${e.nombre}</option>`).join('');
+
+                    // Acumulado previo
+                    let acum = emp.saldoInicial || 0;
+                    const lockedWeeks = App.ui._getLockedWeeks(emp);
+                    lockedWeeks.forEach(lw => {
+                        if (lw >= startMonday) return;
+                        const wdays = Utils.getWeekDays(lw);
+                        let worked = 0;
+                        wdays.forEach(d => { const sid = App.data.schedule[d]?.[emp.id]; const sh = sid ? Utils.getShift(sid) : null; if (sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break); });
+                        const { esperadas } = Utils.calcEsperadas(Utils.getContrato(emp, lw), wdays, emp.id);
+                        acum += worked - esperadas;
+                    });
+                    acum += (emp.ajustes || []).reduce((s, a) => s + a.signo * a.horas, 0);
+
+                    const todayMonday = Utils.getMonday(new Date().toISOString().slice(0,10));
+
+                    let rows = '';
+                    for (let w = 0; w < NUM_WEEKS; w++) {
+                        const mon = Utils.addWeeks(startMonday, w);
+                        const days = Utils.getWeekDays(mon);
+                        const wkCode = Utils.getWeekCode(mon);
+                        const isLocked = days.every(d => App.data.lockedDays && App.data.lockedDays[d]);
+                        const isCurrent = mon === todayMonday;
+                        const contrato = Utils.getContrato(emp, mon);
+
+                        let asig = 0, countL = 0, countF = 0;
+                        const dayStatuses = [];
+                        days.forEach(d => {
+                            const sid = App.data.schedule[d] ? App.data.schedule[d][emp.id] : null;
+                            const shift = sid ? Utils.getShift(sid) : null;
+                            if (shift) {
+                                if (shift.fixed) { if (shift.code === 'L') countL++; if (shift.code === 'F') countF++; dayStatuses.push({ type: 'hollow', color: shift.color, code: shift.code }); }
+                                else if (shift.start && shift.end) { asig += Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break); dayStatuses.push({ type: 'solid', color: shift.color || '#6b7280' }); }
+                                else dayStatuses.push({ type: 'empty' });
+                            } else dayStatuses.push({ type: 'empty' });
+                        });
+
+                        const { justifiedH } = Utils.calcEsperadas(contrato, days, emp.id);
+                        const dif = f1(asig + justifiedH - contrato);
+                        if (isLocked) acum += asig + justifiedH - contrato;
+                        const acumR = f1(acum);
+                        const acumColor = acumR > 0.5 ? '#f59e0b' : acumR < -0.5 ? '#3b82f6' : '#10b981';
+
+                        let libHtml = '';
+                        if (countL >= 2) libHtml = `<div style="width:14px;height:14px;background:#22c55e;color:white;border-radius:50%;font-size:0.55rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto;">✓</div>`;
+                        else if (countL >= 1 && countF >= 1) libHtml = `<div style="width:14px;height:14px;background:#f59e0b;color:white;border-radius:50%;font-size:0.55rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto;">⚠</div>`;
+
+                        let dotsHtml = `<div style="display:flex;gap:3px;justify-content:center;">`;
+                        dayStatuses.forEach(s => {
+                            if (s.type === 'solid') dotsHtml += `<div style="width:20px;height:20px;border-radius:4px;background:${s.color};"></div>`;
+                            else if (s.type === 'hollow') dotsHtml += `<div style="width:20px;height:20px;border-radius:4px;border:2px solid ${s.color};box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:0.58rem;font-weight:700;color:${s.color};">${s.code || ''}</div>`;
+                            else dotsHtml += `<div style="width:20px;height:20px;border-radius:4px;border:1px dashed #e2e8f0;"></div>`;
+                        });
+                        dotsHtml += `</div>`;
+
+                        const difClass = dif >= -0.5 && dif <= 0.5 ? 'val-good' : dif < 0 ? 'val-warn' : 'val-good';
+                        const rowBg = isCurrent ? 'background:#eff6ff;' : (isLocked ? '' : 'opacity:0.55;');
+                        const lockIcon = isLocked ? '🔒' : '';
+                        const d0 = new Date(days[0] + 'T12:00:00'), d6 = new Date(days[6] + 'T12:00:00');
+                        const shortRange = `${d0.getDate()}/${d0.getMonth()+1}–${d6.getDate()}/${d6.getMonth()+1}`;
+
+                        rows += `<tr style="${rowBg}border-bottom:1px solid #f1f5f9;">
+                            <td style="text-align:left;padding:6px 10px;white-space:nowrap;">${lockIcon} <strong>${wkCode.slice(-4)}</strong> <span style="color:#94a3b8;font-size:0.75rem;">${shortRange}</span></td>
+                            <td style="text-align:center;padding:6px 8px;">${f1(contrato)}</td>
+                            <td style="text-align:center;padding:6px 8px;">${f1(asig)}</td>
+                            <td class="${difClass}" style="text-align:center;padding:6px 8px;font-weight:600;">${dif > 0 ? '+' : ''}${dif}</td>
+                            <td style="text-align:center;padding:6px 8px;border-left:2px solid #cbd5e1;color:${acumColor};font-weight:700;">${acumR > 0 ? '+' : ''}${acumR}</td>
+                            <td style="text-align:center;padding:6px 8px;">${libHtml}</td>
+                            <td style="padding:6px 8px;">${dotsHtml}</td>
+                        </tr>`;
+                    }
+
+                    body = `<div style="max-width:680px;margin:0 auto;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                        <select onchange="App.uiState.analisisSemanasEmpId=this.value;${_rerender}"
+                            style="padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:0.85rem;color:#1e293b;">${empOpts}</select>
+                        <div style="display:flex;align-items:center;gap:4px;margin-left:auto;">
+                            <button onclick="App.uiState.analisisSemanasStart=Utils.addWeeks(App.uiState.analisisSemanasStart,-4);${_rerender}" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;cursor:pointer;font-size:0.82rem;color:#475569;">◀◀</button>
+                            <button onclick="App.uiState.analisisSemanasStart=Utils.addWeeks(App.uiState.analisisSemanasStart,-1);${_rerender}" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;cursor:pointer;font-size:0.82rem;color:#475569;">◀</button>
+                            <button onclick="App.uiState.analisisSemanasStart=Utils.addWeeks(App.uiState.analisisSemanasStart,1);${_rerender}" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;cursor:pointer;font-size:0.82rem;color:#475569;">▶</button>
+                            <button onclick="App.uiState.analisisSemanasStart=Utils.addWeeks(App.uiState.analisisSemanasStart,4);${_rerender}" style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;cursor:pointer;font-size:0.82rem;color:#475569;">▶▶</button>
+                        </div>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+                        <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+                            <th style="text-align:left;padding:8px 10px;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;">Semana</th>
+                            <th style="text-align:center;padding:8px;font-size:0.72rem;font-weight:700;color:#64748b;">Cntr</th>
+                            <th style="text-align:center;padding:8px;font-size:0.72rem;font-weight:700;color:#64748b;">Asig</th>
+                            <th style="text-align:center;padding:8px;font-size:0.72rem;font-weight:700;color:#64748b;">Dif</th>
+                            <th style="text-align:center;padding:8px;font-size:0.72rem;font-weight:700;color:#64748b;border-left:2px solid #cbd5e1;">Acum</th>
+                            <th style="text-align:center;padding:8px;font-size:0.72rem;font-weight:700;color:#64748b;">LIB</th>
+                            <th style="text-align:center;padding:8px;font-size:0.72rem;font-weight:700;color:#64748b;">L–D</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                    </div>`;
+                }
             }
 
             c.innerHTML = `

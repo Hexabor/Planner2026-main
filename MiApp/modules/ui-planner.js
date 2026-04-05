@@ -22,10 +22,11 @@ Object.assign(App.ui, {
             const tabs = [
                 { id: 'charts',    label: 'Gráficos',  icon: _ic('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>') },
                 { id: 'balance',   label: 'Balance',   icon: _ic('<line x1="3" y1="12" x2="21" y2="12"/><path d="M3 6h18M3 18h18"/>') },
-                { id: 'eventos',   label: 'Eventos',   icon: _ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/>') },
                 { id: 'findes',    label: 'Fines',     icon: _ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M8 18h.01M12 18h.01"/>') },
+                { id: 'eventos',   label: 'Eventos',   icon: _ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/>') },
                 { id: 'festdom',   label: 'Festivos',  icon: _ic('<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>') },
                 { id: 'equilibrio',label: 'Equilibrio',icon: _ic('<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>') },
+                { id: 'semanas',   label: 'Semanas',   icon: _ic('<path d="M3 3h18v18H3z"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>') },
             ];
             
             let html = `<div class="monitor-tabs">`;
@@ -42,6 +43,8 @@ Object.assign(App.ui, {
                 html += App.ui.renderMonitorFestDom();
             } else if(App.uiState.monitorTab === 'balance') {
                 html += App.ui.renderMonitorBalance();
+            } else if(App.uiState.monitorTab === 'semanas') {
+                html += App.ui.renderMonitorSemanas();
             } else if(App.uiState.monitorTab === 'charts') {
                 // Charts tab: Daily + Hourly together
                 html += `<div style="display:flex; flex-direction:column; height:100%; overflow-y:auto;">`;
@@ -777,6 +780,138 @@ Object.assign(App.ui, {
                 </div>
             </div>`;
             
+            return html;
+        },
+
+        renderMonitorSemanas: function() {
+            const NUM_WEEKS = 20;
+            if (!App.uiState.semanasEmpId) {
+                const first = App.data.empleados.find(e => e.active !== false);
+                App.uiState.semanasEmpId = first ? first.id : null;
+            }
+            if (!App.uiState.semanasStart) App.uiState.semanasStart = Utils.getMonday(App.uiState.currentDate);
+
+            const emp = App.data.empleados.find(e => e.id === App.uiState.semanasEmpId);
+            if (!emp) return '<div style="padding:20px;color:#94a3b8;text-align:center;">No hay empleados</div>';
+
+            const startMonday = App.uiState.semanasStart;
+            const f1 = n => Math.round(n * 10) / 10;
+
+            // Selector de empleado
+            const empOpts = App.data.empleados.filter(e => e.active !== false).sort((a,b) => a.customOrder - b.customOrder)
+                .map(e => `<option value="${e.id}" ${e.id === emp.id ? 'selected' : ''}>${e.nombre}</option>`).join('');
+
+            // Navegación
+            const _rerender = `App.ui.renderPlannerInspector(document.getElementById('inspector-content'))`;
+            const nav = `<div style="display:flex;align-items:center;gap:4px;">
+                <button onclick="App.uiState.semanasStart=Utils.addWeeks(App.uiState.semanasStart,-4);${_rerender}" style="padding:2px 6px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.72rem;color:#475569;">◀◀</button>
+                <button onclick="App.uiState.semanasStart=Utils.addWeeks(App.uiState.semanasStart,-1);${_rerender}" style="padding:2px 6px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.72rem;color:#475569;">◀</button>
+                <button onclick="App.uiState.semanasStart=Utils.addWeeks(App.uiState.semanasStart,1);${_rerender}" style="padding:2px 6px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.72rem;color:#475569;">▶</button>
+                <button onclick="App.uiState.semanasStart=Utils.addWeeks(App.uiState.semanasStart,4);${_rerender}" style="padding:2px 6px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.72rem;color:#475569;">▶▶</button>
+            </div>`;
+
+            let html = `<div style="padding:8px 10px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <select onchange="App.uiState.semanasEmpId=this.value;${_rerender}"
+                        style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.78rem;color:#1e293b;max-width:130px;">${empOpts}</select>
+                    ${nav}
+                </div>
+                <table class="balance-table" style="font-size:0.68rem;">
+                    <thead><tr>
+                        <th style="text-align:left;padding:3px 4px;">Semana</th>
+                        <th style="padding:3px 2px;">Cntr</th>
+                        <th style="padding:3px 2px;">Asig</th>
+                        <th style="padding:3px 2px;">Dif</th>
+                        <th style="padding:3px 2px;border-left:2px solid #cbd5e1;">Acum</th>
+                        <th style="padding:3px 2px;">LIB</th>
+                        <th style="padding:3px 2px;">L–D</th>
+                    </tr></thead><tbody>`;
+
+            // Calcular desvío acumulado hasta la semana anterior al rango visible
+            let acum = emp.saldoInicial || 0;
+            const lockedWeeks = App.ui._getLockedWeeks(emp);
+            lockedWeeks.forEach(lw => {
+                if (lw >= startMonday) return;
+                const wdays = Utils.getWeekDays(lw);
+                let worked = 0;
+                wdays.forEach(d => { const sid = App.data.schedule[d]?.[emp.id]; const sh = sid ? Utils.getShift(sid) : null; if (sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break); });
+                const { esperadas } = Utils.calcEsperadas(Utils.getContrato(emp, lw), wdays, emp.id);
+                acum += worked - esperadas;
+            });
+            acum += (emp.ajustes || []).reduce((s, a) => s + a.signo * a.horas, 0);
+
+            const todayMonday = Utils.getMonday(new Date().toISOString().slice(0,10));
+
+            for (let w = 0; w < NUM_WEEKS; w++) {
+                const mon = Utils.addWeeks(startMonday, w);
+                const days = Utils.getWeekDays(mon);
+                const wkCode = Utils.getWeekCode(mon);
+                const isLocked = days.every(d => App.data.lockedDays && App.data.lockedDays[d]);
+                const isCurrent = mon === todayMonday;
+                const contrato = Utils.getContrato(emp, mon);
+
+                // Horas trabajadas
+                let asig = 0;
+                const dayStatuses = [];
+                let countL = 0, countF = 0;
+                days.forEach(d => {
+                    const sid = App.data.schedule[d] ? App.data.schedule[d][emp.id] : null;
+                    const shift = sid ? Utils.getShift(sid) : null;
+                    if (shift) {
+                        if (shift.fixed) {
+                            if (shift.code === 'L') countL++;
+                            if (shift.code === 'F') countF++;
+                            dayStatuses.push({ type: 'hollow', color: shift.color, code: shift.code });
+                        } else if (shift.start && shift.end) {
+                            const h = Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break);
+                            asig += h;
+                            dayStatuses.push({ type: 'solid', color: shift.color || '#6b7280' });
+                        } else { dayStatuses.push({ type: 'empty' }); }
+                    } else { dayStatuses.push({ type: 'empty' }); }
+                });
+
+                const { justifiedH } = Utils.calcEsperadas(contrato, days, emp.id);
+                const dif = f1(asig + justifiedH - contrato);
+
+                // Acumular desvío si semana cerrada
+                if (isLocked) acum += asig + justifiedH - contrato;
+                const acumR = f1(acum);
+                const acumColor = acumR > 0.5 ? '#f59e0b' : acumR < -0.5 ? '#3b82f6' : '#10b981';
+
+                // Chivato lib
+                let libHtml = '';
+                if (countL >= 2) libHtml = `<div style="width:12px;height:12px;background:#22c55e;color:white;border-radius:50%;font-size:0.5rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto;">✓</div>`;
+                else if (countL >= 1 && countF >= 1) libHtml = `<div style="width:12px;height:12px;background:#f59e0b;color:white;border-radius:50%;font-size:0.5rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto;">⚠</div>`;
+
+                // Dots L-D
+                let dotsHtml = `<div style="display:flex;gap:1px;justify-content:center;">`;
+                dayStatuses.forEach(s => {
+                    if (s.type === 'solid') dotsHtml += `<div style="width:10px;height:10px;border-radius:2px;background:${s.color};"></div>`;
+                    else if (s.type === 'hollow') dotsHtml += `<div style="width:10px;height:10px;border-radius:2px;border:1.5px solid ${s.color};box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:0.4rem;font-weight:700;color:${s.color};">${s.code || ''}</div>`;
+                    else dotsHtml += `<div style="width:10px;height:10px;border-radius:2px;border:1px dashed #e2e8f0;"></div>`;
+                });
+                dotsHtml += `</div>`;
+
+                const difClass = dif >= -0.5 && dif <= 0.5 ? 'val-good' : dif < 0 ? 'val-warn' : 'val-good';
+                const rowBg = isCurrent ? 'background:#eff6ff;' : (isLocked ? '' : 'opacity:0.6;');
+                const lockIcon = isLocked ? '🔒' : '';
+
+                // Short date range
+                const d0 = new Date(days[0] + 'T12:00:00'), d6 = new Date(days[6] + 'T12:00:00');
+                const shortRange = `${d0.getDate()}/${d0.getMonth()+1}–${d6.getDate()}/${d6.getMonth()+1}`;
+
+                html += `<tr class="b-row" style="${rowBg}" onclick="App.uiState.currentDate='${mon}';App.ui.renderPlanner(document.getElementById('main-view'));App.uiState.monitorTab='balance';App.ui.renderPlannerInspector(document.getElementById('inspector-content'));" title="Ir a ${wkCode}">
+                    <td style="text-align:left;padding:3px 4px;white-space:nowrap;cursor:pointer;">${lockIcon} <strong>${wkCode.slice(-4)}</strong> <span style="color:#94a3b8;font-size:0.6rem;">${shortRange}</span></td>
+                    <td style="text-align:center;padding:3px 2px;">${f1(contrato)}</td>
+                    <td style="text-align:center;padding:3px 2px;">${f1(asig)}</td>
+                    <td class="b-hrs ${difClass}" style="text-align:center;padding:3px 2px;">${dif > 0 ? '+' : ''}${dif}</td>
+                    <td style="text-align:center;padding:3px 2px;border-left:2px solid #cbd5e1;color:${acumColor};font-weight:700;">${acumR > 0 ? '+' : ''}${acumR}</td>
+                    <td style="text-align:center;padding:3px 2px;">${libHtml}</td>
+                    <td style="padding:3px 2px;">${dotsHtml}</td>
+                </tr>`;
+            }
+
+            html += `</tbody></table></div>`;
             return html;
         },
 

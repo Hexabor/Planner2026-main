@@ -31,9 +31,8 @@ Object.assign(App.logic, {
             Safe.save('v40_db', App.data);
         },
         reqToggleType: function(t) {
-            const ALL = ['VAC','LIB','HRL','AP','BAJ'];
+            const ALL = ['LIB','HRL','AP','BAJ'];
             const cur = App.uiState.reqTypeFilter || ALL;
-            // Exclusive select: click type → show only that type; click again if already sole → reset to all
             if(cur.length === 1 && cur[0] === t) {
                 App.uiState.reqTypeFilter = ALL;
             } else {
@@ -42,7 +41,7 @@ Object.assign(App.logic, {
             App.ui._reqRefresh();
         },
         reqResetTypeFilter: function() {
-            App.uiState.reqTypeFilter = ['VAC','LIB','HRL','AP','BAJ'];
+            App.uiState.reqTypeFilter = ['LIB','HRL','AP','BAJ'];
             App.ui._reqRefresh();
         },
         reqSetEmpFilter: function(empId) {

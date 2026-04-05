@@ -153,10 +153,16 @@ Object.assign(App.logic, {
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
         },
         setPaint: function(sid) { App.uiState.paintShiftId = (App.uiState.paintShiftId === sid) ? null : sid; App.ui.renderPlanner(document.getElementById('main-view')); },
+        // Helper: ¿este día+empleado pertenece a un plan de libranzas aplicado?
+        _isLibranzaPlan: function(empId, date) {
+            if (!App.data.libranzaPlans) return null;
+            return App.data.libranzaPlans.find(p => p.applied && p.empId === empId && p.dates.includes(date)) || null;
+        },
+
         paint: function(empId) {
-            const sid = App.uiState.paintShiftId; 
+            const sid = App.uiState.paintShiftId;
             const date = App.uiState.currentDate;
-            
+
             if(sid === null) return;
 
             // Semana cerrada — no permitir edición
@@ -166,6 +172,25 @@ Object.assign(App.logic, {
             }
 
             if(!App.data.schedule[date]) App.data.schedule[date] = {};
+
+            // Plan de libranzas/vacaciones — avisar si se va a modificar un día solicitado
+            const currentShift = App.data.schedule[date] ? App.data.schedule[date][empId] : null;
+            if (currentShift) {
+                const cs = Utils.getShift(currentShift);
+                if (cs && cs.fixed) {
+                    let planMsg = null;
+                    if ((cs.code === 'L' || cs.code === 'F') && this._isLibranzaPlan(empId, date)) {
+                        planMsg = '📋 Libranza solicitada';
+                    } else if (cs.code === 'V' && App.ui._isPlanDay && App.ui._isPlanDay('vacaciones', empId, date)) {
+                        planMsg = '🏖️ Vacaciones solicitadas';
+                    }
+                    if (planMsg) {
+                        const emp = App.data.empleados.find(e => e.id === empId);
+                        const empName = emp ? emp.nombre : 'Este empleado';
+                        if (!confirm(`${planMsg}\n\n${empName} solicitó este día como parte de un plan.\n\n¿Estás seguro de que quieres modificar esta asignación?\nAsegúrate de haber comunicado al empleado la revocación.`)) return;
+                    }
+                }
+            }
             
             const req = Utils.getRequest(empId, date);
             const shiftToPaint = Utils.getShift(sid);
@@ -1143,6 +1168,24 @@ Object.assign(App.logic, {
                 return;
             }
             
+            // Plan de libranzas — avisar si se va a mover una libranza solicitada
+            const _checkSwapPlan = (eId, d) => {
+                const sv = (App.data.schedule[d] || {})[eId];
+                if (!sv) return true;
+                const sh = Utils.getShift(sv);
+                if (!sh || !sh.fixed) return true;
+                let msg = null;
+                if ((sh.code === 'L' || sh.code === 'F') && App.logic._isLibranzaPlan(eId, d)) msg = '📋 Libranza solicitada';
+                else if (sh.code === 'V' && App.ui._isPlanDay && App.ui._isPlanDay('vacaciones', eId, d)) msg = '🏖️ Vacaciones solicitadas';
+                if (msg) {
+                    const emp = App.data.empleados.find(e => e.id === eId);
+                    return confirm(`${msg}\n\n${emp ? emp.nombre : 'Este empleado'} solicitó este día como parte de un plan.\n\n¿Quieres modificar esta asignación?`);
+                }
+                return true;
+            };
+            if (!_checkSwapPlan(sourceEmpId, sourceDate)) return;
+            if (!_checkSwapPlan(targetEmpId, targetDate)) return;
+
             // Obtener turnos actuales
             const sourceShiftId = App.data.schedule[sourceDate] ? App.data.schedule[sourceDate][sourceEmpId] : null;
             const targetShiftId = App.data.schedule[targetDate] ? App.data.schedule[targetDate][targetEmpId] : null;
