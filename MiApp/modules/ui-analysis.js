@@ -493,7 +493,6 @@ Object.assign(App.ui, {
                         const wkCode = Utils.getWeekCode(mon);
                         const isLocked = days.every(d => App.data.lockedDays && App.data.lockedDays[d]);
                         const isCurrent = mon === todayMonday;
-                        const contrato = Utils.getContrato(emp, mon);
 
                         let asig = 0, countL = 0, countF = 0;
                         const dayStatuses = [];
@@ -507,8 +506,7 @@ Object.assign(App.ui, {
                             } else dayStatuses.push({ type: 'empty' });
                         });
 
-                        const { justifiedH, totalContrato: weekContrato } = Utils.calcEsperadas(emp, days, emp.id);
-                        const contrato = weekContrato;
+                        const { justifiedH, totalContrato: contrato } = Utils.calcEsperadas(emp, days, emp.id);
                         const dif = f1(asig + justifiedH - contrato);
                         if (isLocked) acum += asig + justifiedH - contrato;
                         const acumR = f1(acum);
@@ -665,7 +663,6 @@ Object.assign(App.ui, {
                     }
                 });
                 const { esperadas, justifiedH } = Utils.calcEsperadas(selEmp, wdays, selEmp.id);
-                const contratoSemana = Utils.getContrato(selEmp, monday);
                 const desvio = Math.round((worked - esperadas) * 10) / 10;
                 acum = Math.round((acum + desvio) * 10) / 10;
                 if(Math.abs(desvio) > maxAbs) maxAbs = Math.abs(desvio);

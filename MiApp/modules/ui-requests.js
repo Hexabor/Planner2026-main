@@ -2328,6 +2328,242 @@ Object.assign(App.ui, {
                 </div>`;
         },
 
+        // Helper: generar rango de fechas para las vistas de llaves
+        _llavesDateRange: function() {
+            const offset = App.uiState.llavesCalOffset || 0;
+            const start = new Date();
+            start.setDate(start.getDate() + offset * 21); // desplazar en bloques de 3 semanas
+            const end = new Date(start);
+            end.setDate(end.getDate() + 20); // 21 días (3 semanas)
+            const dates = [];
+            const cur = new Date(start);
+            while (cur <= end) { dates.push(cur.toISOString().slice(0, 10)); cur.setDate(cur.getDate() + 1); }
+            const fmt = d => `${d.getDate()}/${d.getMonth()+1}`;
+            const label = `${fmt(start)} — ${fmt(end)}`;
+            return { dates, label };
+        },
+
+        _llavesCalNav: function() {
+            const offset = App.uiState.llavesCalOffset || 0;
+            const _r = `App.ui.renderRequests(document.querySelector('.main-scroll'))`;
+            return `<div style="display:flex;align-items:center;gap:4px;">
+                <button onclick="App.uiState.llavesCalOffset=${offset-1};${_r}" style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;">◀</button>
+                <span style="font-size:0.82rem;font-weight:700;color:#1e293b;min-width:140px;text-align:center;">${this._llavesDateRange().label}</span>
+                <button onclick="App.uiState.llavesCalOffset=${offset+1};${_r}" style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;">▶</button>
+            </div>`;
+        },
+
+        // Vista: por persona — filas = llaves, columnas = días, una tabla por TAG3
+        _llavesVistaPersona: function(llaves, hoy) {
+            if (llaves.length === 0) return '<div style="padding:32px;text-align:center;color:#94a3b8;">No hay llaves configuradas.</div>';
+            const { dates } = this._llavesDateRange();
+            const LLAVE_COLORS = ['#2563eb', '#7c3aed', '#0891b2', '#dc2626', '#d97706'];
+            const tag3 = App.data.empleados
+                .filter(e => e.active !== false && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, hoy)))
+                .sort((a,b) => a.customOrder - b.customOrder);
+
+            if (tag3.length === 0) return '<div style="padding:32px;text-align:center;color:#94a3b8;">No hay empleados TAG3.</div>';
+
+            // Cabecera de días
+            const DIAS_LETRA = ['D','L','M','X','J','V','S'];
+            const dayHeaders = dates.map(d => {
+                const dow = new Date(d + 'T12:00:00').getDay();
+                const day = new Date(d + 'T12:00:00').getDate();
+                const isSun = dow === 0;
+                const isToday = d === hoy;
+                return `<th style="padding:2px 0;min-width:22px;font-size:0.58rem;font-weight:${isToday?'800':'600'};color:${isToday?'#2563eb':(isSun?'#7c3aed':'#94a3b8')};text-align:center;${isToday?'background:#eff6ff;border-radius:4px;':''}">
+                    ${DIAS_LETRA[dow]}<br>${day}
+                </th>`;
+            }).join('');
+
+            let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <h3 style="margin:0;font-size:1rem;font-weight:700;color:#1e293b;">👤 Vista por persona</h3>
+                ${this._llavesCalNav()}
+            </div>`;
+
+            tag3.forEach(emp => {
+                html += `<div style="margin-bottom:16px;background:white;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;">
+                    <div style="font-weight:700;font-size:0.85rem;color:#1e293b;margin-bottom:6px;">${emp.nombre}</div>
+                    <div style="overflow-x:auto;">
+                    <table style="border-collapse:collapse;width:100%;">
+                        <thead><tr><th style="padding:2px 4px;text-align:left;font-size:0.6rem;color:#94a3b8;min-width:60px;"></th>${dayHeaders}</tr></thead>
+                        <tbody>`;
+                llaves.forEach((l, li) => {
+                    const color = LLAVE_COLORS[li % LLAVE_COLORS.length];
+                    html += `<tr><td style="padding:3px 4px;font-size:0.68rem;font-weight:600;color:#475569;white-space:nowrap;">L${li+1}${l.alias?' '+l.alias:''}</td>`;
+                    dates.forEach(d => {
+                        const titInicio = App.logic.getTitularLlaveInicio ? App.logic.getTitularLlaveInicio(l.id, d) : App.logic.getTitularLlave(l.id, d);
+                        const titFin = App.logic.getTitularLlave(l.id, d);
+                        const alInicio = titInicio === emp.id;
+                        const alFinal = titFin === emp.id;
+                        let cellContent = '', title = '';
+                        if (alInicio && alFinal) {
+                            cellContent = `<div style="height:14px;border-radius:3px;background:${color};"></div>`;
+                        } else if (alInicio && !alFinal) {
+                            title = 'Entrega llave';
+                            cellContent = `<div style="height:14px;display:flex;align-items:center;">
+                                <div style="width:40%;height:100%;border-radius:3px 0 0 3px;background:${color};"></div>
+                                <svg width="8" height="8" viewBox="0 0 8 8" style="flex-shrink:0;"><polygon points="0,0 8,4 0,8" fill="#ef4444"/></svg>
+                            </div>`;
+                        } else if (!alInicio && alFinal) {
+                            title = 'Recibe llave';
+                            cellContent = `<div style="height:14px;display:flex;align-items:center;justify-content:flex-end;">
+                                <svg width="8" height="8" viewBox="0 0 8 8" style="flex-shrink:0;"><polygon points="8,0 0,4 8,8" fill="#22c55e"/></svg>
+                                <div style="width:40%;height:100%;border-radius:0 3px 3px 0;background:${color};"></div>
+                            </div>`;
+                        } else {
+                            cellContent = `<div style="height:14px;"></div>`;
+                        }
+                        html += `<td style="padding:1px;border-right:1px solid #f1f5f9;" ${title ? `title="${title}"` : ''}>${cellContent}</td>`;
+                    });
+                    html += `</tr>`;
+                });
+                html += `</tbody></table></div></div>`;
+            });
+
+            return html;
+        },
+
+        // Vista: por llave — filas = TAG3, columnas = días, colores por llave
+        _llavesVistaLlave: function(llaves, hoy) {
+            if (llaves.length === 0) return '<div style="padding:32px;text-align:center;color:#94a3b8;">No hay llaves configuradas.</div>';
+            const { dates } = this._llavesDateRange();
+            const LLAVE_COLORS = ['#2563eb', '#7c3aed', '#0891b2', '#dc2626', '#d97706'];
+            const tag3 = App.data.empleados
+                .filter(e => e.active !== false && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, hoy)))
+                .sort((a,b) => a.customOrder - b.customOrder);
+
+            if (tag3.length === 0) return '<div style="padding:32px;text-align:center;color:#94a3b8;">No hay empleados TAG3.</div>';
+
+            const DIAS_LETRA = ['D','L','M','X','J','V','S'];
+            const dayHeaders = dates.map(d => {
+                const dow = new Date(d + 'T12:00:00').getDay();
+                const day = new Date(d + 'T12:00:00').getDate();
+                const isSun = dow === 0;
+                const isToday = d === hoy;
+                return `<th style="padding:2px 0;min-width:22px;font-size:0.58rem;font-weight:${isToday?'800':'600'};color:${isToday?'#2563eb':(isSun?'#7c3aed':'#94a3b8')};text-align:center;${isToday?'background:#eff6ff;border-radius:4px;':''}">
+                    ${DIAS_LETRA[dow]}<br>${day}
+                </th>`;
+            }).join('');
+
+            // Leyenda de llaves
+            const legend = llaves.map((l, i) => {
+                const color = LLAVE_COLORS[i % LLAVE_COLORS.length];
+                return `<div style="display:flex;align-items:center;gap:4px;">
+                    <div style="width:12px;height:12px;border-radius:3px;background:${color};"></div>
+                    <span style="font-size:0.72rem;font-weight:600;color:#475569;">L${i+1}${l.alias?' '+l.alias:''}</span>
+                </div>`;
+            }).join('');
+
+            let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <h3 style="margin:0;font-size:1rem;font-weight:700;color:#1e293b;">🔑 Vista por llave</h3>
+                ${this._llavesCalNav()}
+            </div>
+            <div style="display:flex;gap:12px;margin-bottom:12px;padding:6px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">${legend}</div>
+            <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;overflow-x:auto;">
+                <table style="border-collapse:collapse;width:100%;">
+                    <thead><tr><th style="padding:2px 4px;text-align:left;font-size:0.6rem;color:#94a3b8;min-width:70px;"></th>${dayHeaders}</tr></thead>
+                    <tbody>`;
+
+            // Mapear color por empId para lookups rápidos
+            const empColor = {};
+            tag3.forEach(emp => { empColor[emp.id] = null; }); // se usará el color de la llave, no del empleado
+
+            tag3.forEach(emp => {
+                html += `<tr><td style="padding:4px 4px;font-size:0.72rem;font-weight:600;color:#1e293b;white-space:nowrap;">${emp.nombre}</td>`;
+                dates.forEach(d => {
+                    // Para cada llave, ver si este empleado la tiene al inicio y/o al final del día
+                    const segmentos = []; // { color, half: 'full'|'left'|'right' }
+                    llaves.forEach((l, li) => {
+                        const color = LLAVE_COLORS[li % LLAVE_COLORS.length];
+                        const titInicio = App.logic.getTitularLlaveInicio ? App.logic.getTitularLlaveInicio(l.id, d) : App.logic.getTitularLlave(l.id, d);
+                        const titFin = App.logic.getTitularLlave(l.id, d);
+                        const alInicio = titInicio === emp.id;
+                        const alFinal = titFin === emp.id;
+                        if (alInicio && alFinal) segmentos.push({ color, half: 'full', llave: `L${li+1}` });
+                        else if (alInicio) segmentos.push({ color, half: 'left', llave: `L${li+1} → entrega` });
+                        else if (alFinal) segmentos.push({ color, half: 'right', llave: `L${li+1} ← recibe` });
+                    });
+
+                    let cellTitle = '';
+                    let cellContent = '<div style="height:16px;"></div>';
+                    if (segmentos.length === 1) {
+                        const s = segmentos[0];
+                        cellTitle = s.llave;
+                        if (s.half === 'full') {
+                            cellContent = `<div style="height:16px;border-radius:3px;background:${s.color};"></div>`;
+                        } else if (s.half === 'left') {
+                            cellContent = `<div style="height:16px;display:flex;align-items:center;">
+                                <div style="width:40%;height:100%;border-radius:3px 0 0 3px;background:${s.color};"></div>
+                                <svg width="9" height="9" viewBox="0 0 9 9" style="flex-shrink:0;"><polygon points="0,0 9,4.5 0,9" fill="#ef4444"/></svg>
+                            </div>`;
+                        } else {
+                            cellContent = `<div style="height:16px;display:flex;align-items:center;justify-content:flex-end;">
+                                <svg width="9" height="9" viewBox="0 0 9 9" style="flex-shrink:0;"><polygon points="9,0 0,4.5 9,9" fill="#22c55e"/></svg>
+                                <div style="width:40%;height:100%;border-radius:0 3px 3px 0;background:${s.color};"></div>
+                            </div>`;
+                        }
+                    } else if (segmentos.length > 1) {
+                        const n = segmentos.length;
+                        const stops = segmentos.map((s, i) => {
+                            const yStart = Math.round(i / n * 100);
+                            const yEnd = Math.round((i + 1) / n * 100);
+                            return `${s.color} ${yStart}%, ${s.color} ${yEnd}%`;
+                        }).join(', ');
+                        cellContent = `<div style="height:16px;border-radius:3px;background:linear-gradient(to bottom, ${stops});"></div>`;
+                        cellTitle = segmentos.map(s => s.llave).join(' / ');
+                    }
+                    html += `<td style="padding:1px;border-right:1px solid #f1f5f9;" ${cellTitle ? `title="${cellTitle}"` : ''}>${cellContent}</td>`;
+                });
+                html += `</tr>`;
+            });
+
+            // Fila tienda — misma lógica de segmentos con estilo translúcido
+            html += `<tr><td colspan="${dates.length + 1}" style="padding:0;height:6px;"></td></tr>`;
+            html += `<tr><td style="padding:4px 4px;font-size:0.72rem;font-weight:600;color:#f59e0b;white-space:nowrap;">🏪 Tienda</td>`;
+            dates.forEach(d => {
+                const segmentos = [];
+                llaves.forEach((l, li) => {
+                    const color = LLAVE_COLORS[li % LLAVE_COLORS.length];
+                    const titInicio = App.logic.getTitularLlaveInicio ? App.logic.getTitularLlaveInicio(l.id, d) : App.logic.getTitularLlave(l.id, d);
+                    const titFin = App.logic.getTitularLlave(l.id, d);
+                    const alInicio = titInicio === '__TIENDA__';
+                    const alFinal = titFin === '__TIENDA__';
+                    if (alInicio && alFinal) segmentos.push({ color, half: 'full', llave: `L${li+1}` });
+                    else if (alInicio) segmentos.push({ color, half: 'left', llave: `L${li+1} → sale` });
+                    else if (alFinal) segmentos.push({ color, half: 'right', llave: `L${li+1} ← entra` });
+                });
+                let cellContent = '<div style="height:16px;"></div>', cellTitle = '';
+                if (segmentos.length === 1) {
+                    const s = segmentos[0];
+                    cellTitle = s.llave;
+                    if (s.half === 'full') {
+                        cellContent = `<div style="height:16px;border-radius:3px;background:${s.color}40;"></div>`;
+                    } else if (s.half === 'left') {
+                        cellContent = `<div style="height:16px;display:flex;align-items:center;">
+                            <div style="width:40%;height:100%;border-radius:3px 0 0 3px;background:${s.color}40;"></div>
+                            <svg width="9" height="9" viewBox="0 0 9 9" style="flex-shrink:0;"><polygon points="0,0 9,4.5 0,9" fill="#ef444480"/></svg>
+                        </div>`;
+                    } else {
+                        cellContent = `<div style="height:16px;display:flex;align-items:center;justify-content:flex-end;">
+                            <svg width="9" height="9" viewBox="0 0 9 9" style="flex-shrink:0;"><polygon points="9,0 0,4.5 9,9" fill="#22c55e80"/></svg>
+                            <div style="width:40%;height:100%;border-radius:0 3px 3px 0;background:${s.color}40;"></div>
+                        </div>`;
+                    }
+                } else if (segmentos.length > 1) {
+                    const n = segmentos.length;
+                    const stops = segmentos.map((s, i) => `${s.color}40 ${Math.round(i/n*100)}%, ${s.color}40 ${Math.round((i+1)/n*100)}%`).join(', ');
+                    cellContent = `<div style="height:16px;border-radius:3px;background:linear-gradient(to bottom, ${stops});"></div>`;
+                    cellTitle = segmentos.map(s => s.llave).join(' / ');
+                }
+                html += `<td style="padding:1px;" ${cellTitle ? `title="${cellTitle}"` : ''}>${cellContent}</td>`;
+            });
+            html += `</tr>`;
+
+            html += `</tbody></table></div>`;
+            return html;
+        },
+
         _llavesReiniciar: function() {
             const llaves = App.data.config.llaves || [];
             if (llaves.length === 0) { alert('No hay llaves configuradas.'); return; }
@@ -2495,20 +2731,47 @@ Object.assign(App.ui, {
                 <th style="width:40px;"></th>
             </tr></thead>`;
 
-            const proximos = traspasos.filter(t => t.fecha >= hoy);
-            const pasados  = traspasos.filter(t => t.fecha < hoy);
+            // Filtros de traspasos
+            const _trFilterEmp = App.uiState.trFilterEmp || 'todos';
+            const _trFilterLlave = App.uiState.trFilterLlave || 'todos';
+            const _r = `App.ui.renderRequests(document.querySelector('.main-scroll'))`;
+
+            // Personas involucradas en traspasos (para filtro)
+            const _empIds = [...new Set(traspasos.flatMap(t => [t.dadorId, t.receptorId]).filter(id => id && id !== '__TIENDA__'))];
+            const _empsFilter = App.data.empleados.filter(e => _empIds.includes(e.id)).sort((a,b) => a.customOrder - b.customOrder);
+
+            const _ps = (on, color) => `padding:3px 8px;border-radius:14px;border:1px solid ${on?color:'#e2e8f0'};font-size:0.65rem;font-weight:600;cursor:pointer;background:${on?color+'18':'white'};color:${on?color:'#94a3b8'};`;
+            let filterBar = `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">`;
+            filterBar += `<button onclick="App.uiState.trFilterEmp='todos';App.uiState.trFilterLlave='todos';${_r}" style="${_ps(_trFilterEmp==='todos'&&_trFilterLlave==='todos','#2563eb')}">Todos</button>`;
+            llaves.forEach((l, i) => {
+                filterBar += `<button onclick="App.uiState.trFilterLlave='${l.id}';App.uiState.trFilterEmp='todos';${_r}" style="${_ps(_trFilterLlave===l.id,'#7c3aed')}">L${i+1}${l.alias?' '+l.alias:''}</button>`;
+            });
+            _empsFilter.forEach(e => {
+                filterBar += `<button onclick="App.uiState.trFilterEmp='${e.id}';App.uiState.trFilterLlave='todos';${_r}" style="${_ps(_trFilterEmp===e.id,'#0891b2')}">${e.nombre.split(' ')[0]}</button>`;
+            });
+            filterBar += `</div>`;
+
+            const matchFilter = t => {
+                if (_trFilterLlave !== 'todos' && t.llaveId !== _trFilterLlave) return false;
+                if (_trFilterEmp !== 'todos' && t.dadorId !== _trFilterEmp && t.receptorId !== _trFilterEmp) return false;
+                return true;
+            };
+
+            const proximos = traspasos.filter(t => t.fecha >= hoy && matchFilter(t));
+            const pasados  = traspasos.filter(t => t.fecha < hoy && matchFilter(t));
 
             const proximosHtml = proximos.length === 0
                 ? `<div style="padding:32px;text-align:center;color:#94a3b8;font-size:0.85rem;">Sin traspasos planificados. Pulsa "+ Nuevo traspaso" para añadir uno.</div>`
                 : `<table style="width:100%;border-collapse:collapse;">${thead}<tbody>${proximos.map(t => _fila(t, false)).join('')}</tbody></table>`;
 
-            const archivoHtml = pasados.length === 0 ? '' : `
+            const pasadosFiltered = pasados;
+            const archivoHtml = pasadosFiltered.length === 0 ? '' : `
                 <details style="margin-top:18px;">
                     <summary style="cursor:pointer;font-size:0.78rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;padding:6px 0;user-select:none;">
-                        📁 Archivo (${pasados.length})
+                        📁 Archivo (${pasadosFiltered.length})
                     </summary>
                     <div style="margin-top:8px;">
-                        <table style="width:100%;border-collapse:collapse;">${thead}<tbody>${pasados.map(t => _fila(t, true)).join('')}</tbody></table>
+                        <table style="width:100%;border-collapse:collapse;">${thead}<tbody>${pasadosFiltered.map(t => _fila(t, true)).join('')}</tbody></table>
                     </div>
                 </details>`;
 
@@ -2531,9 +2794,40 @@ Object.assign(App.ui, {
                     </div>
                 </div>`;
 
+            const llavesView = App.uiState.llavesView || 'traspasos';
+            const _lvBtn = (key, label) => {
+                const active = llavesView === key;
+                return `<button onclick="App.uiState.llavesView='${key}';App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                    style="padding:5px 12px;border-radius:20px;border:1px solid ${active?'#2563eb':'#e2e8f0'};
+                           font-size:0.72rem;font-weight:600;cursor:pointer;
+                           background:${active?'#eff6ff':'white'};color:${active?'#2563eb':'#94a3b8'};">
+                    ${label}
+                </button>`;
+            };
+            const viewTabs = `<div style="display:flex;gap:5px;margin-bottom:14px;">
+                ${_lvBtn('traspasos','Traspasos')}
+                ${_lvBtn('porPersona','Por persona')}
+                ${_lvBtn('porLlave','Por llave')}
+            </div>`;
+
             c.style.cssText = 'padding:16px;overflow-y:auto;box-sizing:border-box;scrollbar-gutter:stable;';
+
+            if (llavesView === 'porPersona') {
+                c.innerHTML = sectionBar + `<div style="max-width:900px;margin:0 auto;">${viewTabs}${this._llavesVistaPersona(llaves, hoy)}</div>`;
+                const insp = document.getElementById('inspector-content');
+                if (insp) insp.innerHTML = '';
+                return;
+            }
+            if (llavesView === 'porLlave') {
+                c.innerHTML = sectionBar + `<div style="max-width:900px;margin:0 auto;">${viewTabs}${this._llavesVistaLlave(llaves, hoy)}</div>`;
+                const insp = document.getElementById('inspector-content');
+                if (insp) insp.innerHTML = '';
+                return;
+            }
+
             c.innerHTML = sectionBar + `
                 <div style="max-width:800px;margin:0 auto;">
+                    ${viewTabs}
                     <div id="llaves-optimizer-wrapper">${App.llaves._renderPanel()}</div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                         <h3 style="margin:0;font-size:1rem;font-weight:700;color:#1e293b;">🔑 Traspasos de llave</h3>
@@ -2545,6 +2839,7 @@ Object.assign(App.ui, {
                         </div>
                     </div>
                     ${estadoActualHtml}
+                    ${filterBar}
                     ${proximosHtml}
                     ${archivoHtml}
                 </div>`;

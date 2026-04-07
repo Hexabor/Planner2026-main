@@ -336,10 +336,13 @@ App.logic = {
                 // Desbloquear todos — sin validación de llaves
                 days.forEach(d => delete App.data.lockedDays[d]);
             } else {
-                // ANTES DE BLOQUEAR: comprobar cobertura de llaves
+                // ANTES DE BLOQUEAR: comprobar cobertura de llaves (solo semana actual y siguiente)
+                const _todayMonday = Utils.getMonday(new Date().toISOString().slice(0, 10));
+                const _nextMonday = Utils.addWeeks(_todayMonday, 1);
+                const _isNearWeek = monday <= _nextMonday;
                 const hasLlaves = App.data.config.llavesActivo && App.data.config.llaves && App.data.config.llaves.length > 0;
                 const hasKeyHolders = App.data.config.llavesActivo && App.data.empleados.some(e => e.llaveId);
-                if(hasLlaves || hasKeyHolders) {
+                if(_isNearWeek && (hasLlaves || hasKeyHolders)) {
                     const issues = [];
                     days.forEach(date => {
                         const cov = App.logic._checkKeysCoverageDay(date);

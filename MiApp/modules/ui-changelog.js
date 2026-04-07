@@ -6,6 +6,18 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '08/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Llaves — vista "Por persona": tabla por TAG3 con barras de posesión por llave (3 semanas)',
+                    '✨ Llaves — vista "Por llave": tabla con todos los TAG3 + fila Tienda, colores por llave',
+                    '✨ Llaves — celdas con medio rectángulo + triángulo rojo (entrega) / verde (recibe)',
+                    '✨ Llaves — filtros por persona o por llave en la vista de traspasos',
+                    '✨ Llaves — rejilla tenue para delimitar días en las vistas calendario',
+                    '🔧 Fix: cerrar semana 2+ adelante ya no pregunta por cobertura de llaves',
+                    '🔧 Fix: doble const contrato en ui-analysis.js impedía cargar Análisis',
+                ]
+            },
+            {
                 fecha: '07/04/2026 (tarde)', version: 'v1.0',
                 items: [
                     '✨ Llaves — botón "Reiniciar cadena" para establecer nuevo punto de partida desde una fecha',

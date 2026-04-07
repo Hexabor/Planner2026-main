@@ -434,7 +434,6 @@ markDirty: function() {
                     if(sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
                 });
                 const { esperadas, justifiedH } = Utils.calcEsperadas(emp, wdays, emp.id);
-                const contratoSemana = Utils.getContrato(emp, monday);
                 const desvio = Math.round((worked - esperadas) * 10) / 10;
                 acum = Math.round((acum + desvio) * 10) / 10;
                 if(Math.abs(desvio) > maxAbs) maxAbs = Math.abs(desvio);
