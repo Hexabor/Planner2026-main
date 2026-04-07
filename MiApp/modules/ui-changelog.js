@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '07/04/2026 (mediodía)', version: 'v1.0',
+                items: [
+                    '✨ Exportación Eficiente — filas de totales con fórmulas =COUNTIF() en vez de valores (respeta fórmulas al pegar en C9)',
+                ]
+            },
+            {
                 fecha: '07/04/2026', version: 'v1.0',
                 items: [
                     '✨ Planes de libranzas/vacaciones — integrados como solicitudes aprobadas en el grid (columna REQ, bloqueo de turnos incompatibles)',

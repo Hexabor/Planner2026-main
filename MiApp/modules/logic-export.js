@@ -268,15 +268,41 @@ Object.assign(App.logic, {
                 return dayRows;
             };
 
-            // Helper: calcular fila TOTAL (COUNTIF de X por columna)
-            const buildTotalRow = (dayRows) => {
+            // Helper: generar fila TOTAL con fórmulas COUNTIF para el Eficiente
+            // El pegado empieza en C9 del Eficiente. Las filas de fórmula son 24,42,60,78,96,114,132
+            // Cada fórmula: =COUNTIF(C8:C23,"X") adaptada a la columna y rango de cada día
+            const FORMULA_ROWS = [24, 42, 60, 78, 96, 114, 132]; // filas absolutas en el Eficiente
+            const PASTE_START_ROW = 9; // fila donde se pega en el Eficiente
+            const PASTE_START_COL = 2; // columna C = índice 2 (A=0, B=1, C=2)
+
+            const colLetter = (idx) => {
+                // idx 0-based → letra Excel (0=A, 1=B, ..., 25=Z, 26=AA)
+                let s = '';
+                idx++;
+                while (idx > 0) { idx--; s = String.fromCharCode(65 + (idx % 26)) + s; idx = Math.floor(idx / 26); }
+                return s;
+            };
+
+            const buildTotalRow = (dayIdx) => {
+                // Fila de fórmula en el Eficiente para este día
+                const formulaRow = FORMULA_ROWS[dayIdx];
+                if (!formulaRow) {
+                    // Fallback: conteo real si no hay fila de fórmula definida
+                    const totals = [];
+                    for (let col = 0; col < COLS; col++) totals.push('');
+                    return totals;
+                }
+                // Rango de datos: desde primera fila de datos del bloque hasta fila anterior a la fórmula
+                // Día 0 (Lunes): datos en filas 9–23, fórmula en 24 → COUNTIF(C9:C23,"X")
+                // Día 1 (Martes): datos en filas 27–41, fórmula en 42 → COUNTIF(C27:C41,"X")
+                const blockStarts = [9, 27, 45, 63, 81, 99, 117];
+                const rangeStart = blockStarts[dayIdx] || 9;
+                const rangeEnd = formulaRow - 1;
+
                 const totals = [];
-                for(let col=0; col<COLS; col++) {
-                    let count = 0;
-                    for(let r=0; r<dayRows.length; r++) {
-                        if(dayRows[r][col] === 'X') count++;
-                    }
-                    totals.push(count > 0 ? count : 0);
+                for (let col = 0; col < COLS; col++) {
+                    const letter = colLetter(PASTE_START_COL + col); // C, D, E, ..., AB
+                    totals.push(`=COUNTIF(${letter}${rangeStart}:${letter}${rangeEnd};"X")`);
                 }
                 return totals;
             };
@@ -289,9 +315,9 @@ Object.assign(App.logic, {
                 const dayRows = buildDayRows(date);
 
                 // Antes de cada día (excepto el primero), insertar gap de 3 filas
-                if(dayIdx > 0 && prevDayRows) {
-                    // Fila 1: TOTAL HORAS (cuenta de X del día anterior)
-                    allRows.push(buildTotalRow(prevDayRows));
+                if(dayIdx > 0) {
+                    // Fila 1: TOTAL con fórmulas COUNTIF del día anterior
+                    allRows.push(buildTotalRow(dayIdx - 1));
                     // Fila 2: vacía
                     const emptyRow = [];
                     for(let i=0; i<COLS; i++) emptyRow.push('');
@@ -302,8 +328,9 @@ Object.assign(App.logic, {
 
                 // Filas de datos del día
                 dayRows.forEach(r => allRows.push(r));
-                prevDayRows = dayRows;
             });
+            // Fila TOTAL del último día (domingo)
+            allRows.push(buildTotalRow(6));
 
             // Convertir a TSV
             const tsv = allRows.map(row => row.join('\t')).join('\n');
