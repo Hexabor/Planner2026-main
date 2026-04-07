@@ -2268,16 +2268,27 @@ Object.assign(App.ui, {
             }
             evFilterBar += '</div>';
 
+            const hoy = new Date().toISOString().slice(0, 10);
+            const showArchived = App.uiState.evShowArchived || false;
+
             const todos = (App.data.eventos || []).slice().sort((a,b) => a.fechaInicio.localeCompare(b.fechaInicio));
-            const eventos = todos.filter(ev =>
+            const filtered = todos.filter(ev =>
                 (tipoFilter === 'todos' || ev.tipo === tipoFilter) &&
                 (evEmpFilter === 'todos' || ev.empId === evEmpFilter)
             );
+            const eventos = filtered.filter(ev => showArchived ? ev.fechaInicio < hoy : ev.fechaInicio >= hoy);
+            const countActivos = filtered.filter(ev => ev.fechaInicio >= hoy).length;
+            const countArchivados = filtered.filter(ev => ev.fechaInicio < hoy).length;
 
-            // Sin formulario inline — se usa el inspector
+            // Toggle activas/archivadas
+            const _toggleArchived = `App.uiState.evShowArchived=!App.uiState.evShowArchived;${_refresh}`;
+            const archiveToggle = `<div style="display:flex;gap:4px;margin-bottom:10px;">
+                <button onclick="App.uiState.evShowArchived=false;${_refresh}" style="${_ps(!showArchived,'#2563eb','#eff6ff','#93c5fd')}">Activos (${countActivos})</button>
+                <button onclick="App.uiState.evShowArchived=true;${_refresh}" style="${_ps(showArchived,'#64748b','#f1f5f9','#cbd5e1')}">Archivados (${countArchivados})</button>
+            </div>`;
 
-            const listaHtml = eventos.length === 0
-                ? `<div style="padding:32px;text-align:center;color:#94a3b8;font-size:0.85rem;">Sin eventos registrados. Pulsa "+ Nuevo evento" para añadir uno.</div>`
+            const _buildEvTable = (evList) => evList.length === 0
+                ? `<div style="padding:32px;text-align:center;color:#94a3b8;font-size:0.85rem;">${showArchived ? 'Sin eventos pasados.' : 'Sin eventos próximos. Pulsa "+ Nuevo evento" para añadir uno.'}</div>`
                 : `<table style="width:100%;border-collapse:collapse;">
                     <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
                         <th style="padding:8px 12px;text-align:left;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;">Empleado</th>
@@ -2288,7 +2299,7 @@ Object.assign(App.ui, {
                         <th style="padding:8px 12px;width:64px;"></th>
                     </tr></thead>
                     <tbody>
-                    ${eventos.map(ev => `<tr style="border-bottom:1px solid #f1f5f9;">
+                    ${evList.map(ev => `<tr style="border-bottom:1px solid #f1f5f9;${showArchived ? 'opacity:0.6;' : ''}">
                         <td style="padding:9px 12px;font-size:0.82rem;font-weight:600;color:#1e293b;">${empName(ev.empId)}</td>
                         <td style="padding:9px 12px;"><span style="background:${TIPO_COLOR[ev.tipo]||'#64748b'}18;color:${TIPO_COLOR[ev.tipo]||'#64748b'};border:1px solid ${TIPO_COLOR[ev.tipo]||'#64748b'}40;border-radius:4px;padding:2px 8px;font-size:0.72rem;font-weight:700;">${TIPO_LABEL[ev.tipo]||'Otro'}</span></td>
                         <td style="padding:9px 12px;font-size:0.8rem;color:#475569;white-space:nowrap;">${ev.fechaInicio}</td>
@@ -2301,6 +2312,7 @@ Object.assign(App.ui, {
                     </tr>`).join('')}
                     </tbody>
                 </table>`;
+            const listaHtml = _buildEvTable(eventos);
 
             c.style.cssText = 'padding:16px;overflow-y:auto;box-sizing:border-box;scrollbar-gutter:stable;';
             c.innerHTML = sectionBar + `
@@ -2310,9 +2322,65 @@ Object.assign(App.ui, {
                         <button onclick="App.ui.renderEventoInspector(null)"
                             style="padding:7px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;font-size:0.82rem;cursor:pointer;">+ Nuevo evento</button>
                     </div>
+                    ${archiveToggle}
                     ${evFilterBar}
                     ${listaHtml}
                 </div>`;
+        },
+
+        _llavesReiniciar: function() {
+            const llaves = App.data.config.llaves || [];
+            if (llaves.length === 0) { alert('No hay llaves configuradas.'); return; }
+
+            const hoy = new Date().toISOString().slice(0, 10);
+            const fecha = prompt('🔄 Reiniciar cadena de traspasos\n\nIndica la fecha a partir de la cual quieres reiniciar.\nTodo lo anterior quedará archivado.\n\nFecha (AAAA-MM-DD):', hoy);
+            if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return;
+
+            // Contar traspasos que se van a eliminar
+            const aEliminar = (App.data.traspasoLlaves || []).filter(t => t.fecha >= fecha);
+            if (aEliminar.length === 0 && !confirm('No hay traspasos a partir de esa fecha.\n\n¿Quieres crear los puntos de partida igualmente?')) return;
+            if (aEliminar.length > 0 && !confirm(`Se eliminarán ${aEliminar.length} traspaso${aEliminar.length !== 1 ? 's' : ''} desde el ${Utils.formatDateES(fecha)} en adelante.\n\nSe crearán nuevos puntos de partida para cada llave con su portador actual.\n\n¿Continuar?`)) return;
+
+            // 1. Para cada llave, determinar quién la tiene el día anterior a la fecha de corte
+            const prevDate = new Date(fecha + 'T12:00:00');
+            prevDate.setDate(prevDate.getDate() - 1);
+            const prevStr = prevDate.toISOString().slice(0, 10);
+            const titulares = {};
+            llaves.forEach(l => {
+                const tid = App.logic.getTitularLlave(l.id, prevStr);
+                titulares[l.id] = tid || '__TIENDA__';
+            });
+
+            // 2. Eliminar todos los traspasos desde la fecha de corte
+            App.data.traspasoLlaves = (App.data.traspasoLlaves || []).filter(t => t.fecha < fecha);
+
+            // 3. Crear nuevos traspasos ancla: tienda → titular para cada llave
+            const now = new Date().toISOString();
+            llaves.forEach(l => {
+                App.data.traspasoLlaves.push({
+                    id: 'tr_reset_' + Date.now() + '_' + l.id,
+                    llaveId: l.id,
+                    dadorId: '__TIENDA__',
+                    receptorId: titulares[l.id],
+                    fecha: fecha,
+                    source: 'reset',
+                    creadoEn: now
+                });
+            });
+
+            Safe.save('v40_db', App.data);
+            App.logic.checkAlerts();
+
+            // Resumen
+            const resumen = llaves.map((l, i) => {
+                const tid = titulares[l.id];
+                const emp = tid !== '__TIENDA__' ? App.data.empleados.find(e => e.id === tid) : null;
+                const nombre = emp ? emp.nombre : '🏪 Tienda';
+                return `• L${i + 1}${l.alias ? ' ' + l.alias : ''} → ${nombre}`;
+            }).join('\n');
+            alert(`✅ Cadena reiniciada desde ${Utils.formatDateES(fecha)}\n\n${aEliminar.length} traspaso${aEliminar.length !== 1 ? 's' : ''} eliminado${aEliminar.length !== 1 ? 's' : ''}\n\nNuevos portadores:\n${resumen}\n\nYa puedes crear nuevos traspasos desde este punto.`);
+
+            App.logic._refreshLlaves();
         },
 
         _renderLlaves: function(c, sectionBar) {
@@ -2352,23 +2420,26 @@ Object.assign(App.ui, {
                 if (!traspasoPorLlave[t.llaveId]) traspasoPorLlave[t.llaveId] = [];
                 traspasoPorLlave[t.llaveId].push(t);
             });
+            const resetIds = new Set();
             Object.keys(traspasoPorLlave).forEach(llaveId => {
                 const lista = traspasoPorLlave[llaveId]; // ya ordenados por fecha
                 let broken = false;
                 lista.forEach(t => {
+                    // Los traspasos de reinicio son puntos de partida — nunca rotos, resetean la cadena
+                    if (t.source === 'reset') {
+                        resetIds.add(t.id);
+                        broken = false; // limpiar cascada
+                        return;
+                    }
                     if (broken) {
-                        // Cascada: todos los siguientes de esta llave están afectados
                         brokenIds.add(t.id);
                         return;
                     }
-                    // ¿Quién tiene la llave justo antes de este traspaso?
                     const titularReal = App.logic.getTitularLlaveInicio
                         ? App.logic.getTitularLlaveInicio(t.llaveId, t.fecha)
                         : null;
                     const dador = t.dadorId || '__TIENDA__';
-                    // Si no hay titular previo (null) y el dador dice ser __TIENDA__, ok (llave en tienda)
-                    // Si el titular previo no coincide con el dador declarado → roto
-                    if (titularReal === null && dador === '__TIENDA__') return; // ok, primer traspaso
+                    if (titularReal === null && dador === '__TIENDA__') return;
                     if (titularReal !== dador) {
                         brokenIds.add(t.id);
                         broken = true;
@@ -2378,14 +2449,28 @@ Object.assign(App.ui, {
 
             const _fila = (t, esPasado) => {
                 const isBroken = brokenIds.has(t.id);
+                const isReset = resetIds.has(t.id);
                 const dadorHtml = empName(t.dadorId || '__TIENDA__');
                 const celdasLlaves = llaves.map((l, idx) => _celdaLlave(l.id, t.fecha, idx)).join('');
-                const rowBg = isBroken ? 'background:#fef2f2;' : '';
-                const rowBorder = isBroken ? 'border-left:3px solid #ef4444;' : '';
-                return `<tr style="border-bottom:1px solid #f1f5f9;${esPasado?'opacity:0.65;':''}${rowBg}${rowBorder}" ${isBroken ? 'title="Flujo roto: el entregador no tiene esta llave en esta fecha"' : ''}>
-                    <td style="padding:9px 12px;font-size:0.8rem;color:${isBroken ? '#dc2626' : '#475569'};white-space:nowrap;">${Utils.formatDateES(t.fecha)}${isBroken ? ' ⚠' : ''}</td>
+                let rowBg = '', rowBorder = '', rowTitle = '', dateExtra = '', dateColor = '#475569', dadorColor = '#475569';
+                if (isReset) {
+                    rowBg = 'background:#eff6ff;';
+                    rowBorder = 'border-left:3px solid #2563eb;';
+                    rowTitle = 'title="Punto de inicio — cadena reiniciada desde esta fecha"';
+                    dateExtra = ' 🔵';
+                    dateColor = '#2563eb';
+                } else if (isBroken) {
+                    rowBg = 'background:#fef2f2;';
+                    rowBorder = 'border-left:3px solid #ef4444;';
+                    rowTitle = 'title="Flujo roto: el entregador no tiene esta llave en esta fecha"';
+                    dateExtra = ' ⚠';
+                    dateColor = '#dc2626';
+                    dadorColor = '#dc2626';
+                }
+                return `<tr style="border-bottom:1px solid #f1f5f9;${esPasado?'opacity:0.65;':''}${rowBg}${rowBorder}" ${rowTitle}>
+                    <td style="padding:9px 12px;font-size:0.8rem;color:${dateColor};white-space:nowrap;">${Utils.formatDateES(t.fecha)}${dateExtra}</td>
                     <td style="padding:9px 12px;font-size:0.82rem;font-weight:600;color:#1e293b;">${llaveLabel(t.llaveId)}</td>
-                    <td style="padding:9px 12px;font-size:0.82rem;color:${isBroken ? '#dc2626' : '#475569'};">${dadorHtml}</td>
+                    <td style="padding:9px 12px;font-size:0.82rem;color:${dadorColor};">${isReset ? '<span style="color:#2563eb;font-weight:600;">Inicio</span>' : dadorHtml}</td>
                     <td style="padding:9px 12px;font-size:0.82rem;color:#1e293b;font-weight:600;">${empName(t.receptorId)}</td>
                     ${celdasLlaves}
                     <td style="padding:9px 12px;text-align:right;white-space:nowrap;">
@@ -2452,8 +2537,12 @@ Object.assign(App.ui, {
                     <div id="llaves-optimizer-wrapper">${App.llaves._renderPanel()}</div>
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                         <h3 style="margin:0;font-size:1rem;font-weight:700;color:#1e293b;">🔑 Traspasos de llave</h3>
-                        <button onclick="App.ui.renderDayInspector('${hoy}')"
-                            style="padding:7px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;font-size:0.82rem;cursor:pointer;">+ Nuevo traspaso</button>
+                        <div style="display:flex;gap:6px;">
+                            <button onclick="App.ui._llavesReiniciar()"
+                                style="padding:7px 14px;background:white;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;font-weight:600;font-size:0.78rem;cursor:pointer;">🔄 Reiniciar cadena</button>
+                            <button onclick="App.ui.renderDayInspector('${hoy}')"
+                                style="padding:7px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;font-size:0.82rem;cursor:pointer;">+ Nuevo traspaso</button>
+                        </div>
                     </div>
                     ${estadoActualHtml}
                     ${proximosHtml}

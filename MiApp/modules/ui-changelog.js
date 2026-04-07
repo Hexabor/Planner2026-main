@@ -6,6 +6,14 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '07/04/2026 (tarde)', version: 'v1.0',
+                items: [
+                    '✨ Llaves — botón "Reiniciar cadena" para establecer nuevo punto de partida desde una fecha',
+                    '✨ Llaves — traspasos de reinicio con icono 🔵 y etiqueta "Inicio" (no se marcan como flujo roto)',
+                    '✨ Eventos — vista Activos/Archivados con toggle y contadores (eventos pasados al archivo)',
+                ]
+            },
+            {
                 fecha: '07/04/2026 (mediodía)', version: 'v1.0',
                 items: [
                     '✨ Exportación Eficiente — filas de totales con fórmulas =COUNTIF() en vez de valores (respeta fórmulas al pegar en C9)',
