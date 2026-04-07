@@ -357,7 +357,7 @@ Object.assign(App.ui, {
                 </button>`;
             };
             const subBarContent = (App.uiState.reqSection || 'solicitudes') === 'solicitudes'
-                ? `${subTab('puntuales', 'Puntuales')}${subTab('periodicas', 'Periódicas')}${subTab('libranzas', 'Libranzas')}${subTab('vacaciones', 'Vacaciones')}`
+                ? `${subTab('puntuales', 'Puntuales')}${subTab('periodicas', 'Periódicas')}${subTab('libranzas', 'Plan de libranzas')}${subTab('vacaciones', 'Plan de vacaciones')}`
                 : '';
 
             const mainBar = `

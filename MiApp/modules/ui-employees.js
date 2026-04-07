@@ -26,8 +26,7 @@ Object.assign(App.ui, {
                     const sh = sid ? Utils.getShift(sid) : null;
                     if(sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
                 });
-                const contrato = Utils.getContrato(emp, monday);
-                const { esperadas } = Utils.calcEsperadas(contrato, wdays, emp.id);
+                const { esperadas } = Utils.calcEsperadas(emp, wdays, emp.id);
                 acum = Math.round((acum + worked - esperadas) * 10) / 10;
             });
             // Ajustes manuales: cuentan siempre independientemente de semana cerrada
@@ -434,8 +433,8 @@ markDirty: function() {
                     const sh = sid ? Utils.getShift(sid) : null;
                     if(sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
                 });
+                const { esperadas, justifiedH } = Utils.calcEsperadas(emp, wdays, emp.id);
                 const contratoSemana = Utils.getContrato(emp, monday);
-                const { esperadas, justifiedH } = Utils.calcEsperadas(contratoSemana, wdays, emp.id);
                 const desvio = Math.round((worked - esperadas) * 10) / 10;
                 acum = Math.round((acum + desvio) * 10) / 10;
                 if(Math.abs(desvio) > maxAbs) maxAbs = Math.abs(desvio);

@@ -400,24 +400,43 @@ const Utils = {
     // F que reducen = max(0, countF - L_faltantes)
     // Otras ausencias (V, R, B, P) siempre reducen.
     calcEsperadas: function(empContrato, weekDays, empId) {
-        const dailyH = empContrato / 5;
+        // empContrato: número (horas/semana) o empleado objeto (para prorrateo si cambia a mitad de semana)
+        const empObj = (typeof empContrato === 'object' && empContrato !== null && empContrato.id) ? empContrato : null;
+
+        // totalContrato: horas ponderadas de la semana (7 días para prorrateo si cambia contrato)
+        // justifyRate: horas/día laborable (contrato/5) para ausencias justificadas (V,R,B,P,F)
+        const justifyByDate = {}; // contrato/5 por fecha — tasa de justificación
+        let totalContrato = 0;
+        if (empObj) {
+            weekDays.forEach(d => {
+                const c = Utils.getContrato(empObj, d);
+                totalContrato += c / 7;
+                justifyByDate[d] = c / 5;
+            });
+        } else {
+            totalContrato = empContrato;
+            weekDays.forEach(d => { justifyByDate[d] = empContrato / 5; });
+        }
+
         let countL = 0, countF = 0, otherJustified = 0;
         weekDays.forEach(d => {
             const sid = App.data.schedule[d] ? App.data.schedule[d][empId] : null;
             const shift = sid ? Utils.getShift(sid) : null;
+            const jH = justifyByDate[d] || (totalContrato / 5);
             if(shift && shift.fixed) {
                 if(shift.code === 'L') countL++;
                 else if(shift.code === 'F') countF++;
-                else if(['V','R','B','P'].includes(shift.code)) otherJustified += dailyH;
+                else if(['V','R','B','P'].includes(shift.code)) otherJustified += jH;
             }
         });
         const lFaltantes = Math.max(0, 2 - countL);
         const fReducen   = Math.max(0, countF - lFaltantes);
-        const justifiedRaw = (fReducen * dailyH) + otherJustified;
+        const avgJustify = totalContrato / 5;
+        const justifiedRaw = (fReducen * avgJustify) + otherJustified;
         // Clamp: las ausencias no pueden justificar más horas que el contrato semanal
-        const justifiedH = Math.min(justifiedRaw, empContrato);
-        const esperadas  = Math.max(0, Math.round((empContrato - justifiedH) * 10) / 10);
-        return { esperadas, justifiedH: Math.round(justifiedH * 10) / 10, countL, countF, fReducen, otherJustified };
+        const justifiedH = Math.min(justifiedRaw, totalContrato);
+        const esperadas  = Math.max(0, Math.round((totalContrato - justifiedH) * 10) / 10);
+        return { esperadas, justifiedH: Math.round(justifiedH * 10) / 10, totalContrato: Math.round(totalContrato * 10) / 10, countL, countF, fReducen, otherJustified };
     },
 
     
@@ -544,7 +563,18 @@ const Utils = {
     return null;
 },
     
-    getRequest: function(empId, date) { return App.data.requests.find(r=>r.empId===empId && !r.archived && date>=r.start && date<=r.end); },
+    getRequest: function(empId, date) {
+        // 1. Solicitud puntual real
+        const req = App.data.requests.find(r => r.empId === empId && !r.archived && date >= r.start && date <= r.end);
+        if (req) return req;
+        // 2. Plan de libranzas aplicado
+        const lp = (App.data.libranzaPlans || []).find(p => p.applied && p.empId === empId && p.dates.includes(date));
+        if (lp) return { empId, type: 'LIB', status: 'approved', start: date, end: date, planId: lp.id, planType: 'libranzas', _synthetic: true };
+        // 3. Plan de vacaciones aplicado
+        const vp = (App.data.vacacionesPlans || []).find(p => p.applied && p.empId === empId && p.dates.includes(date));
+        if (vp) return { empId, type: 'VAC', status: 'approved', start: date, end: date, planId: vp.id, planType: 'vacaciones', _synthetic: true };
+        return undefined;
+    },
     calcHours: function(start, end, bStart, bEnd, breakMinutes) { if(!start || !end) return 0; const getMin=(t)=>{if(!t)return 0;const[h,m]=t.split(':').map(Number);return h*60+m;}; let total=getMin(end)-getMin(start); if(total<0) total+=24*60; let brk=0; if(bStart && bEnd){ brk=getMin(bEnd)-getMin(bStart); if(brk<0) brk+=24*60; } else if(typeof breakMinutes==='number' && breakMinutes>0){ brk=breakMinutes; } return Math.max(0,(total-brk)/60); },
     
     isShiftValidForDay: function(shift, dayConfig) {

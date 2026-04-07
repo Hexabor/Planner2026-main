@@ -799,7 +799,7 @@ Object.assign(App.ui, {
             });
 
             // Fila total — incluir horas justificadas (V, R, B, P, F) igual que el balance semanal
-            const { justifiedH } = Utils.calcEsperadas(contratHoras, weekDays, empId);
+            const { justifiedH } = Utils.calcEsperadas(emp, weekDays, empId);
             const effectiveTotal = Math.round((totalHours + justifiedH) * 10) / 10;
             const diff = Math.round((effectiveTotal - contratHoras) * 10) / 10;
             const diffColor = diff > 0 ? '#22c55e' : (diff < 0 ? '#ef4444' : 'var(--text-muted)');

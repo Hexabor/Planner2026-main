@@ -479,7 +479,7 @@ Object.assign(App.ui, {
                         const wdays = Utils.getWeekDays(lw);
                         let worked = 0;
                         wdays.forEach(d => { const sid = App.data.schedule[d]?.[emp.id]; const sh = sid ? Utils.getShift(sid) : null; if (sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break); });
-                        const { esperadas } = Utils.calcEsperadas(Utils.getContrato(emp, lw), wdays, emp.id);
+                        const { esperadas } = Utils.calcEsperadas(emp, wdays, emp.id);
                         acum += worked - esperadas;
                     });
                     acum += (emp.ajustes || []).reduce((s, a) => s + a.signo * a.horas, 0);
@@ -507,7 +507,8 @@ Object.assign(App.ui, {
                             } else dayStatuses.push({ type: 'empty' });
                         });
 
-                        const { justifiedH } = Utils.calcEsperadas(contrato, days, emp.id);
+                        const { justifiedH, totalContrato: weekContrato } = Utils.calcEsperadas(emp, days, emp.id);
+                        const contrato = weekContrato;
                         const dif = f1(asig + justifiedH - contrato);
                         if (isLocked) acum += asig + justifiedH - contrato;
                         const acumR = f1(acum);
@@ -663,8 +664,8 @@ Object.assign(App.ui, {
                         worked += Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break);
                     }
                 });
+                const { esperadas, justifiedH } = Utils.calcEsperadas(selEmp, wdays, selEmp.id);
                 const contratoSemana = Utils.getContrato(selEmp, monday);
-                const { esperadas, justifiedH } = Utils.calcEsperadas(contratoSemana, wdays, selEmp.id);
                 const desvio = Math.round((worked - esperadas) * 10) / 10;
                 acum = Math.round((acum + desvio) * 10) / 10;
                 if(Math.abs(desvio) > maxAbs) maxAbs = Math.abs(desvio);

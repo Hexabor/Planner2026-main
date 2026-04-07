@@ -211,8 +211,13 @@ Object.assign(App.logic, {
             if(hasApprovedRequest && req.type !== 'HRL') {
                 const allowed = allowedShifts[req.type] || [];
                 
-                // SIEMPRE permitir borrador
+                // Borrador: permitir, pero avisar si es un plan
                 if(sid === 'eraser') {
+                    if (req._synthetic) {
+                        const planLabel = req.planType === 'vacaciones' ? 'plan de vacaciones' : 'plan de libranzas';
+                        const emp = App.data.empleados.find(e => e.id === empId);
+                        if (!confirm(`📋 ${planLabel.charAt(0).toUpperCase() + planLabel.slice(1)}\n\n${emp ? emp.nombre : 'Este empleado'} tiene este día en un ${planLabel} aprobado.\n\n¿Borrar el turno? Se considerará revocación.`)) return;
+                    }
                     delete App.data.schedule[date][empId];
                     this.saveSnapshot('Borrar turno');
                     Safe.save('v40_db', App.data);
@@ -240,7 +245,24 @@ Object.assign(App.logic, {
                     const typeName = typeNames[req.type] || req.type;
                     const allowedList = allowed.join(', ');
                     
-                    alert(`🔒 ${typeName} APROBADA\n\nEste empleado tiene una solicitud de ${typeName.toLowerCase()} aprobada.\n\nTurnos permitidos: ${allowedList}\n\nPara asignar otros turnos, cambia primero el estado de la solicitud en la pestaña Solicitudes.`);
+                    if (req._synthetic) {
+                        const planLabel = req.planType === 'vacaciones' ? 'plan de vacaciones' : 'plan de libranzas';
+                        if (confirm(`🔒 ${typeName} — ${planLabel}\n\nEste día forma parte de un ${planLabel} aprobado.\n\nTurnos permitidos: ${allowedList}\n\n¿Quieres ir al ${planLabel} para modificarlo?`)) {
+                            App.uiState.reqSection = 'solicitudes';
+                            App.uiState.reqSubSection = req.planType === 'vacaciones' ? 'vacaciones' : 'libranzas';
+                            const uiKey = req.planType === 'vacaciones' ? 'vacacionesPlan' : 'libranzas';
+                            if (!App.uiState[uiKey]) App.uiState[uiKey] = {};
+                            App.uiState[uiKey].mode = 'list';
+                            App.router.go('requests');
+                        }
+                    } else {
+                        if (confirm(`🔒 ${typeName} APROBADA\n\nEste empleado tiene una solicitud de ${typeName.toLowerCase()} aprobada.\n\nTurnos permitidos: ${allowedList}\n\n¿Quieres ir a la solicitud para modificarla?`)) {
+                            App.uiState.reqSection = 'solicitudes';
+                            App.uiState.reqSubSection = 'puntuales';
+                            App.logic.reqSelect(req.id);
+                            App.router.go('requests');
+                        }
+                    }
                     return;
                 }
                 // Si llegamos aquí, el turno está permitido → continuar

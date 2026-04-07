@@ -6,6 +6,17 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '07/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Planes de libranzas/vacaciones — integrados como solicitudes aprobadas en el grid (columna REQ, bloqueo de turnos incompatibles)',
+                    '✨ Contratos mixtos — prorrateo correcto cuando el contrato cambia a mitad de semana (7 días ponderados)',
+                    '✨ Balance semanal — tooltip ⚡ para semanas con contrato mixto (desglose L-D)',
+                    '🔧 Fix: ausencias (B/V/R/P) descuentan a razón de contrato/5 (día laborable), no contrato/7',
+                    '🔧 Fix: tooltip de Cntr mostraba desvío acumulado en vez de info del contrato',
+                    '🔧 Fix: doble declaración const contrato rompía ui-planner.js al cargar',
+                ]
+            },
+            {
                 fecha: '05/04/2026', version: 'v1.0',
                 items: [
                     '✨ Gestión diaria — reestructuración: 3 botones principales (Solicitudes/Eventos/Llaves) + sub-tabs (Puntuales/Periódicas/Libranzas/Vacaciones)',

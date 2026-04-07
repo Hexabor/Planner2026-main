@@ -460,19 +460,27 @@ Object.assign(App.ui, {
                 // Calcular días consecutivos trabajados ANTES de esta semana
                 const consecutiveDays = App.logic.calcConsecutiveWorkDays(e.id, monday);
                 // Aplicar regla F/L para horas justificadas y esperadas
-                const { justifiedH, countL, countF } = Utils.calcEsperadas(Utils.getContrato(e, monday), days, e.id);
-                
-                stats.push({ 
+                const { justifiedH, totalContrato, countL, countF } = Utils.calcEsperadas(e, days, e.id);
+
+                // Detectar contrato mixto (cambio a mitad de semana)
+                const DIAS_SEM = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+                const contratosPorDia = days.map((d, i) => ({ dia: DIAS_SEM[i], h: Utils.getContrato(e, d) }));
+                const contratosUnicos = [...new Set(contratosPorDia.map(c => c.h))];
+                const esMixto = contratosUnicos.length > 1;
+
+                stats.push({
                     name: e.nombre,
                     empId: e.id,
-                    contract: Utils.getContrato(e, monday), 
+                    contract: totalContrato,
                     planned,
                     asig,
                     justifiedH,
                     dayStatuses,
                     consecutiveDays,
                     countL,
-                    countF
+                    countF,
+                    esMixto,
+                    contratosPorDia
                 });
             });
 
@@ -613,7 +621,7 @@ Object.assign(App.ui, {
                             const sh = sid ? Utils.getShift(sid) : null;
                             if(sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
                         });
-                        const { esperadas } = Utils.calcEsperadas(Utils.getContrato(_emp, isoWeek), wdays, _emp.id);
+                        const { esperadas } = Utils.calcEsperadas(_emp, wdays, _emp.id);
                         _acum += worked - esperadas;
                     });
                     _acum = Math.round((_acum + (_emp.ajustes||[]).reduce((s,a)=>s+a.signo*a.horas,0)) * 10) / 10;
@@ -670,7 +678,14 @@ Object.assign(App.ui, {
                         ${_recPend > 0 ? `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:3px;"><span style="color:#94a3b8;">🔴 Recup. arrastre</span><span style="color:#f87171;font-weight:700;">${_recPend} día${_recPend!==1?'s':''}</span></div>` : ''}
                         ${_vacPend > 0 ? `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:3px;"><span style="color:#94a3b8;">🟣 Vacaciones</span><span style="color:#c084fc;font-weight:700;">${_vacPend} día${_vacPend!==1?'s':''}</span></div>` : ''}
                     </div>` : '';
-                const _cntrTooltip = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desvío acumulado</div><div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:4px;"><span style="color:#94a3b8;">Periodo</span><span style="font-weight:600;font-size:10px;text-align:right;">${Utils.getWeekCode(_rangeStart)} → ${Utils.getWeekCode(_rangeEnd)}</span></div><div style="display:flex;justify-content:space-between;gap:12px;"><span style="color:#94a3b8;">Desvío total</span><span style="color:${_acumColor};font-weight:700;">${_acumSign}${f1(_acum)}h</span></div>${_pendHTML}<div style="margin-top:8px;font-size:10px;color:#64748b;border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;">Configura en 📈 Análisis · ficha del empleado</div>`;
+                // Tooltip contrato: solo si es mixto
+                let _cntrTooltip = '';
+                if (st.esMixto) {
+                    const _rows = st.contratosPorDia.map(c =>
+                        `<div style="display:flex;justify-content:space-between;gap:8px;"><span style="color:#94a3b8;">${c.dia}</span><span style="font-weight:600;">${c.h}h</span></div>`
+                    ).join('');
+                    _cntrTooltip = `<div style="font-weight:700;color:#e2e8f0;margin-bottom:5px;">⚡ Contrato mixto</div>${_rows}<div style="display:flex;justify-content:space-between;gap:8px;border-top:1px solid rgba(255,255,255,0.1);margin-top:4px;padding-top:4px;"><span style="color:#94a3b8;">Total</span><span style="font-weight:700;">${f1(st.contract)}h</span></div>`;
+                }
 
                 const _shortName = st.name.length > 10 ? st.name.slice(0, 10) + '…' : st.name;
                 const _desCell = `<span style="font-family:monospace;font-weight:700;font-size:0.75rem;color:${_acumColor};">${_acumSign}${f1(_acum)}</span>`;
@@ -704,7 +719,10 @@ Object.assign(App.ui, {
 
                 html += `<tr class="b-row">
                     <td class="b-name" title="${st.name}">${_shortName}</td>
-                    <td class="b-hrs" style="white-space:nowrap;"><span class="diff-tooltip-wrap" style="cursor:help;">${f1(st.contract)}<sup style="font-size:0.5rem;opacity:0.6;">⏱</sup><div class="diff-tooltip" style="min-width:260px;white-space:normal;line-height:1.7;">${_cntrTooltip}</div></span></td>
+                    <td class="b-hrs" style="white-space:nowrap;">${st.esMixto
+                        ? `<span class="diff-tooltip-wrap" style="cursor:help;">${f1(st.contract)}<sup style="font-size:0.5rem;color:#f59e0b;">⚡</sup><div class="diff-tooltip" style="min-width:150px;white-space:normal;line-height:1.7;top:auto;bottom:120%;left:0;transform:none;">${_cntrTooltip}</div></span>`
+                        : `${f1(st.contract)}`
+                    }</td>
                     <td class="b-hrs" style="white-space:nowrap;"><span class="diff-tooltip-wrap" style="cursor:help;">${f1(st.asig)}<div class="diff-tooltip" style="min-width:220px;white-space:normal;line-height:1.6;">${_asigTooltip}</div></span></td>
                     <td class="b-hrs ${diffClass}" style="position:relative;"><span class="diff-tooltip-wrap" style="cursor:help;">${diffDisplay}<div class="diff-tooltip" style="min-width:220px;white-space:normal;line-height:1.6;">${_difTooltipContent}</div></span></td>
                     <td style="text-align:center;padding:3px;border-left:2px solid #cbd5e1;">${_desCell}</td>
@@ -835,7 +853,7 @@ Object.assign(App.ui, {
                 const wdays = Utils.getWeekDays(lw);
                 let worked = 0;
                 wdays.forEach(d => { const sid = App.data.schedule[d]?.[emp.id]; const sh = sid ? Utils.getShift(sid) : null; if (sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break); });
-                const { esperadas } = Utils.calcEsperadas(Utils.getContrato(emp, lw), wdays, emp.id);
+                const { esperadas } = Utils.calcEsperadas(emp, wdays, emp.id);
                 acum += worked - esperadas;
             });
             acum += (emp.ajustes || []).reduce((s, a) => s + a.signo * a.horas, 0);
@@ -848,7 +866,6 @@ Object.assign(App.ui, {
                 const wkCode = Utils.getWeekCode(mon);
                 const isLocked = days.every(d => App.data.lockedDays && App.data.lockedDays[d]);
                 const isCurrent = mon === todayMonday;
-                const contrato = Utils.getContrato(emp, mon);
 
                 // Horas trabajadas
                 let asig = 0;
@@ -870,7 +887,7 @@ Object.assign(App.ui, {
                     } else { dayStatuses.push({ type: 'empty' }); }
                 });
 
-                const { justifiedH } = Utils.calcEsperadas(contrato, days, emp.id);
+                const { justifiedH, totalContrato: contrato } = Utils.calcEsperadas(emp, days, emp.id);
                 const dif = f1(asig + justifiedH - contrato);
 
                 // Acumular desvío si semana cerrada
