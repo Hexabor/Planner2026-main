@@ -142,6 +142,83 @@ El efecto es puramente visual y de navegación — convierte la pantalla de inic
 
 ---
 
+## Fase 10: Alertas ampliadas y llaves mejoradas (3-4 abril 2026)
+
+### Alertas laborales
+Cuatro nuevas alertas que solo se activan en semanas cerradas:
+- **Tramo sin TAG3**: franja horaria sin ningún encargado
+- **Persona sola**: empleado cubriendo solo una franja
+- **Jornada >10h**: turno que excede las 10 horas
+- **Descanso <12h**: menos de 12 horas entre un cierre y la siguiente apertura
+
+### Llaves — inspector mejorado
+Proyección ampliada a 5 días, sobretítulo con fecha, columnas más amplias. Las llaves que faltan aparecen sombreadas. Detección visual de flujo roto (fondo rojo + efecto cascada) y borrado de traspasos en lote.
+
+### Fix: backup de Drive y traspasos
+Se descubre que el export modular nunca incluía `traspasoLlaves` — añadido como casilla independiente en los 3 modales de export/import. Drag/resize ahora se bloquea correctamente en días cerrados.
+
+---
+
+## Fase 11: Libranzas, vacaciones y contratos (5-7 abril 2026)
+
+### Gestión diaria reestructurada
+El módulo pasa de 2 botones a 3 botones principales (Solicitudes/Eventos/Llaves), y Solicitudes gana 4 sub-tabs: Puntuales, Periódicas, Libranzas, Vacaciones.
+
+### Plan de libranzas y vacaciones
+Calendario anual de 12 meses donde el empleado (o el manager) marca los días deseados. Detecta conflictos con festivos (→ F automático). Vista global de vacaciones con calendario anual de todos los empleados (colores por persona). Fusión de planes duplicados, incorporación de V huérfanas del planificador, detección de revocaciones (fechas en rojo).
+
+### Integración en el grid
+Los planes aprobados aparecen como solicitudes en el planificador (columna REQ), con bloqueo de turnos incompatibles. Protección al sobreescribir libranzas/vacaciones de un plan solicitado.
+
+### Contratos mixtos
+Cuando un empleado cambia de contrato a mitad de semana, el balance se calcula por prorrateo diario (no semanal). Tooltip ⚡ en semanas mixtas con desglose L-D.
+
+### Vista de Semanas
+Nueva pestaña en el inspector del planificador y en Análisis: vista de 20 semanas de un empleado con balance acumulado.
+
+### Fixes
+- Ausencias justificadas (B/V/R/P) descuentan contrato/5 (día laborable), no contrato/7
+- Migración automática de requests VAC → vacacionesPlans
+- Doble `const contrato` corregida en varios módulos
+
+---
+
+## Fase 12: Exportación y llaves avanzadas (7-8 abril 2026)
+
+### Exportación Eficiente mejorada
+Las filas de TOTAL ahora usan fórmulas `=COUNTIF()` en vez de valores fijos, de modo que al pegar en la hoja ROTA/C9 las fórmulas del destino se respetan.
+
+### Llaves — reiniciar cadena
+Botón para establecer un nuevo punto de partida desde una fecha (icono 🔵). Los traspasos de reinicio no se marcan como flujo roto.
+
+### Llaves — vistas visuales
+Dos nuevas vistas:
+- **Por persona**: tabla por TAG3 con barras de posesión por llave (3 semanas)
+- **Por llave**: tabla con todos los TAG3 + fila Tienda, colores por llave, celdas con medio rectángulo + triángulo rojo (entrega) / verde (recibe)
+
+Filtros por persona o por llave en traspasos. Rejilla tenue para delimitar días en las vistas calendario.
+
+### Eventos — archivo
+Vista Activos/Archivados con toggle y contadores. Los eventos pasados pasan al archivo automáticamente.
+
+---
+
+## Fase 13: Robustez (8 abril 2026)
+
+### Error handler global
+Banner discreto al pie de página para errores JS no capturados (`window.onerror` + `onunhandledrejection`). Incluye botón "Copiar detalle" con el stack trace para diagnóstico. Auto-desaparece en 10 segundos.
+
+### Rescue de JSON corrupto
+Si localStorage tiene datos corruptos (JSON no parseable), la app guarda una copia de seguridad en `v40_db_corrupted`, muestra un modal con opción de descargar el archivo corrupto, y arranca con datos vacíos en vez de crashear.
+
+### Validación de schema
+Al arrancar, verifica que los campos clave (`empleados`, `schedule`, `config`, `shiftDefs`, `requests`, `storeConfig`) tienen el tipo correcto. Si alguno está corrupto, descarta solo ese campo y avisa al usuario — no se pierden los demás datos.
+
+### Protección multi-pestaña
+Si dos pestañas tienen la app abierta y una guarda cambios, la otra muestra un banner fijo: "Otra pestaña ha guardado cambios. Recarga para no perder datos." El auto-guardado se pausa para no pisar los datos de la otra pestaña.
+
+---
+
 ## Resumen de evolución
 
 | Fecha | Hito |
@@ -154,3 +231,7 @@ El efecto es puramente visual y de navegación — convierte la pantalla de inic
 | 1 Abr | Presentación imprimible (semanal + mensual) |
 | 2 Abr | Controles del planificador, Ctrl swap, gestión de llaves |
 | 3 Abr | Fix backup Drive, mapa del Home, Gestión diaria |
+| 3-4 Abr | Alertas laborales (TAG3, persona sola, jornada, descanso), llaves mejoradas |
+| 5-7 Abr | Libranzas/vacaciones, contratos mixtos, vista de semanas |
+| 7-8 Abr | Export COUNTIF, llaves avanzadas (vistas, reinicio, filtros), archivo eventos |
+| 8 Abr | Robustez: error handler, rescue JSON, validación schema, multi-pestaña |

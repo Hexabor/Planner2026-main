@@ -54,13 +54,14 @@ El corazón de Planner. Un **cuadrante semanal** donde se asignan turnos a emple
 - **Valle**: indicador de horas en franja valle (14:00-17:00), con bolsa semanal configurable
 
 ### Inspector lateral (panel derecho)
-6 pestañas:
+7 pestañas:
 - **Gráficos**: distribución diaria y por franjas horarias
-- **Balance**: horas asignadas vs contratadas por empleado, desvío acumulado, festivos pendientes
+- **Balance**: horas asignadas vs contratadas por empleado, desvío acumulado, festivos pendientes. Tooltip ⚡ en semanas con contrato mixto (desglose L-D)
 - **Eventos**: cursos, visitas, mentorías programados esa semana
 - **Fines**: rotación de fines de semana (14 semanas), equilibrio sábados/domingos
 - **Festivos**: panel de devolución de festivos trabajados, con fechas de recuperación
 - **Equilibrio**: distribución de turnos por empleado (quién trabaja más mañanas, tardes, etc.)
+- **Semanas**: vista de 20 semanas de un empleado con balance acumulado
 
 ---
 
@@ -83,11 +84,23 @@ Al seleccionar un empleado se abre un panel lateral con 4 pestañas: Datos, Desv
 
 Todo lo que ocurre en el día a día y afecta al cuadrante. Anteriormente llamado "Peticiones".
 
-### Submódulos:
-- **Solicitudes**: peticiones individuales de ausencia — vacaciones (VAC), libres (LIB), bajas (BAJ), permisos (PER), franjas horarias (HRL). Con estados: pendiente, aprobada, rechazada. Filtros por tipo y empleado.
-- **Recurrentes**: patrones que generan solicitudes automáticamente (ej: "Flavia no trabaja tardes los miércoles de marzo a junio por clases de aerial").
-- **Eventos**: actividades que no son ausencias pero afectan al planning — cursos de formación, visitas a otras tiendas, mentorías, reuniones. Aparecen como overlay en el grid del planificador.
-- **Llaves** (si está activado): gestión de las llaves físicas de la tienda. Estado actual de cada llave (quién la tiene), traspasos planificados, archivo histórico. Reglas: las llaves nacen en tienda, una persona solo puede tener una llave, la tienda puede tener varias.
+3 botones principales: Solicitudes, Eventos, Llaves.
+
+### Solicitudes (4 sub-tabs):
+- **Puntuales**: peticiones individuales de ausencia — libres (LIB), bajas (BAJ), permisos (PER), franjas horarias (HRL). Con estados: pendiente, aprobada, rechazada. Filtros por tipo y empleado.
+- **Periódicas**: patrones que generan solicitudes automáticamente (ej: "Flavia no trabaja tardes los miércoles de marzo a junio por clases de aerial").
+- **Libranzas**: plan anual de libranzas por empleado — calendario de 12 meses, detección de conflictos con festivos, vista global.
+- **Vacaciones**: plan anual de vacaciones — misma estructura, color púrpura, vista global con todos los empleados (colores por persona). Fusión de planes duplicados, detección de revocaciones.
+
+### Eventos:
+Actividades que no son ausencias pero afectan al planning — cursos de formación, visitas a otras tiendas, mentorías, reuniones. Aparecen como overlay en el grid del planificador. Vista Activos/Archivados con toggle y contadores.
+
+### Llaves (si está activado):
+Gestión de las llaves físicas de la tienda. Estado actual de cada llave (quién la tiene), traspasos planificados, archivo histórico. Reglas: las llaves nacen en tienda, una persona solo puede tener una llave, la tienda puede tener varias.
+- **Vista traspasos**: tabla con filtros por persona o llave, rejilla tenue por días
+- **Vista Por persona**: tabla por TAG3 con barras de posesión por llave (3 semanas)
+- **Vista Por llave**: tabla con todos los TAG3 + fila Tienda, triángulos rojo (entrega) / verde (recibe)
+- **Reiniciar cadena**: establecer nuevo punto de partida desde una fecha (icono 🔵)
 
 ---
 
@@ -124,6 +137,7 @@ Métricas y visualizaciones para revisar el planning.
 - **Turnos vs Facturación**: horas semanales asignadas por empleado, comparativa con horas contratadas. Tabla con desvíos y acumulados.
 - **Equilibrio de turnos**: distribución de tipos de turno por empleado. ¿Quién trabaja más mañanas? ¿Quién más partidos? Modo semanas cerradas o rango personalizable.
 - **Turnos más usados**: ranking de turnos por frecuencia de uso. Útil para identificar patrones y simplificar la paleta.
+- **Vista de Semanas**: tabla de 20 semanas por empleado con balance acumulado, duplicada desde el inspector del planificador.
 
 ---
 
@@ -167,6 +181,10 @@ Panel de notificaciones que avisa de problemas en el planning.
 - **Solicitudes sin turno**: solicitudes pendientes en días sin asignación
 - **Festivos mal asignados**: día marcado como festivo pero con turno L (libre) en vez de F (festivo)
 - **Cobertura de llaves**: apertura o cierre sin empleado TAG3 con llave (solo semanas cerradas, ventana 21 días)
+- **Tramo sin TAG3**: franja horaria sin ningún encargado
+- **Persona sola**: empleado cubriendo solo una franja
+- **Jornada >10h**: turno que excede las 10 horas
+- **Descanso <12h**: menos de 12 horas entre cierre y siguiente apertura
 
 Cada alerta tiene botón "Ignorar" para descartarla. Las alertas ignoradas se limpian automáticamente si el problema se resuelve.
 
@@ -209,3 +227,13 @@ Mapa visual con tiles organizados en 4 columnas. Al hacer hover sobre cualquier 
 ### Atajos de teclado
 - **Ctrl+Z / Ctrl+Y**: Deshacer / Rehacer (20 snapshots)
 - **Ctrl (mantener)**: Activa temporalmente el modo Cambiar en drag & drop
+
+---
+
+## Robustez (bajo el capó)
+
+Mecanismos de protección invisibles para el usuario:
+- **Error handler global**: banner discreto al pie si ocurre un error JS, con botón "Copiar detalle" para diagnóstico
+- **Rescue JSON corrupto**: si los datos guardados no se pueden leer, guarda copia de seguridad y permite descarga antes de arrancar vacío
+- **Validación de schema**: al arrancar, verifica que cada campo tiene el tipo correcto y descarta solo los inválidos
+- **Protección multi-pestaña**: si otra pestaña guarda cambios, avisa con banner + botón Recargar (no se pisan datos)

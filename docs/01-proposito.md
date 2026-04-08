@@ -22,7 +22,7 @@ Planner resuelve todo esto en una sola herramienta, accesible desde el navegador
 
 Para **managers y assistant managers de tiendas retail** que:
 
-- Gestionan equipos de 8-15 personas
+- Gestionan equipos de 4-20 personas
 - Trabajan con turnos rotativos (mañana, tarde, partido, intermedio)
 - Necesitan cubrir apertura y cierre todos los días
 - Tienen que equilibrar horas contratadas, festivos, vacaciones y preferencias
