@@ -38,7 +38,7 @@ Para **managers y assistant managers de tiendas retail** que:
 
 ## Estado actual
 
-La herramienta está en uso real en producción (tienda Madrid Islazul) desde noviembre 2025. Se ha ido construyendo iterativamente, añadiendo funcionalidades según las necesidades reales del día a día.
+La herramienta está en uso real en producción (tienda Madrid Islazul) desde febrero 2026. Se ha ido construyendo iterativamente, añadiendo funcionalidades según las necesidades reales del día a día.
 
 Versión actual: **v1.0** (~16.000 líneas de código, ~20 archivos).
 

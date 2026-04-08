@@ -223,7 +223,7 @@ Si dos pestañas tienen la app abierta y una guarda cambios, la otra muestra un 
 
 | Fecha | Hito |
 |-------|------|
-| Nov 2025 | Inicio del proyecto, primeras versiones |
+| Feb 2026 | Inicio del proyecto, primeras versiones |
 | 4-7 Mar | Cimientos: vista individual, importación, replicador |
 | 18-20 Mar | Google Drive, backups, protección de datos |
 | 20-22 Mar | Eventos, configuración, changelog, navegación |
