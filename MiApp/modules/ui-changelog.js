@@ -6,6 +6,13 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '08/04/2026 (tarde)', version: 'v1.0',
+                items: [
+                    '🛡️ Error handler global — banner discreto al pie con "Copiar detalle" para errores JS no capturados',
+                    '🛡️ Rescue JSON corrupto — si localStorage se corrompe, guarda copia de seguridad y ofrece descarga antes de arrancar vacío',
+                ]
+            },
+            {
                 fecha: '08/04/2026', version: 'v1.0',
                 items: [
                     '✨ Llaves — vista "Por persona": tabla por TAG3 con barras de posesión por llave (3 semanas)',

@@ -87,7 +87,36 @@ const App = {
     init: function() {
         console.log("Iniciando v40.41 Monitor Refinado...");
         const s = Safe.load('v40_db');
-        if(s) { try { App.data = { ...App.data, ...JSON.parse(s) }; } catch(e){} }
+        if(s) {
+            try {
+                App.data = { ...App.data, ...JSON.parse(s) };
+            } catch(e) {
+                // Guardar copia del string corrupto para posible recuperación
+                try { localStorage.setItem('v40_db_corrupted', s); } catch(x){}
+                // Ofrecer descarga del raw y avisar al usuario
+                setTimeout(function(){
+                    var modal = document.createElement('div');
+                    modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
+                    modal.innerHTML = '<div style="background:white;padding:28px 32px;border-radius:12px;max-width:440px;box-shadow:0 8px 32px rgba(0,0,0,0.25);font-size:0.85rem;line-height:1.6;">'
+                        + '<h3 style="margin:0 0 12px;color:#dc2626;">Error al cargar datos</h3>'
+                        + '<p style="margin:0 0 12px;color:#334155;">Los datos guardados no se pudieron leer (JSON corrupto). Se ha guardado una copia de seguridad interna con clave <code>v40_db_corrupted</code>.</p>'
+                        + '<p style="margin:0 0 16px;color:#334155;">La aplicación arrancará con datos vacíos. Puedes descargar el archivo corrupto por si es recuperable.</p>'
+                        + '<div style="display:flex;gap:10px;justify-content:flex-end;">'
+                        + '<button id="err-download-raw" style="padding:6px 14px;border-radius:6px;border:1px solid #cbd5e1;background:#f8fafc;cursor:pointer;font-size:0.8rem;">Descargar copia</button>'
+                        + '<button id="err-dismiss" style="padding:6px 14px;border-radius:6px;border:none;background:#2563eb;color:white;cursor:pointer;font-size:0.8rem;">Continuar</button>'
+                        + '</div></div>';
+                    document.body.appendChild(modal);
+                    document.getElementById('err-dismiss').onclick = function(){ modal.remove(); };
+                    document.getElementById('err-download-raw').onclick = function(){
+                        var blob = new Blob([s], {type:'text/plain'});
+                        var a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = 'planner_corrupted_' + new Date().toISOString().slice(0,10) + '.txt';
+                        a.click(); URL.revokeObjectURL(a.href);
+                    };
+                }, 100);
+            }
+        }
         
         if(!App.data.schedule) App.data.schedule = {};
         if(!App.data.config) App.data.config = { weekStart: "2025-12-29", stdHours: 1800 };
