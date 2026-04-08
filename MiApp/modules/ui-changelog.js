@@ -6,6 +6,13 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '08/04/2026 (noche)', version: 'v1.0',
+                items: [
+                    '🛡️ Validación de schema — al cargar datos, verifica que cada campo tiene el tipo correcto (array/objeto) y descarta solo lo inválido',
+                    '🛡️ Protección multi-pestaña — detecta si otra pestaña guardó cambios y avisa con banner + botón Recargar (no se pisan datos)',
+                ]
+            },
+            {
                 fecha: '08/04/2026 (tarde)', version: 'v1.0',
                 items: [
                     '🛡️ Error handler global — banner discreto al pie con "Copiar detalle" para errores JS no capturados',

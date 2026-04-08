@@ -89,7 +89,37 @@ const App = {
         const s = Safe.load('v40_db');
         if(s) {
             try {
-                App.data = { ...App.data, ...JSON.parse(s) };
+                var parsed = JSON.parse(s);
+                // Validación de schema mínimo
+                var _schemaRules = {
+                    empleados: 'array', schedule: 'object', config: 'object',
+                    shiftDefs: 'array', requests: 'array', storeConfig: 'object'
+                };
+                var _badFields = [];
+                Object.keys(_schemaRules).forEach(function(key) {
+                    var val = parsed[key];
+                    if (val === undefined) return; // no existe → se usará el default, OK
+                    var expected = _schemaRules[key];
+                    if (expected === 'array' && !Array.isArray(val)) {
+                        _badFields.push(key + ' (esperado array, recibido ' + typeof val + ')');
+                        delete parsed[key];
+                    } else if (expected === 'object' && (typeof val !== 'object' || val === null || Array.isArray(val))) {
+                        _badFields.push(key + ' (esperado objeto, recibido ' + (Array.isArray(val) ? 'array' : typeof val) + ')');
+                        delete parsed[key];
+                    }
+                });
+                App.data = { ...App.data, ...parsed };
+                if (_badFields.length > 0) {
+                    try { localStorage.setItem('v40_db_schema_warn', s); } catch(x){}
+                    setTimeout(function(){
+                        if (window._showErrorBanner) {
+                            window._showErrorBanner(
+                                'Algunos datos tenían formato incorrecto y se descartaron: ' + _badFields.join(', '),
+                                'Campos con schema inválido:\n' + _badFields.join('\n') + '\n\nSe guardó copia en v40_db_schema_warn'
+                            );
+                        }
+                    }, 200);
+                }
             } catch(e) {
                 // Guardar copia del string corrupto para posible recuperación
                 try { localStorage.setItem('v40_db_corrupted', s); } catch(x){}
@@ -255,6 +285,7 @@ const App = {
         // Inicializar historial con estado actual
         App.logic.saveSnapshot('Estado inicial');
         
+        Safe.initTabGuard();
         App.drive.init();
         App.router.go('home');
         
