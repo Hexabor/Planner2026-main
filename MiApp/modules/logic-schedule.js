@@ -881,10 +881,6 @@ Object.assign(App.logic, {
             // Bloquear si el día está cerrado
             if(App.logic.isDayLocked(date)) return;
 
-            // VERIFICAR MODO DE DRAG
-            const currentMode = App.logic.getCurrentDragMode();
-            if(currentMode === 'swap') return; // En modo SWAP, el drag HTML5 se maneja con shiftDragStart
-
             const bar = event.currentTarget;
             const rect = bar.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
@@ -909,6 +905,9 @@ Object.assign(App.logic, {
             if(!shift) return;
 
             // Estado inicial del drag
+            const DRAG_THRESHOLD = 5; // px antes de considerar drag real
+            let hasDragged = false;
+
             const dragState = {
                 empId,
                 date,
@@ -916,7 +915,7 @@ Object.assign(App.logic, {
                 dragMode,
                 containerEl: container,
                 startX: event.clientX,
-                originalShift: JSON.parse(JSON.stringify(shift)), // clon profundo una vez
+                originalShift: JSON.parse(JSON.stringify(shift)),
                 previewShift: null,
                 _pendingDelta: 0,
                 _rafId: null
@@ -924,25 +923,27 @@ Object.assign(App.logic, {
 
             const applyPreview = () => {
                 dragState._rafId = null;
-                App.logic.applyBarDrag(dragState, dragState._pendingDelta); // SOLO preview + DOM
+                App.logic.applyBarDrag(dragState, dragState._pendingDelta);
             };
 
             const onMouseMove = (e) => {
                 e.preventDefault();
-
-                const containerWidth = dragState.containerEl.getBoundingClientRect().width || 1;
                 const deltaX = e.clientX - dragState.startX;
 
-                // Convertir delta de píxeles a minutos (misma escala que renderPlannerTimeline)
-                const rangeTotal = 780; // 9:30 a 22:30
-                const deltaMinutes = (deltaX / containerWidth) * rangeTotal;
+                // No iniciar drag real hasta superar umbral
+                if (!hasDragged && Math.abs(deltaX) < DRAG_THRESHOLD) return;
+                if (!hasDragged) {
+                    hasDragged = true;
+                    document.body.style.cursor = dragMode.startsWith('resize') ? 'ew-resize' : 'grabbing';
+                }
 
-                // Snap a 30 min
+                const containerWidth = dragState.containerEl.getBoundingClientRect().width || 1;
+                const rangeTotal = 780;
+                const deltaMinutes = (deltaX / containerWidth) * rangeTotal;
                 const snappedDelta = Math.round(deltaMinutes / 30) * 30;
 
                 dragState._pendingDelta = snappedDelta;
 
-                // Throttle: máximo 1 update por frame
                 if(dragState._rafId == null) {
                     dragState._rafId = requestAnimationFrame(applyPreview);
                 }
@@ -960,15 +961,16 @@ Object.assign(App.logic, {
                     dragState._rafId = null;
                 }
 
-                // Si no hubo movimiento real → fue un click, delegar a paint()
-                if(!dragState.previewShift) {
-                    App.logic.paint(empId);
+                if (!hasDragged) {
+                    // Click sin arrastre → seleccionar para intercambio
+                    App.logic._gridSwapSelect(empId, date);
                     return;
                 }
 
-                // Commit final: actualizar modelo + render una vez
-                const finalShift = dragState.previewShift;
+                if(!dragState.previewShift) return;
 
+                // Commit final: actualizar modelo
+                const finalShift = dragState.previewShift;
                 if(!App.data.schedule[date]) App.data.schedule[date] = {};
                 const paletteId = Utils.matchesPaletteShift(finalShift);
                 App.data.schedule[date][empId] = paletteId || finalShift;
@@ -981,14 +983,12 @@ Object.assign(App.logic, {
                 App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
             };
 
-            // Cursor según modo
-            document.body.style.cursor = dragMode.startsWith('resize') ? 'ew-resize' : 'grabbing';
             document.body.style.userSelect = 'none';
-
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
 
             event.preventDefault();
+            event.stopPropagation(); // Evitar que pg-row.onclick dispare paint()
         },
 
         // Preview-only: calcula el shift y actualiza SOLO el DOM de las barras (sin tocar App.data.schedule ni re-render global)
@@ -1138,21 +1138,90 @@ Object.assign(App.logic, {
         },
 
 
-        // DRAG & DROP para intercambio de turnos
-        shiftDragStart: function(event, empId, date) {
-            // VERIFICAR MODO - solo funcionar en modo SWAP
-            const currentMode = App.logic.getCurrentDragMode();
-            if(currentMode !== 'swap') {
-                // En modo EDIT, cancelar el drag HTML5
-                event.preventDefault();
+        // ── Intercambio por click-select en el grid ──
+        _gridSwapSelect: function(empId, date) {
+            if (!App.uiState._gridSwap) App.uiState._gridSwap = {};
+            const sw = App.uiState._gridSwap;
+
+            // Click en la misma celda → deseleccionar
+            if (sw.a && sw.a.empId === empId && sw.a.date === date) { sw.a = sw.b; sw.b = null; }
+            else if (sw.b && sw.b.empId === empId && sw.b.date === date) { sw.b = null; }
+            // Primera selección
+            else if (!sw.a) { sw.a = { empId, date }; }
+            // Segunda selección
+            else if (!sw.b) {
+                if (date !== sw.a.date) {
+                    // Día distinto → reemplazar
+                    sw.a = { empId, date }; sw.b = null;
+                } else if (empId === sw.a.empId) {
+                    // Mismo empleado → deseleccionar
+                    sw.a = null;
+                } else {
+                    sw.b = { empId, date };
+                }
+            }
+            // Ya había 2 → reiniciar
+            else { sw.a = { empId, date }; sw.b = null; }
+
+            App.ui.renderPlanner(document.getElementById('main-view'));
+            App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
+        },
+
+        _gridSwapExec: function() {
+            const sw = App.uiState._gridSwap;
+            if (!sw || !sw.a || !sw.b || sw.a.date !== sw.b.date) return;
+            const date = sw.a.date;
+
+            if (App.logic.isDayLocked(date)) {
+                alert('🔒 Esta semana está cerrada.');
                 return;
             }
-            
-            // MODO SWAP: Continuar con intercambio
-            event.stopPropagation();
-            event.dataTransfer.setData('text/plain', JSON.stringify({ empId, date }));
-            event.dataTransfer.effectAllowed = 'move';
-            event.currentTarget.style.opacity = '0.5';
+
+            // Comprobar planes de libranzas/vacaciones
+            const _checkPlan = (eId, d) => {
+                const sv = (App.data.schedule[d] || {})[eId];
+                if (!sv) return true;
+                const sh = Utils.getShift(sv);
+                if (!sh || !sh.fixed) return true;
+                let msg = null;
+                if ((sh.code === 'L' || sh.code === 'F') && App.logic._isLibranzaPlan(eId, d)) msg = '📋 Libranza solicitada';
+                else if (sh.code === 'V' && App.ui._isPlanDay && App.ui._isPlanDay('vacaciones', eId, d)) msg = '🏖️ Vacaciones solicitadas';
+                if (msg) {
+                    const emp = App.data.empleados.find(e => e.id === eId);
+                    return confirm(`${msg}\n\n${emp ? emp.nombre : 'Este empleado'} solicitó este día como parte de un plan.\n\n¿Quieres modificar esta asignación?`);
+                }
+                return true;
+            };
+            if (!_checkPlan(sw.a.empId, date)) return;
+            if (!_checkPlan(sw.b.empId, date)) return;
+
+            const shA = (App.data.schedule[date] || {})[sw.a.empId] || null;
+            const shB = (App.data.schedule[date] || {})[sw.b.empId] || null;
+            if (!shA && !shB) { App.uiState._gridSwap = {}; return; }
+
+            if (!App.data.schedule[date]) App.data.schedule[date] = {};
+            if (shA && shB) {
+                App.data.schedule[date][sw.a.empId] = shB;
+                App.data.schedule[date][sw.b.empId] = shA;
+            } else if (shA) {
+                App.data.schedule[date][sw.b.empId] = shA;
+                delete App.data.schedule[date][sw.a.empId];
+            } else {
+                App.data.schedule[date][sw.a.empId] = shB;
+                delete App.data.schedule[date][sw.b.empId];
+            }
+
+            App.logic.saveSnapshot(shA && shB ? 'Intercambiar turnos' : 'Mover turno');
+            Safe.save('v40_db', App.data);
+            App.uiState._gridSwap = {};
+            App.ui.renderPlanner(document.getElementById('main-view'));
+            App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
+            App.logic.checkAlerts();
+        },
+
+        // HTML5 drag — desactivado (intercambio se hace por click-select)
+        shiftDragStart: function(event) {
+            event.preventDefault();
         },
         
         shiftDragOver: function(event) {
@@ -1638,6 +1707,76 @@ Object.assign(App.logic, {
                 }
             } catch(err6) {
                 console.error('[Alertas P6] Error en alertas de cobertura/jornada:', err6);
+            }
+
+            // PARTE 7: Racha de 7+ días consecutivos trabajando en semanas cerradas
+            // Detecta rachas que empiezan incluso en la semana anterior.
+            try {
+                const locked7 = App.data.lockedDays || {};
+                const todayStr7 = new Date().toISOString().slice(0, 10);
+                const activeEmps7 = App.data.empleados.filter(e => e.active !== false);
+
+                // Helper: ¿trabaja el empleado ese día? (turno real, no fijo)
+                const isWorking7 = (empId, dateStr) => {
+                    const sv = (App.data.schedule[dateStr] || {})[empId];
+                    if (!sv) return false;
+                    const sh = Utils.getShift(sv);
+                    return sh && !sh.fixed;
+                };
+
+                // Recopilar lunes de semanas completamente cerradas (futuras o actuales)
+                const mondaysSet7 = new Set();
+                Object.keys(locked7).filter(d => locked7[d] && d >= todayStr7).forEach(d => {
+                    const dt = new Date(d + 'T12:00:00');
+                    const dow = dt.getDay(); // 0=Dom
+                    const off = dow === 0 ? -6 : 1 - dow;
+                    const mon = new Date(dt);
+                    mon.setDate(mon.getDate() + off);
+                    mondaysSet7.add(mon.toISOString().slice(0, 10));
+                });
+                const closedMondays7 = [...mondaysSet7].filter(mon => {
+                    return Utils.getWeekDays(mon).every(d => locked7[d]);
+                }).sort();
+
+                // Helper: fecha anterior en string
+                const prevDay = (dateStr) => {
+                    const d = new Date(dateStr + 'T12:00:00');
+                    d.setDate(d.getDate() - 1);
+                    return d.toISOString().slice(0, 10);
+                };
+
+                for (const emp of activeEmps7) {
+                    for (const monday of closedMondays7) {
+                        const weekDays = Utils.getWeekDays(monday);
+                        let alerted = false;
+
+                        for (let wi = 0; wi < 7 && !alerted; wi++) {
+                            const day = weekDays[wi];
+                            if (!isWorking7(emp.id, day)) continue;
+
+                            // Contar racha consecutiva hacia atrás desde este día
+                            let streak = 0;
+                            let cur = day;
+                            while (isWorking7(emp.id, cur)) {
+                                streak++;
+                                cur = prevDay(cur);
+                                if (streak > 60) break; // límite de seguridad
+                            }
+
+                            if (streak >= 7) {
+                                alerts.push({
+                                    title: `🔥 Racha de ${streak} días seguidos — ${emp.nombre}`,
+                                    desc: `${emp.nombre} encadena ${streak} días consecutivos trabajando hasta el ${Utils.formatDateES(day)} (semana del ${Utils.formatDateES(monday)}).`,
+                                    date: day,
+                                    empName: emp.nombre
+                                });
+                                alerted = true;
+                            }
+                        }
+                    }
+                }
+            } catch (err7) {
+                console.error('[Alertas P7] Error en alertas de racha:', err7);
             }
 
             return alerts;

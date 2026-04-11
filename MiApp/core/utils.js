@@ -418,7 +418,7 @@ const Utils = {
             weekDays.forEach(d => { justifyByDate[d] = empContrato / 5; });
         }
 
-        let countL = 0, countF = 0, otherJustified = 0;
+        let countL = 0, countF = 0, otherJustified = 0, workHours = 0;
         weekDays.forEach(d => {
             const sid = App.data.schedule[d] ? App.data.schedule[d][empId] : null;
             const shift = sid ? Utils.getShift(sid) : null;
@@ -427,12 +427,35 @@ const Utils = {
                 if(shift.code === 'L') countL++;
                 else if(shift.code === 'F') countF++;
                 else if(['V','R','B','P'].includes(shift.code)) otherJustified += jH;
+            } else if(shift && shift.start && shift.end) {
+                workHours += Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break);
             }
         });
-        const lFaltantes = Math.max(0, 2 - countL);
-        const fReducen   = Math.max(0, countF - lFaltantes);
+        let fReducen;
+        const expectedWorkDays = Math.min(5, Math.ceil(totalContrato / 8));
+        if (expectedWorkDays < 5) {
+            // ── Contrato parcial ──
+            // F reduce, pero solo hasta cubrir el déficit entre contrato y horas trabajadas.
+            // Si ya trabaja su contrato completo, F no reduce horas (pero sí genera festivo
+            // pendiente en FES → se le deberá un R).
+            const avgJP = totalContrato / 5;
+            const deficit = Math.max(0, totalContrato - otherJustified - workHours);
+            const maxFDays = Math.min(countF, Math.ceil(deficit / avgJP));
+            // Ajustar: la justificación por F no puede exceder el déficit real
+            fReducen = maxFDays;
+        } else {
+            // ── Contrato completo ── regla clásica: F rellena L faltantes primero
+            const lFaltantes = Math.max(0, 2 - countL);
+            fReducen = Math.max(0, countF - lFaltantes);
+        }
         const avgJustify = totalContrato / 5;
-        const justifiedRaw = (fReducen * avgJustify) + otherJustified;
+        let justifiedRaw = (fReducen * avgJustify) + otherJustified;
+        // Para parciales, recortar justificación por F al déficit real
+        if (expectedWorkDays < 5) {
+            const deficit = Math.max(0, totalContrato - otherJustified - workHours);
+            const fJustified = Math.min(fReducen * avgJustify, deficit);
+            justifiedRaw = fJustified + otherJustified;
+        }
         // Clamp: las ausencias no pueden justificar más horas que el contrato semanal
         const justifiedH = Math.min(justifiedRaw, totalContrato);
         const esperadas  = Math.max(0, Math.round((totalContrato - justifiedH) * 10) / 10);
@@ -568,7 +591,7 @@ const Utils = {
         const req = App.data.requests.find(r => r.empId === empId && !r.archived && date >= r.start && date <= r.end);
         if (req) return req;
         // 2. Plan de libranzas aplicado
-        const lp = (App.data.libranzaPlans || []).find(p => p.applied && p.empId === empId && p.dates.includes(date));
+        const lp = (App.data.libranzaPlans || []).find(p => p.applied && p.empId === empId && p.dates.includes(date) && !(p.denied || []).includes(date));
         if (lp) return { empId, type: 'LIB', status: 'approved', start: date, end: date, planId: lp.id, planType: 'libranzas', _synthetic: true };
         // 3. Plan de vacaciones aplicado
         const vp = (App.data.vacacionesPlans || []).find(p => p.applied && p.empId === empId && p.dates.includes(date));
@@ -612,7 +635,11 @@ const Utils = {
                 // Hacer barra(s) editables si tenemos empId y date
                 const canEdit = (empId && date);
                 const editAttrs = canEdit ? `data-emp="${empId}" data-date="${date}"` : '';
-                const dragAttrs = canEdit ? `draggable="true" ondragstart="App.logic.shiftDragStart(event, '${empId}', '${date}')" ondragend="this.style.opacity='1'"` : '';
+                // Halo de selección para intercambio
+                const _gsw = (canEdit && App.uiState._gridSwap) || {};
+                const _isSel = canEdit && ((_gsw.a && _gsw.a.empId === empId && _gsw.a.date === date)
+                             || (_gsw.b && _gsw.b.empId === empId && _gsw.b.date === date));
+                const _selStyle = _isSel ? 'outline:3px solid #f59e0b;outline-offset:1px;z-index:15;' : '';
                 
                 // Si hay descanso, renderizar dos barras separadas + gap visual
                 if(s.breakStart && s.breakEnd) {
@@ -626,9 +653,9 @@ const Utils = {
                     const bar1Width = getPct(bStart) - bar1Left;
                     if(bar1Width > 0) {
                         const onmousedown = canEdit ? `onmousedown="App.logic.barDragStart(event, '${empId}', '${date}', 'start')"` : '';
-                        html+=`<div class="pt-bar" ${editAttrs} ${dragAttrs} ${onmousedown} style="left:${bar1Left}%; width:${bar1Width}%; background-color:${barColor}"></div>`;
+                        html+=`<div class="pt-bar" ${editAttrs} ${onmousedown} style="left:${bar1Left}%; width:${bar1Width}%; background-color:${barColor};${_selStyle}"></div>`;
                     }
-                    
+
                     // Gap visual (descanso editable)
                     const gapLeft = getPct(bStart);
                     const gapWidth = getPct(bEnd) - gapLeft;
@@ -636,13 +663,13 @@ const Utils = {
                         const onmousedown = canEdit ? `onmousedown="App.logic.barDragStart(event, '${empId}', '${date}', 'gap')"` : '';
                         html+=`<div class="pt-gap" ${editAttrs} ${onmousedown} style="left:${gapLeft}%; width:${gapWidth}%;"></div>`;
                     }
-                    
+
                     // Segunda barra (después del descanso)
                     const bar2Left = getPct(bEnd);
                     const bar2Width = getPct(tEnd) - bar2Left;
                     if(bar2Width > 0) {
                         const onmousedown = canEdit ? `onmousedown="App.logic.barDragStart(event, '${empId}', '${date}', 'end')"` : '';
-                        html+=`<div class="pt-bar" ${editAttrs} ${dragAttrs} ${onmousedown} style="left:${bar2Left}%; width:${bar2Width}%; background-color:${barColor}"></div>`;
+                        html+=`<div class="pt-bar" ${editAttrs} ${onmousedown} style="left:${bar2Left}%; width:${bar2Width}%; background-color:${barColor};${_selStyle}"></div>`;
                     }
                 } else {
                     // Turno normal - una sola barra
@@ -651,7 +678,7 @@ const Utils = {
                     const barLeft = getPct(tStart);
                     const barWidth = getPct(tEnd) - barLeft;
                     const onmousedown = canEdit ? `onmousedown="App.logic.barDragStart(event, '${empId}', '${date}', 'normal')"` : '';
-                    html+=`<div class="pt-bar" ${editAttrs} ${dragAttrs} ${onmousedown} style="left:${barLeft}%; width:${barWidth}%; background-color:${barColor}"></div>`;
+                    html+=`<div class="pt-bar" ${editAttrs} ${onmousedown} style="left:${barLeft}%; width:${barWidth}%; background-color:${barColor};${_selStyle}"></div>`;
                 }
             } else {
                 html+=`<div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:${s.color}; font-weight:bold; font-size:1.1rem; opacity:0.8; z-index:10; background:rgba(255,255,255,0.6); pointer-events:none;">${s.code}</div>`;

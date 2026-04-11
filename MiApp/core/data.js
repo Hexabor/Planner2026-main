@@ -251,21 +251,6 @@ const App = {
         
         App.logic.checkAlerts();
         
-        // Listeners globales para Ctrl (modo temporal de intercambio)
-        window.addEventListener('keydown', (e) => {
-            if(e.key === 'Control' && App.uiState.dragMode === 'edit') {
-                App.uiState.tempDragMode = 'swap';
-                App.logic.updateDragModeUI();
-            }
-        });
-        
-        window.addEventListener('keyup', (e) => {
-            if(e.key === 'Control') {
-                App.uiState.tempDragMode = null;
-                App.logic.updateDragModeUI();
-            }
-        });
-        
         // Atajos de teclado para Undo/Redo
         window.addEventListener('keydown', (e) => {
             // Ctrl+Z / Ctrl+Y solo activos en el planificador

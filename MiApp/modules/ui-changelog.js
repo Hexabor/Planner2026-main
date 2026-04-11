@@ -6,6 +6,23 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '11/04/2026 (tarde)', version: 'v1.0',
+                items: [
+                    '✨ Alerta racha 7+ días consecutivos trabajando — detecta rachas en semanas cerradas (incluso si empiezan en la anterior)',
+                    '✨ Balance Semanal — bloque "Disponibilidad diaria" con personas y horas potenciales por día (contrato/5)',
+                    '✨ Balance Semanal — tooltip info en disponibilidad diaria explicando el cálculo',
+                    '✨ Balance Semanal — columna FES mejorada: rojo (pendientes), verde ✓ (ok), azul (recuperaciones sobrantes con detalle por semana)',
+                    '✨ Balance Semanal — intercambio rápido: click en dos casillas del mismo día + botón Intercambiar',
+                    '✨ Planes de libranzas — fechas denegables: ciclo click azul→rojo→vacío, se excluyen al aplicar el plan',
+                    '✨ Grid — intercambio por click-select: click en barra = seleccionar, segundo click mismo día = intercambiar (sin modo SWAP)',
+                    '✨ Grid — barra informativa debajo del grid al seleccionar (no desplaza el contenido)',
+                    '✨ Grid — borde verde cuando la semana está cerrada',
+                    '✨ Grid — módulo VISTA reorganizado con títulos centrados (Equipo/Grid/Color), VALLE debajo de botones automáticos',
+                    '🔧 Contratos parciales — F/L rule corregida: F reduce solo hasta cubrir el déficit real de horas (20h con F y 20h trabajadas = 0 diferencia, no +4)',
+                    '🗑️ Eliminado switch EDITAR/CAMBIAR y override Ctrl — drag + resize + click-select unificados en un solo modo',
+                ]
+            },
+            {
                 fecha: '11/04/2026', version: 'v1.0',
                 items: [
                     '✨ Inspector Fines de Semana — columna 🔒 con conteo global de sábados/domingos sobre todas las semanas cerradas',

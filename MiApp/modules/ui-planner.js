@@ -594,32 +594,29 @@ Object.assign(App.ui, {
                 
                 let consHtml = `<div style="width:16px;height:16px;border-radius:3px;background-color:${consColor};color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.65rem;box-shadow:0 1px 2px rgba(0,0,0,0.1);cursor:help;margin:0 auto;" title="Lleva ${st.consecutiveDays} día${st.consecutiveDays !== 1 ? 's' : ''} consecutivo${st.consecutiveDays !== 1 ? 's' : ''} trabajando (incluye días de esta semana con turno asignado)">${st.consecutiveDays}</div>`;
                 
-                // Renderizar dots de la semana
+                // Renderizar dots de la semana (clickables para intercambio)
                 let dotsHtml = `<div class="week-dots" style="position: relative;">`;
-                st.dayStatuses.forEach(s => {
+                st.dayStatuses.forEach((s, di) => {
+                    const _sel = App.uiState._balSwap || {};
+                    const _isSelected = (_sel.a && _sel.a.empId === st.empId && _sel.a.di === di)
+                                     || (_sel.b && _sel.b.empId === st.empId && _sel.b.di === di);
+                    const _selRing = _isSelected ? 'outline:2.5px solid #f59e0b;outline-offset:1px;' : '';
+                    const _click = `onclick="App.ui._balanceSwapSelect('${st.empId}',${di})"`;
                     if(s.type === 'solid') {
-                        // Turno de trabajo - fondo sólido con horas dentro
                         const hLabel = s.hours != null ? (s.hours % 1 === 0 ? String(s.hours) : String(Math.round(s.hours * 10) / 10)) : '';
                         const _hex = s.color.replace('#',''); const _r=parseInt(_hex.substring(0,2),16),_g=parseInt(_hex.substring(2,4),16),_b=parseInt(_hex.substring(4,6),16);
                         const hColor = ((_r*0.299+_g*0.587+_b*0.114)/255) > 0.55 ? '#1e293b' : '#ffffff';
-                        dotsHtml += `<div class="dot" style="background-color:${s.color};display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:800;color:${hColor};line-height:1;" title="${s.label}">${hLabel}</div>`;
+                        dotsHtml += `<div class="dot" ${_click} style="background-color:${s.color};display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:800;color:${hColor};line-height:1;cursor:pointer;${_selRing}" title="${s.label}">${hLabel}</div>`;
                     } else if(s.type === 'hollow') {
-                        // Libranza/ausencia - borde + posible letra
-                        // L y V van vacíos, el resto lleva letra
                         const showLetter = (s.code !== 'L' && s.code !== 'V');
-                        
-                        dotsHtml += `<div class="dot" style="
+                        dotsHtml += `<div class="dot" ${_click} style="
                             border: 2px solid ${s.color};
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            font-size: 0.6rem;
-                            font-weight: 700;
-                            color: ${s.color};
+                            display: flex; align-items: center; justify-content: center;
+                            font-size: 0.6rem; font-weight: 700; color: ${s.color};
+                            cursor:pointer;${_selRing}
                         " title="${s.label}">${showLetter ? s.code : ''}</div>`;
                     } else {
-                        // Vacío
-                        dotsHtml += `<div class="dot" style="border:1px dashed #e2e8f0" title="${s.label}"></div>`;
+                        dotsHtml += `<div class="dot" ${_click} style="border:1px dashed #e2e8f0;cursor:pointer;${_selRing}" title="${s.label}"></div>`;
                     }
                 });
                 
@@ -727,11 +724,45 @@ Object.assign(App.ui, {
                 const _fesTooltip = _autoRec > 0 && _fesPendList.length > 0
                     ? `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:4px;">Festivos sin recuperar</div>${_fesPendList.map(f=>`<div style="color:#fca5a5;font-size:0.72rem;line-height:1.7;">${f}</div>`).join('')}`
                     : null;
-                const _fesCell = _autoRec > 0
-                    ? (_fesTooltip
-                        ? `<span class="diff-tooltip-wrap" style="cursor:help;font-weight:700;font-size:0.75rem;color:#ef4444;">${_autoRec}<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;">${_fesTooltip}</div></span>`
-                        : `<span style="font-weight:700;font-size:0.75rem;color:#ef4444;">${_autoRec}</span>`)
-                    : `<span style="font-weight:700;font-size:0.75rem;color:#10b981;">✓</span>`;
+                // Rs sobrantes: recuperaciones atribuidas sin festivo que las necesite
+                const _rsSobrantes = _emp ? App.ui._calcRsDisponibles(_emp) : 0;
+                const _rsSobranteList = (() => {
+                    if (!_emp || _rsSobrantes === 0) return [];
+                    const locked = App.data.lockedDays || {};
+                    const tracking = _emp.festivoTracking || {};
+                    const assignedRDates = new Set(Object.values(tracking).map(t => t.rDate).filter(Boolean));
+                    const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+                    const result = [];
+                    Object.keys(App.data.schedule || {}).sort().forEach(iso => {
+                        if (!locked[iso]) return;
+                        const sid = App.data.schedule[iso]?.[_emp.id];
+                        const sh = sid ? Utils.getShift(sid) : null;
+                        if (sh && sh.fixed && sh.code === 'R' && !assignedRDates.has(iso)) {
+                            const d = new Date(iso);
+                            const mon = Utils.getMonday(iso);
+                            const mD = new Date(mon);
+                            const monEnd = new Date(mD); monEnd.setDate(mD.getDate() + 6);
+                            const semLabel = `${mD.getDate()} ${monthNames[mD.getMonth()]}–${monEnd.getDate()} ${monthNames[monEnd.getMonth()]}`;
+                            result.push(`${d.getDate()} ${monthNames[d.getMonth()]} '${String(d.getFullYear()).slice(2)} <span style="color:#64748b;font-size:0.6rem;">(sem. ${semLabel})</span>`);
+                        }
+                    });
+                    return result;
+                })();
+                const _rsSobranteTooltip = _rsSobrantes > 0
+                    ? `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:4px;">Recuperaciones sobrantes</div>${_rsSobranteList.map(f => `<div style="color:#93c5fd;font-size:0.72rem;line-height:1.7;">${f}</div>`).join('')}`
+                    : null;
+                let _fesCell;
+                if (_autoRec > 0) {
+                    // Rojo: festivos pendientes de recuperar
+                    const _tip = _fesTooltip || '';
+                    _fesCell = `<span class="diff-tooltip-wrap" style="cursor:help;font-weight:700;font-size:0.75rem;color:#ef4444;">${_autoRec}<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;">${_tip}</div></span>`;
+                } else if (_rsSobrantes > 0) {
+                    // Azul: recuperaciones de más
+                    _fesCell = `<span class="diff-tooltip-wrap" style="cursor:help;font-weight:700;font-size:0.75rem;color:#3b82f6;">${_rsSobrantes}<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;">${_rsSobranteTooltip}</div></span>`;
+                } else {
+                    // Verde: todo cuadrado
+                    _fesCell = `<span style="font-weight:700;font-size:0.75rem;color:#10b981;">✓</span>`;
+                }
 
                 // ASIG tooltip
                 const _asigTooltip = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Horas asignadas</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">🔵 Trabajo</span><span style="font-weight:600;">${f1(st.asig)}h</span></div>${st.justifiedH > 0 ? `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">✦ Ausencias just.</span><span style="color:#a78bfa;font-weight:600;">+${f1(st.justifiedH)}h</span></div>` : ''}<div style="margin-top:5px;font-size:10px;color:#64748b;">Solo turnos con horario real. L y festivos no cuentan.</div>`;
@@ -768,6 +799,56 @@ Object.assign(App.ui, {
                 </tr>`;
             });
             html += `</tbody></table>`;
+
+            // ── Barra de intercambio (visible cuando hay 2 casillas del mismo día seleccionadas) ──
+            const _sw = App.uiState._balSwap || {};
+            if (_sw.a && _sw.b && _sw.a.di === _sw.b.di) {
+                const _empA = App.data.empleados.find(e => e.id === _sw.a.empId);
+                const _empB = App.data.empleados.find(e => e.id === _sw.b.empId);
+                const _dayLabel = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][_sw.a.di];
+                html += `<div style="padding:6px 12px;background:#fffbeb;border-top:1px solid #fde68a;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <span style="font-size:0.75rem;color:#92400e;font-weight:600;">
+                        ${_empA ? _empA.nombre : '?'} ⇄ ${_empB ? _empB.nombre : '?'} · ${_dayLabel}
+                    </span>
+                    <div style="display:flex;gap:4px;">
+                        <button onclick="App.ui._balanceSwapExec()" style="padding:3px 10px;border:none;border-radius:5px;background:#2563eb;color:white;font-size:0.72rem;font-weight:700;cursor:pointer;">Intercambiar</button>
+                        <button onclick="App.uiState._balSwap={};App.ui.renderPlannerInspector(document.getElementById('inspector-content'))" style="padding:3px 10px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;font-size:0.72rem;font-weight:600;cursor:pointer;">Cancelar</button>
+                    </div>
+                </div>`;
+            }
+
+            // ── Resumen diario: personas disponibles y horas potenciales ──
+            const DIAS_HDR = ['L','M','X','J','V','S','D'];
+            const dailySummary = days.map((d, i) => {
+                let count = 0, potH = 0;
+                stats.forEach(st => {
+                    const ds = st.dayStatuses[i];
+                    // Disponible = turno de trabajo (solid) o sin asignar (empty)
+                    const ausente = ds.type === 'hollow'; // L, F, V, B, P, R…
+                    if (!ausente) {
+                        count++;
+                        const contratoSemanal = st.contratosPorDia[i].h;
+                        potH += contratoSemanal / 5;
+                    }
+                });
+                return { count, potH: Math.round(potH * 10) / 10 };
+            });
+
+            html += `<div style="padding:8px 12px; background:#f8fafc; border-top:1px solid var(--border);">
+                <div style="font-size:0.65rem; font-weight:700; color:#475569; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.3px; display:flex; align-items:center; gap:4px;">Disponibilidad diaria<span class="diff-tooltip-wrap" style="cursor:help; display:inline-flex; align-items:center; justify-content:center; width:13px; height:13px; border-radius:50%; background:#cbd5e1; color:#fff; font-size:0.5rem; font-weight:800; line-height:1;">i<div class="diff-tooltip" style="min-width:220px; white-space:normal; line-height:1.6; font-weight:400; text-transform:none;">Estimación de horas potenciales en función de los empleados a los que no se ha atribuido libranza ni ausencia, calculando siempre a 1/5 de sus horas semanales de contrato.</div></span></div>
+                <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;">
+                    ${DIAS_HDR.map((lbl, i) => {
+                        const s = dailySummary[i];
+                        return `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:4px 2px;">
+                            <div style="font-size:0.55rem; color:#94a3b8; font-weight:600;">${lbl}</div>
+                            <div style="font-size:0.85rem; font-weight:800; color:#1e293b; line-height:1.2;">${s.count}</div>
+                            <div style="font-size:0.55rem; color:#64748b;">pers.</div>
+                            <div style="font-size:0.75rem; font-weight:700; color:#2563eb; margin-top:2px; line-height:1;">${f1(s.potH)}h</div>
+                            <div style="font-size:0.5rem; color:#94a3b8;">potencial</div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
 
             html += `<div style="padding:10px 12px; background:#f8fafc; border-top:1px solid var(--border); font-size:0.65rem; color:var(--text-muted); line-height:1.6;">
                 <div onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.leyenda-arrow').textContent = this.nextElementSibling.style.display === 'none' ? '▸' : '▾';"
@@ -834,6 +915,78 @@ Object.assign(App.ui, {
             </div>`;
             
             return html;
+        },
+
+        // ── Intercambio rápido desde el balance ──
+        _balanceSwapSelect: function(empId, di) {
+            // Bloquear si el día está cerrado
+            const monday = Utils.getMonday(App.uiState.currentDate);
+            const days = Utils.getWeekDays(monday);
+            if (App.logic.isDayLocked(days[di])) return;
+
+            if (!App.uiState._balSwap) App.uiState._balSwap = {};
+            const sw = App.uiState._balSwap;
+
+            // Si se clica la misma casilla ya seleccionada → deseleccionar
+            if (sw.a && sw.a.empId === empId && sw.a.di === di) { sw.a = sw.b; sw.b = null; }
+            else if (sw.b && sw.b.empId === empId && sw.b.di === di) { sw.b = null; }
+            // Primera selección
+            else if (!sw.a) { sw.a = { empId, di }; }
+            // Segunda selección: debe ser mismo día, distinto empleado
+            else if (!sw.b) {
+                if (di !== sw.a.di) {
+                    // Día distinto → reemplazar selección
+                    sw.a = { empId, di }; sw.b = null;
+                } else if (empId === sw.a.empId) {
+                    // Mismo empleado → deseleccionar
+                    sw.a = null;
+                } else {
+                    sw.b = { empId, di };
+                }
+            }
+            // Ya había 2 → nueva selección, reiniciar
+            else { sw.a = { empId, di }; sw.b = null; }
+
+            App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
+        },
+
+        _balanceSwapExec: function() {
+            const sw = App.uiState._balSwap;
+            if (!sw || !sw.a || !sw.b || sw.a.di !== sw.b.di) return;
+
+            const monday = Utils.getMonday(App.uiState.currentDate);
+            const days = Utils.getWeekDays(monday);
+            const date = days[sw.a.di];
+
+            if (App.logic.isDayLocked(date)) {
+                alert('🔒 Esta semana está cerrada.');
+                return;
+            }
+
+            const empA = sw.a.empId, empB = sw.b.empId;
+            const shA = (App.data.schedule[date] || {})[empA] || null;
+            const shB = (App.data.schedule[date] || {})[empB] || null;
+
+            if (!shA && !shB) { App.uiState._balSwap = {}; return; }
+
+            if (!App.data.schedule[date]) App.data.schedule[date] = {};
+            if (shA && shB) {
+                App.data.schedule[date][empA] = shB;
+                App.data.schedule[date][empB] = shA;
+            } else if (shA) {
+                App.data.schedule[date][empB] = shA;
+                delete App.data.schedule[date][empA];
+            } else {
+                App.data.schedule[date][empA] = shB;
+                delete App.data.schedule[date][empB];
+            }
+
+            App.logic.saveSnapshot('Intercambiar turnos (balance)');
+            Safe.save('v40_db', App.data);
+            App.uiState._balSwap = {};
+            App.ui.renderPlanner(document.getElementById('main-view'));
+            App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
+            App.logic.checkAlerts();
         },
 
         renderMonitorSemanas: function() {

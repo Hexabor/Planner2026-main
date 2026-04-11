@@ -111,9 +111,9 @@ Object.assign(App.ui, {
                         <div style="margin-top:4px; color:#94a3b8; font-size:0.65rem;">Horas de baja actividad. En verde mientras<br>queda bolsa; en rojo si se supera.</div>
                     </div>`;
             }
-            const valleModuleHtml = valleBolsa > 0 ? `<div class="planner-module" style="flex:0 0 75px; width:75px;">
+            const valleModuleHtml = valleBolsa > 0 ? `<div class="planner-module" style="flex:1 1 auto; width:100%;">
                 <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em;">VALLE</div>
-                <div class="planner-module-content" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+                <div class="planner-module-content" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:4px 6px;">
                     ${_valleCircle}
                 </div>
             </div>` : '';
@@ -129,25 +129,21 @@ Object.assign(App.ui, {
                 '<button tabindex="-1" onclick="' + onB + '" title="' + titleB + '" style="' + _bS(activeB) + '">' + labelB + '</button>' +
                 '</div>';
             };
-            const _dragSwitch = () => {
-                const isEdit = App.uiState.dragMode === 'edit';
-                return '<div style="display:flex; width:100%; background:#f1f5f9; border-radius:8px; padding:2px; gap:1px; overflow:hidden;">'
-                     + '<button tabindex="-1" data-drag-mode="edit" onclick="App.logic.setDragMode(\'edit\'); App.ui.renderPlanner(document.getElementById(\'main-view\'));" title="Editar" style="' + _bS(isEdit) + '">EDITAR</button>'
-                     + '<button tabindex="-1" data-drag-mode="swap" onclick="App.logic.setDragMode(\'swap\'); App.ui.renderPlanner(document.getElementById(\'main-view\'));" title="Cambiar" style="' + _bS(!isEdit) + '">CAMBIAR</button>'
-                     + '</div>';
+            const _dragSwitch = () => { return ''; }; // Eliminado: el intercambio se hace por click-select
+            const _labeledRow = (title, labelA, titleA, onA, activeA, labelB, titleB, onB, activeB, disabled) => {
+                return '<div style="display:flex; flex-direction:column; gap:1px;' + (disabled ? ' opacity:0.35; filter:grayscale(1); pointer-events:none;' : '') + '">'
+                    + '<span style="font-size:0.45rem; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.05em; text-align:center;">' + title + '</span>'
+                    + '<div style="display:flex; width:100%; background:#f1f5f9; border-radius:8px; padding:2px; gap:1px; overflow:hidden;">'
+                    + '<button tabindex="-1" onclick="' + onA + '" title="' + titleA + '" style="' + _bS(activeA) + '">' + labelA + '</button>'
+                    + '<button tabindex="-1" onclick="' + onB + '" title="' + titleB + '" style="' + _bS(activeB) + '">' + labelB + '</button>'
+                    + '</div></div>';
             };
             const vistaModuleHtml = `<div class="planner-module" style="width:100%;">
                 <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em;">VISTA</div>
                 <div class="planner-module-content" style="display:flex; flex-direction:column; gap:3px; padding:4px 5px; justify-content:center;">
-                        ${_row('<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>','Grupo',"App.uiState.plannerViewMode='group'; App.ui.renderPlanner(document.getElementById('main-view'));",!isIndividual,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Individual',"if(!App.uiState.individualEmpId){const first=App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder)[0]; if(first)App.uiState.individualEmpId=first.id;} App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));",isIndividual,false)}
-                        ${_row('<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="1"/><rect x="3" y="14" width="18" height="7" rx="1"/></svg>','Junto',"App.uiState.gridDividido=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isDivid,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>','Separado',"App.uiState.gridDividido=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isDivid,isIndividual)}
-                        ${_row('<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg>','Color',"App.uiState.gridMonocromo=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isMoono,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18V3z" fill="currentColor" stroke="none"/></svg>','Monocromo',"App.uiState.gridMonocromo=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isMoono,isIndividual)}
-                </div>
-            </div>`;
-            const dragModuleHtml = `<div class="planner-module" style="align-self:stretch;">
-                <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em;">DRAG</div>
-                <div class="planner-module-content" style="display:flex; justify-content:center; padding:4px 5px;">
-                    ${_dragSwitch()}
+                        ${_labeledRow('Equipo','<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>','Grupo',"App.uiState.plannerViewMode='group'; App.ui.renderPlanner(document.getElementById('main-view'));",!isIndividual,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Individual',"if(!App.uiState.individualEmpId){const first=App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder)[0]; if(first)App.uiState.individualEmpId=first.id;} App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));",isIndividual,false)}
+                        ${_labeledRow('Grid','<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="1"/><rect x="3" y="14" width="18" height="7" rx="1"/></svg>','Junto',"App.uiState.gridDividido=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isDivid,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>','Separado',"App.uiState.gridDividido=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isDivid,isIndividual)}
+                        ${_labeledRow('Color','<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg>','Color',"App.uiState.gridMonocromo=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isMoono,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18V3z" fill="currentColor" stroke="none"/></svg>','Monocromo',"App.uiState.gridMonocromo=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isMoono,isIndividual)}
                 </div>
             </div>`;
 
@@ -299,23 +295,23 @@ Object.assign(App.ui, {
                         </div>
                     </div>
                 </div>
-                ${dragModuleHtml}
+                ${valleBolsa > 0 ? valleModuleHtml : ''}
                 </div>
-                <div style="display:flex; flex-direction:column; gap:8px; flex:0 0 75px; width:75px;">
-                    ${valleBolsa > 0 ? valleModuleHtml : ''}
+                <div style="display:flex; flex-direction:column; gap:8px; flex:0 0 auto; width:auto;">
                     ${vistaModuleHtml}
                 </div>
             </div>
             </div>
             </div>`;
 
-            
+
             if(App.uiState.plannerViewMode === 'individual') {
                 html += App.ui._renderIndividualGrid(weekDays, monday, finalConfig, gridScale);
             } else {
             // REJILLA DE TURNOS (con sistema de escala)
+            const _weekClosed = App.logic.getWeekState(monday) === 'closed';
             html += `<div class="planner-grid-wrapper-scale">
-                <div class="planner-grid-module-scalable" id="planner-grid-scalable" style="transform: scale(${gridScale}); transform-origin: top left;">
+                <div class="planner-grid-module-scalable" id="planner-grid-scalable" style="transform: scale(${gridScale}); transform-origin: top left;${_weekClosed ? ' border-color:#22c55e;' : ''}">
                 <div class="time-header">
                     <div class="th-left">NOMBRE</div>
                     <div class="th-llave">🔑</div>
@@ -537,7 +533,7 @@ Object.assign(App.ui, {
                     <div class="pg-hours" style="${disabledBg}">${hoursContent}</div>
                     <div class="pg-schedule" ${scheduleClick} style="${finalScheduleStyle}" id="schedule-${e.id}">${scheduleContent}</div>
                     <div class="pg-req ${reqClass}" style="${disabledBg}">${reqIcon}</div>
-                    <div class="pg-right ${absenceClass}" style="${disabledBg};position:relative;" ondragover="App.logic.shiftDragOver(event)" ondrop="App.logic.shiftDrop(event, '${e.id}', '${date}')" ondragleave="event.currentTarget.classList.remove('drag-over-active')">${Utils.renderPlannerTimeline(shiftForTimeline, finalConfig, e.id, date)}${Utils.renderEventosOverlay(e.id, date, finalConfig)}</div>
+                    <div class="pg-right ${absenceClass}" style="${disabledBg};position:relative;" onclick="if(event.target===event.currentTarget||event.target.classList.contains('pt-slot')||event.target.classList.contains('pt-bg-grid')){event.stopPropagation();if(App.uiState._gridSwap&&App.uiState._gridSwap.a){App.logic._gridSwapSelect('${e.id}','${date}');}else{App.logic.paint('${e.id}');}}">${Utils.renderPlannerTimeline(shiftForTimeline, finalConfig, e.id, date)}${Utils.renderEventosOverlay(e.id, date, finalConfig)}</div>
                 </div>`;
             }; // fin renderEmpRow
 
@@ -618,24 +614,47 @@ Object.assign(App.ui, {
             html += `</div></div>`;
             } // fin de modo grupo
             
+            // ── Barra de intercambio (debajo del grid, no desplaza nada) ──
+            const _gsw = App.uiState._gridSwap || {};
+            if (_gsw.a && _gsw.b && _gsw.a.date === _gsw.b.date) {
+                const _empA = App.data.empleados.find(e => e.id === _gsw.a.empId);
+                const _empB = App.data.empleados.find(e => e.id === _gsw.b.empId);
+                const _dayLabel = Utils.getDayName(_gsw.a.date) + ' ' + _gsw.a.date.split('-')[2];
+                html += `<div style="padding:6px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;margin:4px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <span style="font-size:0.8rem;color:#92400e;font-weight:600;">
+                        ${_empA ? _empA.nombre : '?'} ⇄ ${_empB ? _empB.nombre : '?'} · ${_dayLabel}
+                    </span>
+                    <div style="display:flex;gap:4px;">
+                        <button onclick="App.logic._gridSwapExec()" style="padding:4px 12px;border:none;border-radius:5px;background:#2563eb;color:white;font-size:0.78rem;font-weight:700;cursor:pointer;">Intercambiar</button>
+                        <button onclick="App.uiState._gridSwap={};App.ui.renderPlanner(document.getElementById('main-view'));" style="padding:4px 12px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;font-size:0.78rem;font-weight:600;cursor:pointer;">Cancelar</button>
+                    </div>
+                </div>`;
+            } else if (_gsw.a && !_gsw.b) {
+                const _empSel = App.data.empleados.find(e => e.id === _gsw.a.empId);
+                const _shSel = Utils.getShift((App.data.schedule[_gsw.a.date] || {})[_gsw.a.empId]);
+                const _dayL = Utils.getDayName(_gsw.a.date) + ' ' + _gsw.a.date.split('-')[2];
+                html += `<div style="padding:5px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;margin:4px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <span style="font-size:0.78rem;color:#1e40af;font-weight:500;">
+                        ${_empSel ? _empSel.nombre : '?'} · ${_shSel ? (_shSel.code || _shSel.start+'-'+_shSel.end) : 'vacío'} · ${_dayL} — selecciona otro empleado del mismo día
+                    </span>
+                    <button onclick="App.uiState._gridSwap={};App.ui.renderPlanner(document.getElementById('main-view'));" style="padding:3px 10px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;font-size:0.72rem;font-weight:600;cursor:pointer;">Cancelar</button>
+                </div>`;
+            }
+
             c.innerHTML = html;
-            
+
             // Ajustar alturas de wrappers (el scale ya está inline, solo falta la altura)
             adjustWrapperHeights();
 
-        // Ctrl = modo Cambiar (atajo temporal) — registrar una sola vez
+        // Escape = cancelar selección de intercambio
         if(!window._ctrlDragHandler) {
             window._ctrlDragHandler = true;
-            const _ctrlBs = (active) => 'flex:1; padding:3px 5px; border:none; outline:none; border-radius:8px; font-size:0.62rem; font-weight:700; cursor:pointer; transition:background 0.15s, color 0.15s; white-space:nowrap; background:' + (active ? '#2563eb' : 'transparent') + '; color:' + (active ? 'white' : '#64748b') + ';';
-            const _setCtrlDrag = (isSwap) => {
-                App.uiState.dragMode = isSwap ? 'swap' : 'edit';
-                const editBtn = document.querySelector('[data-drag-mode="edit"]');
-                const swapBtn = document.querySelector('[data-drag-mode="swap"]');
-                if(editBtn) editBtn.style.cssText = _ctrlBs(!isSwap);
-                if(swapBtn) swapBtn.style.cssText = _ctrlBs(isSwap);
-            };
-            document.addEventListener('keydown', e => { if(e.key === 'Control' && !e.repeat) _setCtrlDrag(true); });
-            document.addEventListener('keyup',   e => { if(e.key === 'Control') _setCtrlDrag(false); });
+            document.addEventListener('keydown', e => {
+                if(e.key === 'Escape' && App.uiState._gridSwap && App.uiState._gridSwap.a) {
+                    App.uiState._gridSwap = {};
+                    App.ui.renderPlanner(document.getElementById('main-view'));
+                }
+            });
         }
         },
 
@@ -793,7 +812,7 @@ Object.assign(App.ui, {
                     <td style="text-align:center; padding:2px;">${festivoCell}</td>
                     <td style="text-align:center; ${scheduleColor}">${scheduleContent}</td>
                     <td class="${reqClass}" style="text-align:center;">${reqIcon}</td>
-                    <td style="padding:4px 8px;position:relative;" ondragover="App.logic.shiftDragOver(event)" ondrop="App.logic.shiftDrop(event, '${empId}', '${d}')" ondragleave="event.currentTarget.classList.remove('drag-over-active')">${timeline}${Utils.renderEventosOverlay(empId, d, rowConfig)}</td>
+                    <td style="padding:4px 8px;position:relative;">${timeline}${Utils.renderEventosOverlay(empId, d, rowConfig)}</td>
                     <td style="text-align:center; font-weight:700;">${hours > 0 ? hours + 'h' : ''}</td>
                 </tr>`;
             });

@@ -1317,7 +1317,8 @@ Object.assign(App.ui, {
             c.style.cssText = 'padding:16px;overflow-y:auto;box-sizing:border-box;scrollbar-gutter:stable;';
 
             if (!App.data.libranzaPlans) App.data.libranzaPlans = [];
-            if (!App.uiState.libranzas) App.uiState.libranzas = { mode: 'list', empId: null, selected: [], year: new Date().getFullYear(), editId: null };
+            if (!App.uiState.libranzas) App.uiState.libranzas = { mode: 'list', empId: null, selected: [], denied: [], year: new Date().getFullYear(), editId: null };
+            if (!App.uiState.libranzas.denied) App.uiState.libranzas.denied = [];
             const st = App.uiState.libranzas;
 
             if (st.mode === 'calendar') {
@@ -1334,7 +1335,7 @@ Object.assign(App.ui, {
             let html = sectionBar + `<div style="max-width:680px;margin:0 auto;width:100%;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
                     <span style="font-size:0.82rem;color:#64748b;font-weight:500;">${plans.length} plan${plans.length!==1?'es':''}</span>
-                    <button onclick="App.uiState.libranzas.mode='calendar';App.uiState.libranzas.selected=[];App.uiState.libranzas.editId=null;App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                    <button onclick="App.uiState.libranzas.mode='calendar';App.uiState.libranzas.selected=[];App.uiState.libranzas.denied=[];App.uiState.libranzas.editId=null;App.ui.renderRequests(document.querySelector('.main-scroll'))"
                         style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;border:none;
                                background:#2563eb;color:white;font-size:0.82rem;font-weight:600;cursor:pointer;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1366,6 +1367,7 @@ Object.assign(App.ui, {
                             if (!sh || !sh.fixed || (sh.code !== 'L' && sh.code !== 'F')) revokedCount++;
                         });
                     }
+                    const deniedCount = (p.denied || []).length;
                     let appliedBadge = '';
                     if (!p.applied) {
                         appliedBadge = `<span style="padding:2px 8px;background:#fef3c7;color:#92400e;border-radius:4px;font-size:0.68rem;font-weight:700;">Pendiente</span>`;
@@ -1373,6 +1375,9 @@ Object.assign(App.ui, {
                         appliedBadge = `<span style="padding:2px 8px;background:#fee2e2;color:#dc2626;border-radius:4px;font-size:0.68rem;font-weight:700;">${revokedCount} revocada${revokedCount !== 1 ? 's' : ''}</span>`;
                     } else {
                         appliedBadge = `<span style="padding:2px 8px;background:#dcfce7;color:#15803d;border-radius:4px;font-size:0.68rem;font-weight:700;">Aplicado</span>`;
+                    }
+                    if (deniedCount > 0) {
+                        appliedBadge += ` <span style="padding:2px 8px;background:#fee2e2;color:#dc2626;border-radius:4px;font-size:0.68rem;font-weight:700;">${deniedCount} denegado${deniedCount !== 1 ? 's' : ''}</span>`;
                     }
 
                     html += `<div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;cursor:pointer;transition:box-shadow 0.15s;"
@@ -1440,12 +1445,16 @@ Object.assign(App.ui, {
                 for (let d = 1; d <= daysInMonth; d++) {
                     const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                     const isSelected = st.selected.includes(iso);
+                    const isDenied = st.denied.includes(iso);
                     const isRevoked = revokedSet.has(iso);
                     const isHoliday = holidays.has(iso);
                     const isSun = new Date(year, month, d).getDay() === 0;
                     const isPast = iso < new Date().toISOString().slice(0,10);
                     let bg = 'white', color = '#1e293b', border = '1px solid #e2e8f0', title = '';
-                    if (isSelected && isRevoked) {
+                    if (isDenied) {
+                        bg = '#ef4444'; color = 'white'; border = '1px solid #dc2626';
+                        title = 'title="Denegado — esta fecha no se aplicará"';
+                    } else if (isSelected && isRevoked) {
                         bg = '#ef4444'; color = 'white'; border = '1px solid #dc2626';
                         title = 'title="Revocada — esta libranza fue concedida pero se modificó posteriormente"';
                     } else if (isSelected) {
@@ -1453,7 +1462,7 @@ Object.assign(App.ui, {
                     } else if (isHoliday) {
                         bg = '#fef3c7'; color = '#92400e'; border = '1px solid #fcd34d';
                     } else if (isSun) { color = '#7c3aed'; }
-                    if (isPast && !isRevoked) { bg = isSelected ? '#93c5fd' : '#f8fafc'; color = isSelected ? 'white' : '#cbd5e1'; }
+                    if (isPast && !isRevoked && !isDenied) { bg = isSelected ? '#93c5fd' : '#f8fafc'; color = isSelected ? 'white' : '#cbd5e1'; }
                     const cursor = isPast ? 'default' : 'pointer';
                     const onclick = isPast ? '' : `onclick="App.ui._libranzaToggle('${iso}', this)"`;
                     cells += `<div ${onclick} ${title} style="width:28px;height:24px;display:flex;align-items:center;justify-content:center;
@@ -1473,12 +1482,14 @@ Object.assign(App.ui, {
             for (let m = 0; m < 12; m++) monthsHtml += buildMonth(st.year, m);
 
             const count = st.selected.filter(d => d >= new Date().toISOString().slice(0,10)).length;
+            const countDenied = st.denied.filter(d => d >= new Date().toISOString().slice(0,10)).length;
             const countFestivos = st.selected.filter(d => holidays.has(d)).length;
             const countRevoked = revokedSet.size;
 
             let summaryContent = '';
-            if (count > 0) {
-                let info = `${count} día${count !== 1 ? 's' : ''}`;
+            if (count > 0 || countDenied > 0) {
+                let info = count > 0 ? `${count} día${count !== 1 ? 's' : ''}` : '';
+                if (countDenied > 0) info += `${info ? ' · ' : ''}<span style="color:#ef4444;font-weight:700;">${countDenied} denegado${countDenied !== 1 ? 's' : ''}</span>`;
                 if (countRevoked > 0) info += ` · <span style="color:#ef4444;font-weight:700;">${countRevoked} revocada${countRevoked !== 1 ? 's' : ''}</span>`;
                 if (countFestivos > 0) info += ` (${countFestivos} festivo → F)`;
                 summaryContent = `<span style="font-size:0.78rem;font-weight:600;color:#1e293b;">${info}</span>
@@ -1495,7 +1506,7 @@ Object.assign(App.ui, {
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;height:34px;">
                         <button onclick="App.uiState.libranzas.mode='list';App.ui.renderRequests(document.querySelector('.main-scroll'))"
                             style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;flex-shrink:0;">◀ Volver</button>
-                        <select onchange="App.uiState.libranzas.empId=this.value; App.uiState.libranzas.selected=[]; App.ui.renderRequests(document.querySelector('.main-scroll'))"
+                        <select onchange="App.uiState.libranzas.empId=this.value; App.uiState.libranzas.selected=[]; App.uiState.libranzas.denied=[]; App.ui.renderRequests(document.querySelector('.main-scroll'))"
                             style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.78rem;color:#1e293b;max-width:120px;flex-shrink:0;">${empOpts}</select>
                         <div id="libranza-summary" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex:1;padding:5px 10px;background:${count > 0 ? '#eff6ff' : '#f8fafc'};border:1px solid ${count > 0 ? '#bfdbfe' : '#e2e8f0'};border-radius:6px;height:100%;box-sizing:border-box;">
                             ${summaryContent}
@@ -1519,31 +1530,52 @@ Object.assign(App.ui, {
 
         _libranzaToggle: function(iso, el) {
             const sel = App.uiState.libranzas.selected;
-            const idx = sel.indexOf(iso);
+            const den = App.uiState.libranzas.denied;
             const holidays = new Set((App.data.storeConfig.holidays || []).map(h => h.date));
-            if (idx >= 0) {
-                sel.splice(idx, 1);
+            const selIdx = sel.indexOf(iso);
+            const denIdx = den.indexOf(iso);
+
+            if (denIdx >= 0) {
+                // Denied → deselected
+                den.splice(denIdx, 1);
                 const isHoliday = holidays.has(iso);
                 const isSun = new Date(iso + 'T12:00:00').getDay() === 0;
                 el.style.background = isHoliday ? '#fef3c7' : 'white';
                 el.style.color = isHoliday ? '#92400e' : (isSun ? '#7c3aed' : '#1e293b');
                 el.style.border = isHoliday ? '1px solid #fcd34d' : '1px solid #e2e8f0';
                 el.style.fontWeight = '500';
+                el.title = '';
+            } else if (selIdx >= 0) {
+                // Selected → denied
+                sel.splice(selIdx, 1);
+                den.push(iso);
+                den.sort();
+                el.style.background = '#ef4444';
+                el.style.color = 'white';
+                el.style.border = '1px solid #dc2626';
+                el.style.fontWeight = '700';
+                el.title = 'Denegado — esta fecha no se aplicará';
             } else {
+                // Deselected → selected
                 sel.push(iso);
                 sel.sort();
                 el.style.background = '#2563eb';
                 el.style.color = 'white';
                 el.style.border = '1px solid #2563eb';
                 el.style.fontWeight = '700';
+                el.title = '';
             }
-            const count = sel.filter(d => d >= new Date().toISOString().slice(0,10)).length;
+
+            const todayStr = new Date().toISOString().slice(0,10);
+            const count = sel.filter(d => d >= todayStr).length;
+            const countDen = den.filter(d => d >= todayStr).length;
             const summaryEl = document.getElementById('libranza-summary');
             if (summaryEl) {
                 const editId = App.uiState.libranzas.editId;
-                if (count > 0) {
+                if (count > 0 || countDen > 0) {
                     const countF = sel.filter(d => holidays.has(d)).length;
-                    let info = `${count} día${count !== 1 ? 's' : ''} seleccionado${count !== 1 ? 's' : ''}`;
+                    let info = count > 0 ? `${count} día${count !== 1 ? 's' : ''} seleccionado${count !== 1 ? 's' : ''}` : '';
+                    if (countDen > 0) info += `${info ? ' · ' : ''}<span style="color:#ef4444;font-weight:700;">${countDen} denegado${countDen !== 1 ? 's' : ''}</span>`;
                     if (countF > 0) info += ` (${countF} festivo → F)`;
                     summaryEl.innerHTML = `<span style="font-size:0.78rem;font-weight:600;color:#1e293b;">${info}</span>
                         <div style="display:flex;gap:4px;">
@@ -1562,6 +1594,7 @@ Object.assign(App.ui, {
 
         _libranzaClear: function() {
             App.uiState.libranzas.selected = [];
+            App.uiState.libranzas.denied = [];
             App.ui.renderRequests(document.querySelector('.main-scroll'));
         },
 
@@ -1571,7 +1604,8 @@ Object.assign(App.ui, {
             if (!emp) return;
             const todayStr = new Date().toISOString().slice(0,10);
             const dates = st.selected.filter(d => d >= todayStr).sort();
-            if (dates.length === 0) { alert('No hay días futuros seleccionados.'); return; }
+            const denied = st.denied.filter(d => d >= todayStr).sort();
+            if (dates.length === 0 && denied.length === 0) { alert('No hay días futuros seleccionados.'); return; }
 
             if (!App.data.libranzaPlans) App.data.libranzaPlans = [];
 
@@ -1581,6 +1615,7 @@ Object.assign(App.ui, {
                 if (plan) {
                     plan.empId = st.empId;
                     plan.dates = dates;
+                    plan.denied = denied;
                     plan.applied = false; // resetear al editar
                 }
             } else {
@@ -1589,6 +1624,7 @@ Object.assign(App.ui, {
                     id: 'lp_' + Date.now(),
                     empId: st.empId,
                     dates,
+                    denied,
                     createdAt: new Date().toISOString(),
                     applied: false
                 });
@@ -1597,6 +1633,7 @@ Object.assign(App.ui, {
             Safe.save('v40_db', App.data);
             st.mode = 'list';
             st.selected = [];
+            st.denied = [];
             st.editId = null;
             App.ui.renderRequests(document.querySelector('.main-scroll'));
         },
@@ -1608,8 +1645,10 @@ Object.assign(App.ui, {
             st.mode = 'calendar';
             st.empId = plan.empId;
             st.selected = [...plan.dates];
+            st.denied = [...(plan.denied || [])];
             st.editId = plan.id;
-            st.year = plan.dates[0] ? parseInt(plan.dates[0].slice(0,4)) : new Date().getFullYear();
+            const allDates = [...plan.dates, ...(plan.denied || [])];
+            st.year = allDates[0] ? parseInt(allDates[0].slice(0,4)) : new Date().getFullYear();
             App.ui.renderRequests(document.querySelector('.main-scroll'));
         },
 
@@ -1627,8 +1666,9 @@ Object.assign(App.ui, {
             if (!emp) return;
 
             const todayStr = new Date().toISOString().slice(0,10);
-            const dates = plan.dates.filter(d => d >= todayStr);
-            if (dates.length === 0) { alert('No quedan días futuros en este plan.'); return; }
+            const deniedSet = new Set(plan.denied || []);
+            const dates = plan.dates.filter(d => d >= todayStr && !deniedSet.has(d));
+            if (dates.length === 0) { alert('No quedan días futuros en este plan (excluidos los denegados).'); return; }
 
             const holidays = new Set((App.data.storeConfig.holidays || []).map(h => h.date));
             const fixedL = App.data.fixedShifts.find(s => s.code === 'L');

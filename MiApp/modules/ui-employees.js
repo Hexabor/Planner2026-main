@@ -69,13 +69,15 @@ Object.assign(App.ui, {
             return pendientes;
         },
 
-        // Helper: Rs en el schedule no asignadas a ningún festivo
+        // Helper: Rs en el schedule no asignadas a ningún festivo (solo semanas cerradas)
         _calcRsDisponibles: function(emp) {
             if(!emp) return 0;
+            const locked = App.data.lockedDays || {};
             const tracking = emp.festivoTracking || {};
             const assignedRDates = new Set(Object.values(tracking).map(t => t.rDate).filter(Boolean));
             let libres = 0;
             Object.keys(App.data.schedule || {}).forEach(iso => {
+                if(!locked[iso]) return;
                 const sid = App.data.schedule[iso]?.[emp.id];
                 const sh = sid ? Utils.getShift(sid) : null;
                 if(sh && sh.fixed && sh.code === 'R' && !assignedRDates.has(iso)) libres++;
