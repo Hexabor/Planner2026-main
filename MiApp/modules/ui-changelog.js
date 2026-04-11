@@ -6,6 +6,15 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '11/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Inspector Fines de Semana — columna 🔒 con conteo global de sábados/domingos sobre todas las semanas cerradas',
+                    '✨ Inspector Fines de Semana — columna % con porcentaje sobre semanas cerradas (umbrales proporcionales independientes)',
+                    '🔧 Rotación reducida de 14W a 13W — se elimina semana -13 para dar espacio a las nuevas columnas',
+                    '🔧 Fix: scroll fantasma eliminado en panel de fines de semana (min-width → width)',
+                ]
+            },
+            {
                 fecha: '08/04/2026 (noche)', version: 'v1.0',
                 items: [
                     '🛡️ Validación de schema — al cargar datos, verifica que cada campo tiene el tipo correcto (array/objeto) y descarta solo lo inválido',

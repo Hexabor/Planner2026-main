@@ -102,21 +102,23 @@ Object.assign(App.ui, {
             // 2. GENERAR CABECERAS DINÁMICAS (Ahora con padding 0 y doble dígito)
             let html = `
             <div style="padding: 15px; overflow-x: auto;">
-                <h3 style="margin-top: 0; font-size: 0.95rem; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Rotación de Fines de Semana (14W)</h3>
+                <h3 style="margin-top: 0; font-size: 0.95rem; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Rotación de Fines de Semana (13W)</h3>
                 
                 <table style="width: 100%; border-collapse: collapse; font-size: 0.7rem; text-align: center; table-layout: auto;">
                     <thead>
                         <tr style="border-bottom: 2px solid #cbd5e1; color: #64748b;">
                             <th style="text-align: left; padding: 4px 2px; font-weight: 600;">Nombre</th>`;
             
-            // Bucle: 00 = semana actual, -01 a -13 = semanas anteriores
-            for (let w = 0; w <= 13; w++) {
+            // Bucle: 00 = semana actual, -01 a -12 = semanas anteriores
+            for (let w = 0; w <= 12; w++) {
                 const label = w === 0 ? `<span style="color:#2563eb;font-weight:700;">↓</span>` : `-${String(w).padStart(2, '0')}`;
                 const titleAttr = w === 0 ? 'Semana actual' : `Hace ${w} semana(s)`;
-                html += `<th style="padding: 4px 0; min-width: 24px; width: 24px;" title="${titleAttr}">${label}</th>`;
+                html += `<th style="padding: 4px 0; width: 22px;" title="${titleAttr}">${label}</th>`;
             }
             
-            html += `   <th style="padding: 4px 2px; min-width: 32px; width: 32px; font-size:0.6rem;" title="Sábados / Domingos trabajados (14 semanas)">Σ</th>
+            html += `   <th style="padding: 4px 2px; width: 28px; font-size:0.6rem;" title="Sábados / Domingos trabajados (13 semanas)">Σ</th>
+                        <th style="padding: 4px 2px; width: 28px; font-size:0.55rem; border-left: 2px solid #cbd5e1;" title="Total sábados / domingos en todas las semanas cerradas">🔒</th>
+                        <th style="padding: 4px 2px; width: 28px; font-size:0.55rem;" title="Porcentaje sobre semanas cerradas">%</th>
                         </tr>
                     </thead>
                     <tbody>`;
@@ -187,7 +189,7 @@ Object.assign(App.ui, {
                             <td style="text-align: left; padding: 7px 2px; color: #334155; font-weight: 600; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${e.nombre}">${e.nombre}</td>`;
                 
                 let countSab = 0, countDom = 0;
-                for (let w = 0; w <= 13; w++) {
+                for (let w = 0; w <= 12; w++) {
                     const targetMonday = addDays(currentMondayStr, -(w * 7));
                     const sabadoStr = addDays(targetMonday, 5);
                     const domingoStr = addDays(targetMonday, 6);
@@ -206,21 +208,54 @@ Object.assign(App.ui, {
                                 </div>
                              </td>`;
                 }
-                // Columna resumen S/D — umbrales: ≤6 gris, 7-8 verde, 9-10 naranja, 11-12 rojo
-                const getCountColor = (n) => n >= 13 ? '#ef4444' : n >= 11 ? '#f59e0b' : n >= 8 ? '#22c55e' : '#64748b';
+                // Columna resumen S/D — umbrales sobre 13 semanas
+                const getCountColor = (n) => n >= 12 ? '#ef4444' : n >= 10 ? '#f59e0b' : n >= 7 ? '#22c55e' : '#64748b';
                 const sabColor = getCountColor(countSab);
                 const domColor = getCountColor(countDom);
                 html += `<td style="padding: 4px 2px; text-align: center; border-left: 1px solid #e2e8f0;">
                             <div style="display:flex; flex-direction:column; gap:1px; align-items:center; font-size:0.6rem; font-weight:700; line-height:1.3;">
-                                <span style="color:${sabColor};" title="${countSab} sábados trabajados de 14">S:${countSab}</span>
-                                <span style="color:${domColor};" title="${countDom} domingos trabajados de 14">D:${countDom}</span>
+                                <span style="color:${sabColor};" title="${countSab} sábados trabajados de 13">S:${countSab}</span>
+                                <span style="color:${domColor};" title="${countDom} domingos trabajados de 13">D:${countDom}</span>
+                            </div>
+                         </td>`;
+                // Columna global: conteo sobre TODAS las semanas cerradas
+                const allLocked = App.ui._getLockedWeeks(e);
+                let gSab = 0, gDom = 0;
+                allLocked.forEach(monday => {
+                    const sab = addDays(monday, 5);
+                    const dom = addDays(monday, 6);
+                    if(isWorked(sab, e.id)) gSab++;
+                    if(isWorked(dom, e.id)) gDom++;
+                });
+                // Umbrales proporcionales al total de semanas cerradas (independientes de Σ)
+                const total = allLocked.length;
+                const getGlobalColor = (n) => {
+                    if(total === 0) return '#64748b';
+                    const ratio = n / total;
+                    return ratio >= 0.9 ? '#ef4444' : ratio >= 0.75 ? '#f59e0b' : ratio >= 0.55 ? '#22c55e' : '#64748b';
+                };
+                const gSabColor = getGlobalColor(gSab);
+                const gDomColor = getGlobalColor(gDom);
+                html += `<td style="padding: 4px 2px; text-align: center; border-left: 2px solid #cbd5e1;">
+                            <div style="display:flex; flex-direction:column; gap:1px; align-items:center; font-size:0.6rem; font-weight:700; line-height:1.3;">
+                                <span style="color:${gSabColor};" title="${gSab} sábados trabajados de ${total} semanas cerradas (${total > 0 ? Math.round(gSab/total*100) : 0}%)">S:${gSab}</span>
+                                <span style="color:${gDomColor};" title="${gDom} domingos trabajados de ${total} semanas cerradas (${total > 0 ? Math.round(gDom/total*100) : 0}%)">D:${gDom}</span>
+                            </div>
+                         </td>`;
+                // Columna %: porcentaje sobre semanas cerradas
+                const pSab = total > 0 ? Math.round(gSab / total * 100) : 0;
+                const pDom = total > 0 ? Math.round(gDom / total * 100) : 0;
+                html += `<td style="padding: 4px 2px; text-align: center;">
+                            <div style="display:flex; flex-direction:column; gap:1px; align-items:center; font-size:0.55rem; font-weight:700; line-height:1.3; color:#64748b;">
+                                <span style="color:${gSabColor};" title="Sábados: ${pSab}% de ${total} cerradas">${pSab}</span>
+                                <span style="color:${gDomColor};" title="Domingos: ${pDom}% de ${total} cerradas">${pDom}</span>
                             </div>
                          </td>`;
                 html += `</tr>`;
             });
 
             if (empList.length === 0) {
-                html += `<tr><td colspan="14" style="padding: 15px; color: #94a3b8;">No hay empleados activos.</td></tr>`;
+                html += `<tr><td colspan="17" style="padding: 15px; color: #94a3b8;">No hay empleados activos.</td></tr>`;
             }
 
             html += `   </tbody>
