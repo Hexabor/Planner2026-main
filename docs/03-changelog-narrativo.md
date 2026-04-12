@@ -219,6 +219,13 @@ Si dos pestañas tienen la app abierta y una guarda cambios, la otra muestra un 
 
 ---
 
+## Fase 14: Atajos del grid (12 abril 2026)
+
+### ALT+click para borrar turno
+Nuevo atajo de teclado en el grid del planificador: mantener pulsada la tecla ALT y hacer click sobre un turno lo borra directamente, sin necesidad de seleccionar la goma de borrar de la paleta. Respeta las mismas protecciones que el borrado normal: semanas cerradas, planes de libranzas y vacaciones aprobados.
+
+---
+
 ## Resumen de evolución
 
 | Fecha | Hito |
@@ -235,3 +242,4 @@ Si dos pestañas tienen la app abierta y una guarda cambios, la otra muestra un 
 | 5-7 Abr | Libranzas/vacaciones, contratos mixtos, vista de semanas |
 | 7-8 Abr | Export COUNTIF, llaves avanzadas (vistas, reinicio, filtros), archivo eventos |
 | 8 Abr | Robustez: error handler, rescue JSON, validación schema, multi-pestaña |
+| 12 Abr | Atajos del grid: ALT+click para borrar turno |

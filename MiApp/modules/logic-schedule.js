@@ -153,6 +153,53 @@ Object.assign(App.logic, {
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
         },
         setPaint: function(sid) { App.uiState.paintShiftId = (App.uiState.paintShiftId === sid) ? null : sid; App.ui.renderPlanner(document.getElementById('main-view')); },
+
+        // ALT+click: borrar turno de la celda
+        erase: function(empId) {
+            const date = App.uiState.currentDate;
+            if(App.logic.isDayLocked(date)) {
+                alert('🔒 Esta semana está cerrada.\n\nPara editar los turnos, ábrela primero con el switch del planificador.');
+                return;
+            }
+            if(!App.data.schedule[date] || !App.data.schedule[date][empId]) return;
+
+            // Comprobar solicitudes/planes antes de borrar
+            const req = Utils.getRequest(empId, date);
+            if(req && req.status === 'approved' && req.type !== 'HRL') {
+                if(req._synthetic) {
+                    const planLabel = req.planType === 'vacaciones' ? 'plan de vacaciones' : 'plan de libranzas';
+                    const emp = App.data.empleados.find(e => e.id === empId);
+                    if(!confirm(`📋 ${planLabel.charAt(0).toUpperCase() + planLabel.slice(1)}\n\n${emp ? emp.nombre : 'Este empleado'} tiene este día en un ${planLabel} aprobado.\n\n¿Borrar el turno? Se considerará revocación.`)) return;
+                }
+            }
+
+            // Comprobar libranza/vacaciones plan
+            const currentShift = App.data.schedule[date][empId];
+            const cs = Utils.getShift(currentShift);
+            if(cs && cs.fixed) {
+                let planMsg = null;
+                if((cs.code === 'L' || cs.code === 'F') && this._isLibranzaPlan(empId, date)) {
+                    planMsg = '📋 Libranza solicitada';
+                } else if(cs.code === 'V' && App.ui._isPlanDay && App.ui._isPlanDay('vacaciones', empId, date)) {
+                    planMsg = '🏖️ Vacaciones solicitadas';
+                }
+                if(planMsg) {
+                    const emp = App.data.empleados.find(e => e.id === empId);
+                    const empName = emp ? emp.nombre : 'Este empleado';
+                    if(!confirm(`${planMsg}\n\n${empName} solicitó este día como parte de un plan.\n\n¿Estás seguro de que quieres borrar esta asignación?`)) return;
+                }
+            }
+
+            const emp = App.data.empleados.find(e => e.id === empId);
+            const empName = emp ? emp.nombre : empId;
+            delete App.data.schedule[date][empId];
+            this.saveSnapshot(`Borrar turno de ${empName}`);
+            Safe.save('v40_db', App.data);
+            App.ui.renderPlanner(document.getElementById('main-view'));
+            App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
+            App.logic.checkAlerts();
+        },
+
         // Helper: ¿este día+empleado pertenece a un plan de libranzas aplicado?
         _isLibranzaPlan: function(empId, date) {
             if (!App.data.libranzaPlans) return null;

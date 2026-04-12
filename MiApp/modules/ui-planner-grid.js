@@ -525,7 +525,7 @@ Object.assign(App.ui, {
                     : shift;
 
                 // --- 4. SALIDA HTML ---
-                html += `<div class="pg-row" onclick="App.logic.paint('${e.id}')">
+                html += `<div class="pg-row" onclick="if(event.altKey){event.stopPropagation();App.logic.erase('${e.id}');return;}App.logic.paint('${e.id}')">
                     <div class="pg-name ${tag3Class}" style="${disabledBg}; cursor:pointer;" title="${txtTooltip}" onclick="event.stopPropagation(); App.uiState.individualEmpId='${e.id}'; App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));">${nameContent}</div>
                     <div class="pg-llave ${tag3Class}" style="${disabledBg}">${llaveContent}</div>
                     <div class="pg-rol ${tag3Class}" style="${disabledBg}">${rolContent}</div>
@@ -533,7 +533,7 @@ Object.assign(App.ui, {
                     <div class="pg-hours" style="${disabledBg}">${hoursContent}</div>
                     <div class="pg-schedule" ${scheduleClick} style="${finalScheduleStyle}" id="schedule-${e.id}">${scheduleContent}</div>
                     <div class="pg-req ${reqClass}" style="${disabledBg}">${reqIcon}</div>
-                    <div class="pg-right ${absenceClass}" style="${disabledBg};position:relative;" onclick="if(event.target===event.currentTarget||event.target.classList.contains('pt-slot')||event.target.classList.contains('pt-bg-grid')){event.stopPropagation();if(App.uiState._gridSwap&&App.uiState._gridSwap.a){App.logic._gridSwapSelect('${e.id}','${date}');}else{App.logic.paint('${e.id}');}}">${Utils.renderPlannerTimeline(shiftForTimeline, finalConfig, e.id, date)}${Utils.renderEventosOverlay(e.id, date, finalConfig)}</div>
+                    <div class="pg-right ${absenceClass}" style="${disabledBg};position:relative;" onclick="if(event.target===event.currentTarget||event.target.classList.contains('pt-slot')||event.target.classList.contains('pt-bg-grid')){event.stopPropagation();if(event.altKey){App.logic.erase('${e.id}');return;}if(App.uiState._gridSwap&&App.uiState._gridSwap.a){App.logic._gridSwapSelect('${e.id}','${date}');}else{App.logic.paint('${e.id}');}}">${Utils.renderPlannerTimeline(shiftForTimeline, finalConfig, e.id, date)}${Utils.renderEventosOverlay(e.id, date, finalConfig)}</div>
                 </div>`;
             }; // fin renderEmpRow
 

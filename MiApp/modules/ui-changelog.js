@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '12/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Grid — ALT+click sobre un turno borra la asignación (atajo rápido sin necesidad de seleccionar la goma)',
+                ]
+            },
+            {
                 fecha: '11/04/2026 (tarde)', version: 'v1.0',
                 items: [
                     '✨ Alerta racha 7+ días consecutivos trabajando — detecta rachas en semanas cerradas (incluso si empiezan en la anterior)',
