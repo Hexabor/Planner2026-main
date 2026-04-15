@@ -6,6 +6,38 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '15/04/2026 (tarde)', version: 'v1.0',
+                items: [
+                    '✨ Grid — click en barra de turno con turno en paleta → sobreescribe (antes solo seleccionaba para intercambio)',
+                    '✨ Cursor indicador — puntito del color del turno seleccionado junto al cursor en grid, cuadrados y balance',
+                    '✨ Click derecho en el planificador — deselecciona el turno de la paleta (solo si hay uno seleccionado)',
+                ]
+            },
+            {
+                fecha: '15/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Vista Cuadrados — balance completo en el grid principal: Rol, Tag, Contrato, Asignado, Dif, Desvío, Festivos, SEG, LIB, DA, dots clickables, Equilibrio (M/I/T/P)',
+                    '✨ Pestaña Libranzas en el inspector — distribución de L/F/R por empleado y día de la semana con heatmap verde y fila EQUIPO en azul',
+                    '✨ Domingo Anterior (DA) — columna con el turno del domingo previo para evitar encadenar partidos entre semanas',
+                    '✨ Pintar desde el balance — click en un dot con turno seleccionado en paleta lo asigna directamente; ALT+click borra',
+                    '✨ Workspace Presets (Flujos) — atajos configurables (hasta 6) que activan combinación vista+inspector de un click',
+                    '✨ Visibilidad de turnos en paleta — toggle PAL por turno en el catálogo; turnos ocultos no aparecen en la paleta',
+                    '✨ Columnas de paleta configurables (2-8) desde botón "⚙ Paleta" en Turnos',
+                    '✨ Límites de Equilibrio — máximo configurable de turnos M/I/T/P por semana y persona; celda en rojo al superar',
+                    '✨ Contrato como selector — dropdown con opciones configuradas + "Otro..." para valores personalizados',
+                    '✨ Home — subtiles clickables con navegación directa a vistas/pestañas específicas',
+                    '✨ Tag dinámico — T1/T3 se recalcula automáticamente al cambiar rol en un contrato (MNG/AM/SPV → T3)',
+                    '✨ Validación cruzada de preferencias — turno partido ↔ "No partidos" se corrigen mutuamente',
+                    '✨ Pestaña "Gráficos" renombrada a "Reparto horas" en el inspector',
+                    '🔧 SEG revisado — hacia atrás los huecos vacíos cuentan como potencial trabajo; solo libranza explícita rompe la racha',
+                    '🔧 Paleta compactada — de 313px a 280px de ancho, items más pequeños',
+                    '🔧 Tooltips del balance — auto-cierre progresivo (2s) y se mantienen con el cursor encima',
+                    '🔧 Animaciones del Home aceleradas — circuito más rápido, estado sticky al hover',
+                    '🔧 Home — subtiles se cierran tras 3s, al abrir otro tile, o al clicar fuera',
+                    '🔧 Fix: subtiles de Presentación usaban propiedad inexistente (presentacionMode → presView) con valores incorrectos',
+                ]
+            },
+            {
                 fecha: '12/04/2026', version: 'v1.0',
                 items: [
                     '✨ Grid — ALT+click sobre un turno borra la asignación (atajo rápido sin necesidad de seleccionar la goma)',

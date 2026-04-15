@@ -1009,8 +1009,12 @@ Object.assign(App.logic, {
                 }
 
                 if (!hasDragged) {
-                    // Click sin arrastre → seleccionar para intercambio
-                    App.logic._gridSwapSelect(empId, date);
+                    // Click sin arrastre: si hay turno en paleta → pintar, si no → seleccionar para intercambio
+                    if (App.uiState.paintShiftId) {
+                        App.logic.paint(empId);
+                    } else {
+                        App.logic._gridSwapSelect(empId, date);
+                    }
                     return;
                 }
 

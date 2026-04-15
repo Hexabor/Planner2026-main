@@ -273,6 +273,10 @@ La paleta del planificador se reduce de 313px a 280px de ancho, con items ligera
 ### Tooltips mejorados
 Los diff-tooltips del balance ganan auto-cierre progresivo (transition en visibility con delay 2s) y se mantienen visibles mientras el cursor esté encima (pointer-events: auto al hover).
 
+### Fixes
+- Los subtiles del Home se quedaban abiertos para siempre. Ahora se cierran tras 3 segundos, al abrir otro tile, o al clicar fuera.
+- Los subtiles de Presentación seteaban una propiedad inexistente (`presentacionMode` en vez de `presView`) con valores incorrectos (`group`/`individual` en vez de `semanal`/`mensual`). Corregido para que cada subtile navegue a la vista correcta.
+
 ---
 
 ## Resumen de evolución

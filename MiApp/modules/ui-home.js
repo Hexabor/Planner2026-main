@@ -46,7 +46,7 @@ Object.assign(App.ui, {
 
             // Constructor de Tile adaptado para modo Espejo (align)
             const tile = (id, iconName, label, dataPill='', badge=false, accent='#2563eb', align='left', subtiles='') => `
-                <button class="home-tile ${align === 'right' ? 'home-tile-right' : ''}" onclick="App.router.go('${id}')" onmouseenter="document.querySelectorAll('.home-tile-active').forEach(t=>t.classList.remove('home-tile-active'));this.classList.add('home-tile-active');" style="--accent:${accent};">
+                <button class="home-tile ${align === 'right' ? 'home-tile-right' : ''}" onclick="App.router.go('${id}')" onmouseenter="clearTimeout(window._homeTileTimer);document.querySelectorAll('.home-tile-active').forEach(t=>t.classList.remove('home-tile-active'));this.classList.add('home-tile-active');window._homeTileTimer=setTimeout(()=>{document.querySelectorAll('.home-tile-active').forEach(t=>t.classList.remove('home-tile-active'));},3000);" style="--accent:${accent};">
                     <div class="home-tile-icon" style="background:${accent}15; color:${accent};">${icon(iconName, 20, 2)}</div>
                     <div class="home-tile-text">
                         <span class="home-tile-label">${label}</span>
@@ -60,7 +60,7 @@ Object.assign(App.ui, {
                 const wires = subs.map((_,i) => `<span class="home-wire${single?' home-wire-solo':''}" style="top:${i*(h+gap)+h/2}px;"></span>`).join('');
                 const boxes = subs.map(s => {
                     if(typeof s === 'object' && s.action) {
-                        return `<div class="home-subtile home-subtile-link" onclick="event.stopPropagation();${s.action}">${s.label}</div>`;
+                        return `<div class="home-subtile home-subtile-link" onclick="event.stopPropagation();event.preventDefault();${s.action}">${s.label}</div>`;
                     }
                     return `<div class="home-subtile">${s}</div>`;
                 }).join('');
@@ -545,9 +545,9 @@ Object.assign(App.ui, {
                             ])) +
                         tile('presentacion', 'printer', 'Presentación', 'Vista PDF e impresión', false, '#64748b', 'right',
                             subtiles([
-                                {label:'Semanal grupo', action:"App.uiState.presentacionMode='group';App.router.go('presentacion');"},
-                                {label:'Mensual individual', action:"App.uiState.presentacionMode='individual';App.router.go('presentacion');"},
-                                ...(App.data.config.llavesActivo ? [{label:'Traspasos llaves', action:"App.uiState.presentacionMode='llaves';App.router.go('presentacion');"}] : [])
+                                {label:'Semanal grupo', action:"App.uiState.presView='semanal';App.router.go('presentacion');"},
+                                {label:'Mensual individual', action:"App.uiState.presView='mensual';App.router.go('presentacion');"},
+                                ...(App.data.config.llavesActivo ? [{label:'Traspasos llaves', action:"App.uiState.presView='llaves';App.router.go('presentacion');"}] : [])
                             ])),
                         'right'
                     )}
@@ -588,6 +588,17 @@ Object.assign(App.ui, {
                     </div>
                 </div>
             </div>`;
+
+            // Click fuera de tiles → cerrar subtiles activos
+            setTimeout(() => {
+                const wrap = c.querySelector('.home-wrap');
+                if(wrap) wrap.addEventListener('click', function(e) {
+                    if(!e.target.closest('.home-tile')) {
+                        clearTimeout(window._homeTileTimer);
+                        document.querySelectorAll('.home-tile-active').forEach(t => t.classList.remove('home-tile-active'));
+                    }
+                });
+            }, 0);
         },
 
         // --- ALERTS ---

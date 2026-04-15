@@ -529,7 +529,18 @@ Object.assign(App.ui, {
             const dotHollowFont = '0.75rem';
             const fontSize = '0.88rem';
 
-            let html = `<div class="planner-grid-wrapper-scale">
+            // Cursor con puntito de color cuando hay turno seleccionado en paleta
+            const _paintId = App.uiState.paintShiftId;
+            const _paintShift = _paintId ? App.data.shiftDefs.find(s => s.id === _paintId) : null;
+            const _cursorCss = _paintShift ? (() => {
+                const c = _paintShift.color || '#2563eb';
+                const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><circle cx='6' cy='6' r='5' fill='${c}' stroke='white' stroke-width='1.5'/></svg>`;
+                const encoded = btoa(svg);
+                return `<style>.cuadrados-table td div[onclick] { cursor: url("data:image/svg+xml;base64,${encoded}") 6 6, crosshair !important; }</style>`;
+            })() : '';
+
+            let html = _cursorCss;
+            html += `<div class="planner-grid-wrapper-scale">
                 <div class="planner-grid-module-scalable" id="planner-grid-scalable" style="transform:scale(${gridScale});transform-origin:top left;${_weekClosed ? 'border-color:#22c55e;' : ''}">
                 <table class="balance-table cuadrados-table" style="font-size:${fontSize};">
                     <thead><tr>
@@ -727,7 +738,16 @@ Object.assign(App.ui, {
             const { stats, days, monday, totalContrato, totalPlanned, totalJustified, totalDisponible, totalFaltan } = App.ui._calcBalanceStats();
             const f1 = n => (Math.round(n * 10) / 10);
 
-            let html = `
+            // Cursor con puntito si hay turno en paleta
+            const _pId = App.uiState.paintShiftId;
+            const _pSh = _pId ? App.data.shiftDefs.find(s => s.id === _pId) : null;
+            const _balCursor = _pSh ? (() => {
+                const c = _pSh.color || '#2563eb';
+                const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><circle cx='6' cy='6' r='5' fill='${c}' stroke='white' stroke-width='1.5'/></svg>`;
+                return `<style>.week-dots .dot { cursor: url("data:image/svg+xml;base64,${btoa(svg)}") 6 6, crosshair !important; }</style>`;
+            })() : '';
+
+            let html = _balCursor + `
             <div class="balance-header" style="flex-direction:column; align-items:stretch; gap:8px; padding:10px 12px;">
                 <span style="font-size:0.8rem;">Balance Semanal</span>
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">

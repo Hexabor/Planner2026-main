@@ -316,6 +316,18 @@ Object.assign(App.ui, {
             } else {
             // REJILLA DE TURNOS (con sistema de escala)
             const _weekClosed = App.logic.getWeekState(monday) === 'closed';
+
+            // Cursor con puntito de color cuando hay turno seleccionado en paleta
+            const _paintId = App.uiState.paintShiftId;
+            const _paintShift = _paintId ? App.data.shiftDefs.find(s => s.id === _paintId) : null;
+            const _cursorStyle = _paintShift ? (() => {
+                const c = _paintShift.color || '#2563eb';
+                const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><circle cx='6' cy='6' r='5' fill='${c}' stroke='white' stroke-width='1.5'/></svg>`;
+                const encoded = btoa(svg);
+                return `<style>.planner-grid .pg-right, .planner-grid .pg-right .pt-bar, .planner-grid .pg-right .pt-slot, .planner-grid .pg-right .pt-gap { cursor: url("data:image/svg+xml;base64,${encoded}") 6 6, crosshair !important; }</style>`;
+            })() : '';
+
+            html += _cursorStyle;
             html += `<div class="planner-grid-wrapper-scale">
                 <div class="planner-grid-module-scalable" id="planner-grid-scalable" style="transform: scale(${gridScale}); transform-origin: top left;${_weekClosed ? ' border-color:#22c55e;' : ''}">
                 <div class="time-header">
@@ -539,7 +551,7 @@ Object.assign(App.ui, {
                     <div class="pg-hours" style="${disabledBg}">${hoursContent}</div>
                     <div class="pg-schedule" ${scheduleClick} style="${finalScheduleStyle}" id="schedule-${e.id}">${scheduleContent}</div>
                     <div class="pg-req ${reqClass}" style="${disabledBg}">${reqIcon}</div>
-                    <div class="pg-right ${absenceClass}" style="${disabledBg};position:relative;" onclick="if(event.target===event.currentTarget||event.target.classList.contains('pt-slot')||event.target.classList.contains('pt-bg-grid')){event.stopPropagation();if(event.altKey){App.logic.erase('${e.id}');return;}if(App.uiState._gridSwap&&App.uiState._gridSwap.a){App.logic._gridSwapSelect('${e.id}','${date}');}else{App.logic.paint('${e.id}');}}">${Utils.renderPlannerTimeline(shiftForTimeline, finalConfig, e.id, date)}${Utils.renderEventosOverlay(e.id, date, finalConfig)}</div>
+                    <div class="pg-right ${absenceClass}" style="${disabledBg};position:relative;" onclick="if(event.target===event.currentTarget||event.target.classList.contains('pt-slot')||event.target.classList.contains('pt-bg-grid')){event.stopPropagation();if(event.altKey){App.logic.erase('${e.id}');return;}if(App.uiState.paintShiftId){App.logic.paint('${e.id}');}else if(App.uiState._gridSwap&&App.uiState._gridSwap.a){App.logic._gridSwapSelect('${e.id}','${date}');}else{App.logic.paint('${e.id}');}}">${Utils.renderPlannerTimeline(shiftForTimeline, finalConfig, e.id, date)}${Utils.renderEventosOverlay(e.id, date, finalConfig)}</div>
                 </div>`;
             }; // fin renderEmpRow
 
@@ -660,6 +672,15 @@ Object.assign(App.ui, {
                     App.uiState._gridSwap = {};
                     App.ui.renderPlanner(document.getElementById('main-view'));
                 }
+            });
+            // Click derecho en el planificador = deseleccionar turno de paleta
+            document.addEventListener('contextmenu', e => {
+                if(!App.uiState.paintShiftId) return; // nada seleccionado, menú normal
+                const inPlanner = e.target.closest('#main-view');
+                if(!inPlanner) return; // fuera del planificador, menú normal
+                e.preventDefault();
+                App.uiState.paintShiftId = null;
+                App.ui.renderPlanner(document.getElementById('main-view'));
             });
         }
         },
