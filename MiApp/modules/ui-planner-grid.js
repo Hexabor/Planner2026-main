@@ -673,14 +673,14 @@ Object.assign(App.ui, {
                     App.ui.renderPlanner(document.getElementById('main-view'));
                 }
             });
-            // Click derecho en el planificador = deseleccionar turno de paleta
+            // Click derecho con turno cargado = deseleccionar (en cualquier zona de la app)
             document.addEventListener('contextmenu', e => {
                 if(!App.uiState.paintShiftId) return; // nada seleccionado, menú normal
-                const inPlanner = e.target.closest('#main-view');
-                if(!inPlanner) return; // fuera del planificador, menú normal
                 e.preventDefault();
                 App.uiState.paintShiftId = null;
                 App.ui.renderPlanner(document.getElementById('main-view'));
+                const insp = document.getElementById('inspector-content');
+                if(insp) App.ui.renderPlannerInspector(insp);
             });
         }
         },

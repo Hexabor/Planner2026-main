@@ -9,6 +9,8 @@ Object.assign(App.ui, {
                 fecha: '15/04/2026 (noche)', version: 'v1.0',
                 items: [
                     '✨ Inspector Libranzas — disponibilidad diaria de la semana actual: personas sin ausencia y horas potenciales',
+                    '🔧 Click derecho con turno cargado — deselecciona desde cualquier zona (grid, inspector, balance) sin menú del navegador',
+                    '🔧 Cursor indicador — sincronizado correctamente entre grid e inspector al seleccionar/deseleccionar turno',
                 ]
             },
             {

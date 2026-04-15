@@ -152,7 +152,7 @@ Object.assign(App.logic, {
             App.ui.renderPlanner(document.getElementById('main-view')); 
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
         },
-        setPaint: function(sid) { App.uiState.paintShiftId = (App.uiState.paintShiftId === sid) ? null : sid; App.ui.renderPlanner(document.getElementById('main-view')); },
+        setPaint: function(sid) { App.uiState.paintShiftId = (App.uiState.paintShiftId === sid) ? null : sid; App.ui.renderPlanner(document.getElementById('main-view')); const _insp = document.getElementById('inspector-content'); if(_insp) App.ui.renderPlannerInspector(_insp); },
 
         // ALT+click: borrar turno de la celda
         erase: function(empId) {
