@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '15/04/2026 (noche)', version: 'v1.0',
+                items: [
+                    '✨ Inspector Libranzas — disponibilidad diaria de la semana actual: personas sin ausencia y horas potenciales',
+                ]
+            },
+            {
                 fecha: '15/04/2026 (tarde)', version: 'v1.0',
                 items: [
                     '✨ Grid — click en barra de turno con turno en paleta → sobreescribe (antes solo seleccionaba para intercambio)',

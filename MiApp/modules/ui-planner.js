@@ -1726,6 +1726,42 @@ Object.assign(App.ui, {
                     }).join(' ')}</td>
                 </tr></tfoot>
             </table></div>`;
+
+            // ── Disponibilidad diaria (semana actual) ──
+            const _wkMonday = Utils.getMonday(App.uiState.currentDate);
+            const _wkDays = Utils.getWeekDays(_wkMonday);
+            const _wkEmps = App.data.empleados.filter(e => e.active !== false && Utils.empleadoVigenteEnRango(e, _wkDays[0], _wkDays[6]));
+            const _wkAvail = _wkDays.map((d, i) => {
+                let count = 0, potH = 0;
+                _wkEmps.forEach(emp => {
+                    if(!Utils.empleadoVigenteEnRango(emp, d, d)) return;
+                    const sid = (App.data.schedule[d] || {})[emp.id];
+                    const shift = sid ? Utils.getShift(sid) : null;
+                    const isAbsent = shift && shift.fixed;
+                    if(!isAbsent) {
+                        count++;
+                        potH += Utils.getContrato(emp, d) / 5;
+                    }
+                });
+                return { count, potH: Math.round(potH * 10) / 10 };
+            });
+
+            const f1 = v => (Math.round(v * 10) / 10).toFixed(1);
+            html += `<div style="padding:8px 12px; background:#f8fafc; border-top:1px solid var(--border);">
+                <div style="font-size:0.65rem; font-weight:700; color:#475569; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.3px; display:flex; align-items:center; gap:4px;">Disponibilidad diaria <span style="font-weight:400; color:#94a3b8; text-transform:none;">(${Utils.formatDateES(_wkDays[0])} → ${Utils.formatDateES(_wkDays[6])})</span><span class="diff-tooltip-wrap" style="cursor:help; display:inline-flex; align-items:center; justify-content:center; width:13px; height:13px; border-radius:50%; background:#cbd5e1; color:#fff; font-size:0.5rem; font-weight:800; line-height:1;">i<div class="diff-tooltip" style="min-width:220px; white-space:normal; line-height:1.6; font-weight:400; text-transform:none;">Personas sin ausencia asignada (L/F/R/V/B/P) esta semana y sus horas potenciales (contrato/5). Útil para ver a cuánta gente puedes ponerle turno.</div></span></div>
+                <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;">
+                    ${DIAS.map((lbl, i) => {
+                        const s = _wkAvail[i];
+                        return `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:4px 2px;">
+                            <div style="font-size:0.55rem; color:#94a3b8; font-weight:600;">${lbl}</div>
+                            <div style="font-size:0.85rem; font-weight:800; color:#1e293b; line-height:1.2;">${s.count}</div>
+                            <div style="font-size:0.55rem; color:#64748b;">pers.</div>
+                            <div style="font-size:0.75rem; font-weight:700; color:#2563eb; margin-top:2px; line-height:1;">${f1(s.potH)}h</div>
+                            <div style="font-size:0.5rem; color:#94a3b8;">potencial</div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
             return html;
         },
 
