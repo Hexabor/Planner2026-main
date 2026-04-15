@@ -160,7 +160,32 @@ Object.assign(App.logic, {
             Safe.save('v40_db', App.data);
             App.ui.renderEmpInspector(id);
         },
-        empPref: function(id, field, value) { const i = App.data.empleados.findIndex(x=>x.id===id); if(i>=0) { if(!App.data.empleados[i].prefs) App.data.empleados[i].prefs = {}; App.data.empleados[i].prefs[field] = value; Safe.save('v40_db', App.data); App.ui.renderEmp(document.querySelector('.main-scroll')); } },
+        empPref: function(id, field, value) {
+            const i = App.data.empleados.findIndex(x=>x.id===id);
+            if(i<0) return;
+            if(!App.data.empleados[i].prefs) App.data.empleados[i].prefs = {};
+            const prefs = App.data.empleados[i].prefs;
+            prefs[field] = value;
+
+            // Validación cruzada turno/partidos
+            if(field === 'shift' && value && value !== 'any') {
+                const shift = App.data.shiftDefs.find(s => s.id === value);
+                if(shift && shift.breakStart && shift.breakEnd) {
+                    // Turno partido seleccionado → partidos no puede ser "no"
+                    if(prefs.split === 'no') prefs.split = 'ok';
+                }
+            }
+            if(field === 'split' && value === 'no') {
+                // No quiere partidos → si su turno preferido es partido, limpiar
+                if(prefs.shift && prefs.shift !== 'any') {
+                    const shift = App.data.shiftDefs.find(s => s.id === prefs.shift);
+                    if(shift && shift.breakStart && shift.breakEnd) prefs.shift = 'any';
+                }
+            }
+
+            Safe.save('v40_db', App.data);
+            App.ui.renderEmp(document.querySelector('.main-scroll'));
+        },
         
         empClearOutsideVigencia: function(empId) {
     const emp = App.data.empleados.find(e => e.id === empId);

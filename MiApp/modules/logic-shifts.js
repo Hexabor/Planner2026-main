@@ -4,6 +4,13 @@
 
 Object.assign(App.logic, {
         shiftSelect: function(id) { App.uiState.selectedId=id; App.ui.renderShifts(document.querySelector('.main-scroll')); App.ui.renderShiftInspector(id); },
+        togglePaletteVisible: function(id) {
+            const s = App.data.shiftDefs.find(x => x.id === id);
+            if(!s) return;
+            s.paletteVisible = s.paletteVisible === false ? true : false;
+            Safe.save('v40_db', App.data);
+            App.ui.renderShifts(document.querySelector('.main-scroll'));
+        },
         shiftSave: function(id) { 
             let code = document.getElementById('sf-code').value.trim(); 
             if(code.length > 10) {
@@ -74,7 +81,8 @@ Object.assign(App.logic, {
                         breakEnd: newBreakEnd,
                         color: document.getElementById('sf-color').value,
                         external: document.getElementById('sf-external').checked,
-                        customOrder: App.data.shiftDefs.length
+                        customOrder: App.data.shiftDefs.length,
+                        paletteVisible: true
                     };
                     
                     App.data.shiftDefs.push(newShift);
@@ -88,17 +96,19 @@ Object.assign(App.logic, {
             }
             
             // Shift is not in use or is new - safe to save normally
+            const _existing = id ? App.data.shiftDefs.find(x=>x.id===id) : null;
             const s={
-                id:id||'s'+Date.now(), 
-                code, 
-                desc:document.getElementById('sf-desc').value, 
-                start:document.getElementById('sf-start').value, 
-                end:document.getElementById('sf-end').value, 
-                breakStart:document.getElementById('sf-bstart').value, 
-                breakEnd:document.getElementById('sf-bend').value, 
+                id:id||'s'+Date.now(),
+                code,
+                desc:document.getElementById('sf-desc').value,
+                start:document.getElementById('sf-start').value,
+                end:document.getElementById('sf-end').value,
+                breakStart:document.getElementById('sf-bstart').value,
+                breakEnd:document.getElementById('sf-bend').value,
                 color:document.getElementById('sf-color').value,
                 external:document.getElementById('sf-external').checked,
-                customOrder:id?App.data.shiftDefs.find(x=>x.id===id).customOrder:App.data.shiftDefs.length
+                customOrder:_existing ? _existing.customOrder : App.data.shiftDefs.length,
+                paletteVisible: _existing ? (_existing.paletteVisible !== false) : true
             }; 
             if(id){
                 const i=App.data.shiftDefs.findIndex(x=>x.id===id);

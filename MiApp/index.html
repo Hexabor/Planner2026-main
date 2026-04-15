@@ -737,6 +737,11 @@ App.logic.updateContrato = function(empId, idx, campo, valor) {
     const ultimo = emp.contratos[emp.contratos.length - 1];
     emp.fechaFin = ultimo.hasta || null;
 
+    // Recalcular tag dinámicamente al cambiar rol
+    const _rolActual = Utils.getRolEnFecha(emp, new Date().toISOString().slice(0,10));
+    emp.tag = ['MNG','AM','SPV'].includes(_rolActual) ? 3 : 1;
+    emp.rol = _rolActual;
+
     Safe.save('v40_db', App.data);
     var _ec = document.querySelector('.main-scroll'); if(_ec) App.ui.renderEmp(_ec);
     App.ui.renderEmpInspector(empId); 

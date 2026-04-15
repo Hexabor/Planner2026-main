@@ -20,7 +20,8 @@ Object.assign(App.ui, {
                                color:${isAdHoc ? 'white' : '#64748b'};">📊 Ad Hoc${adHocCount > 0 ? ' (' + adHocCount + ')' : ''}</button>
                 </div>
                 <div style="display:flex; gap:10px; justify-content:flex-end;">
-                    ${!isAdHoc ? '<button class="btn btn-primary" onclick="App.logic.shiftSelect(null)">+ Nuevo Turno</button>' : ''}
+                    ${!isAdHoc ? `<button class="btn" onclick="App.ui._openPaletteConfig()" style="font-size:0.75rem;" title="Configurar disposición de la paleta">⚙ Paleta</button>
+                    <button class="btn btn-primary" onclick="App.logic.shiftSelect(null)">+ Nuevo Turno</button>` : ''}
                 </div>
             </div>`;
 
@@ -53,6 +54,7 @@ Object.assign(App.ui, {
                     ${getSortHeader('breakStart', 'In.D', 'col-time', '50px')}
                     ${getSortHeader('breakEnd', 'Fi.D', 'col-time', '50px')}
                     ${getSortHeader('hours', 'H', 'col-hours', '60px')}
+                    <th style="padding:8px 6px; width:40px; text-align:center;" title="Visible en la paleta del planificador"><span style="font-size:0.65rem;color:#94a3b8;">PAL</span></th>
                 </tr></thead><tbody>`;
                 
                 let sortedList = [...App.data.shiftDefs];
@@ -84,7 +86,12 @@ Object.assign(App.ui, {
                         hoursStyle = `background:${bgColor}; color:${textColor}; font-weight:700;`;
                     }
                     
-                    html += `<tr class="${isSel}" onclick="App.logic.shiftSelect('${s.id}')" ${dragAttrs} style="height:22px;"><td class="drag-handle" style="padding:3px 6px; font-size:0.85rem;">☰</td><td class="col-code" style="padding:3px 6px;"><span class="shift-pill" style="background:${s.color}; font-size:0.75rem; padding:3px 6px;">${s.code}</span></td><td style="font-weight:500; overflow:hidden; text-overflow:ellipsis; padding:3px 8px; font-size:0.75rem;" title="${s.desc}">${s.desc}</td><td style="vertical-align:middle; padding:3px 30px;">${Utils.renderMiniTimeline(s)}</td><td class="col-time" style="padding:3px 6px; font-size:0.75rem;">${s.start||'-'}</td><td class="col-time" style="padding:3px 6px; font-size:0.75rem;">${s.end||'-'}</td><td class="col-time" style="padding:3px 6px; font-size:0.75rem;">${s.breakStart||'-'}</td><td class="col-time" style="padding:3px 6px; font-size:0.75rem;">${s.breakEnd||'-'}</td><td class="col-hours" style="padding:3px 6px; ${hoursStyle}">${hours>0?hours.toFixed(1).replace('.0',''):''}</td></tr>`;
+                    const _palVis = s.paletteVisible !== false;
+                    const _palStyle = _palVis ? '' : 'opacity:0.35;';
+                    const _toggleBg = _palVis ? s.color : '#cbd5e1';
+                    const _toggleDot = _palVis ? 'right:1px;' : 'left:1px;';
+                    const _toggleHtml = `<div style="width:26px;height:14px;border-radius:7px;background:${_toggleBg};position:relative;cursor:pointer;transition:background 0.15s;margin:0 auto;" title="${_palVis ? 'Visible en paleta — click para ocultar' : 'Oculto en paleta — click para mostrar'}"><div style="width:12px;height:12px;border-radius:50%;background:white;position:absolute;top:1px;${_toggleDot}box-shadow:0 1px 2px rgba(0,0,0,0.2);transition:all 0.15s;"></div></div>`;
+                    html += `<tr class="${isSel}" onclick="App.logic.shiftSelect('${s.id}')" ${dragAttrs} style="height:22px;${_palVis ? '' : 'background:#f8fafc;'}"><td class="drag-handle" style="padding:3px 6px; font-size:0.85rem;">☰</td><td class="col-code" style="padding:3px 6px;"><span class="shift-pill" style="background:${s.color}; font-size:0.75rem; padding:3px 6px;${_palStyle}">${s.code}</span></td><td style="font-weight:500; overflow:hidden; text-overflow:ellipsis; padding:3px 8px; font-size:0.75rem;${_palStyle}" title="${s.desc}">${s.desc}</td><td style="vertical-align:middle; padding:3px 30px;${_palStyle}">${Utils.renderMiniTimeline(s)}</td><td class="col-time" style="padding:3px 6px; font-size:0.75rem;${_palStyle}">${s.start||'-'}</td><td class="col-time" style="padding:3px 6px; font-size:0.75rem;${_palStyle}">${s.end||'-'}</td><td class="col-time" style="padding:3px 6px; font-size:0.75rem;${_palStyle}">${s.breakStart||'-'}</td><td class="col-time" style="padding:3px 6px; font-size:0.75rem;${_palStyle}">${s.breakEnd||'-'}</td><td class="col-hours" style="padding:3px 6px; ${hoursStyle}${_palStyle}">${hours>0?hours.toFixed(1).replace('.0',''):''}</td><td style="text-align:center;padding:3px 6px;cursor:pointer;font-size:0.85rem;" onclick="event.stopPropagation();App.logic.togglePaletteVisible('${s.id}')">${_toggleHtml}</td></tr>`;
                 });
                 html += `</tbody></table>`;
             return html;
@@ -255,6 +262,32 @@ Object.assign(App.ui, {
                     ${id ? `<button class="btn btn-warning" style="flex:1" onclick="App.logic.shiftDup('${id}')" title="Duplicar">📋 Duplicar</button>` : ''}
                 </div>
                 ${id?`<button class="btn btn-danger" data-shift-id="${id}" onclick="App.logic.shiftDel(this.getAttribute('data-shift-id'))">🗑️ Eliminar</button>`:''}`;
+        },
+
+        _openPaletteConfig: function() {
+            const cols = App.data.config.paletteColumns || 4;
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.innerHTML = `<div style="background:white;border-radius:12px;padding:20px 24px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="font-size:1rem;font-weight:700;margin-bottom:12px;">⚙ Configurar paleta</div>
+                <div style="font-size:0.78rem;color:#64748b;margin-bottom:16px;">Ajusta la disposición de los turnos en la paleta del planificador. La visibilidad de cada turno se controla desde el icono 👁️ en el catálogo.</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;">
+                    <span style="font-weight:600;">Columnas de la paleta</span>
+                    <input type="number" min="2" max="8" value="${cols}" id="pal-cols" style="width:55px;padding:4px 6px;border:1px solid #e2e8f0;border-radius:4px;text-align:center;font-size:0.85rem;">
+                </div>
+                <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+                    <button id="pal-cancel" style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:6px;background:white;color:#64748b;font-weight:600;cursor:pointer;">Cancelar</button>
+                    <button id="pal-save" style="padding:6px 14px;border:none;border-radius:6px;background:#2563eb;color:white;font-weight:700;cursor:pointer;">Guardar</button>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
+            modal.querySelector('#pal-cancel').onclick = () => modal.remove();
+            modal.querySelector('#pal-save').onclick = () => {
+                App.data.config.paletteColumns = Math.max(2, Math.min(8, parseInt(document.getElementById('pal-cols').value) || 4));
+                Safe.save('v40_db', App.data);
+                modal.remove();
+            };
+            modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
         },
 
         // --- CUSTOM GALLERY (now inline via pill switch) ---

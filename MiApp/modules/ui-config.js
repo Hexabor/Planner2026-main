@@ -70,7 +70,7 @@ Object.assign(App.ui, {
                                style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; box-sizing:border-box; margin-bottom:16px;">
                         <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px;">Opciones de contrato (h/semana)</label>
                         <input type="text"
-                               value="${App.data.config.opcionesContrato ? App.data.config.opcionesContrato.join(', ') : '40, 35, 30, 25, 20, 15'}"
+                               value="${App.data.config.opcionesContrato ? App.data.config.opcionesContrato.join(', ') : '40, 37.5, 30, 20, 12'}"
                                onchange="App.data.config.opcionesContrato = this.value.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n)); Safe.save('v40_db',App.data)"
                                placeholder="Ej: 40, 30, 20"
                                style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; box-sizing:border-box;">

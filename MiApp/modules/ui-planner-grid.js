@@ -121,6 +121,7 @@ Object.assign(App.ui, {
             // Módulo CONTROLES — VISTA + DRAG fusionados
             const _isMoono = !!App.uiState.gridMonocromo;
             const _isDivid = !!App.uiState.gridDividido;
+            const _isCuadr = !!App.uiState.gridCuadrados;
             const _bS = (active) => 'flex:1; padding:3px 5px; border:none; outline:none; border-radius:8px; font-size:0.62rem; font-weight:700; cursor:pointer; transition:background 0.15s, color 0.15s; white-space:nowrap; background:' + (active?'#2563eb':'transparent') + '; color:' + (active?'white':'#64748b') + ';';
             const _row = (labelA, titleA, onA, activeA, labelB, titleB, onB, activeB, disabled) => {
                 const disStyle = disabled ? 'opacity:0.35; filter:grayscale(1); pointer-events:none;' : '';
@@ -142,8 +143,9 @@ Object.assign(App.ui, {
                 <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em;">VISTA</div>
                 <div class="planner-module-content" style="display:flex; flex-direction:column; gap:3px; padding:4px 5px; justify-content:center;">
                         ${_labeledRow('Equipo','<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>','Grupo',"App.uiState.plannerViewMode='group'; App.ui.renderPlanner(document.getElementById('main-view'));",!isIndividual,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Individual',"if(!App.uiState.individualEmpId){const first=App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder)[0]; if(first)App.uiState.individualEmpId=first.id;} App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));",isIndividual,false)}
-                        ${_labeledRow('Grid','<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="1"/><rect x="3" y="14" width="18" height="7" rx="1"/></svg>','Junto',"App.uiState.gridDividido=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isDivid,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>','Separado',"App.uiState.gridDividido=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isDivid,isIndividual)}
-                        ${_labeledRow('Color','<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg>','Color',"App.uiState.gridMonocromo=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isMoono,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18V3z" fill="currentColor" stroke="none"/></svg>','Monocromo',"App.uiState.gridMonocromo=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isMoono,isIndividual)}
+                        ${_labeledRow('Modo','<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="22" height="4" rx="1"/><rect x="1" y="10" width="22" height="4" rx="1"/><rect x="1" y="17" width="22" height="4" rx="1"/></svg>','Barras — Timeline con franjas horarias',"App.uiState.gridCuadrados=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isCuadr,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="8" height="8" rx="1"/></svg>','Cuadrados — Balance semanal con dots',"App.uiState.gridCuadrados=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isCuadr,isIndividual)}
+                        ${_labeledRow('Grid','<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="1"/><rect x="3" y="14" width="18" height="7" rx="1"/></svg>','Junto',"App.uiState.gridDividido=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isDivid,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>','Separado',"App.uiState.gridDividido=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isDivid,isIndividual||_isCuadr)}
+                        ${_labeledRow('Color','<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg>','Color',"App.uiState.gridMonocromo=false; App.ui.renderPlanner(document.getElementById('main-view'));",!_isMoono,'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18V3z" fill="currentColor" stroke="none"/></svg>','Monocromo',"App.uiState.gridMonocromo=true; App.ui.renderPlanner(document.getElementById('main-view'));",_isMoono,_isCuadr&&!isIndividual)}
                 </div>
             </div>`;
 
@@ -257,8 +259,9 @@ Object.assign(App.ui, {
                 const isSel = App.uiState.paintShiftId === s.id ? 'selected' : '';
                 html += `<div class="palette-item palette-item-fixed ${isSel}" title="${s.desc}" style="border: 2px solid ${s.color}; background:transparent; border-color:${isSel?s.color:s.color}40; min-width:19px;" onclick="App.logic.setPaint('${s.id}')"><span style="color:${s.color}; font-weight:700;">${s.code}</span></div>`;
             });
-            html += `</div><div style="width:1px; background:var(--border); margin:0 6px; align-self:stretch; flex-shrink:0;"></div><div style="display:grid; grid-template-columns:repeat(4,1fr); gap:3px; flex:1; align-content:start;">`;
-            App.data.shiftDefs.sort((a,b)=>a.customOrder-b.customOrder).forEach(s => {
+            const _palCols = App.data.config.paletteColumns || 4;
+            html += `</div><div style="width:1px; background:var(--border); margin:0 6px; align-self:stretch; flex-shrink:0;"></div><div style="display:grid; grid-template-columns:repeat(${_palCols},1fr); gap:3px; flex:1; align-content:start;">`;
+            App.data.shiftDefs.filter(s => s.paletteVisible !== false).sort((a,b)=>a.customOrder-b.customOrder).forEach(s => {
                 const isSel = App.uiState.paintShiftId === s.id ? 'selected' : '';
                 const isLight = Utils.isLightColor(s.color);
                 const textColor = isLight ? '#000000' : '#ffffff';
@@ -297,8 +300,9 @@ Object.assign(App.ui, {
                 </div>
                 ${valleBolsa > 0 ? valleModuleHtml : ''}
                 </div>
-                <div style="display:flex; flex-direction:column; gap:8px; flex:0 0 auto; width:auto;">
+                <div style="display:flex; flex-direction:row; gap:8px; flex:0 0 auto; width:auto; align-items:flex-start;">
                     ${vistaModuleHtml}
+                    ${App.ui._renderWorkspacePresetsModule()}
                 </div>
             </div>
             </div>
@@ -307,6 +311,8 @@ Object.assign(App.ui, {
 
             if(App.uiState.plannerViewMode === 'individual') {
                 html += App.ui._renderIndividualGrid(weekDays, monday, finalConfig, gridScale);
+            } else if(App.uiState.gridCuadrados) {
+                html += App.ui._renderCuadradosGrid(gridScale);
             } else {
             // REJILLA DE TURNOS (con sistema de escala)
             const _weekClosed = App.logic.getWeekState(monday) === 'closed';

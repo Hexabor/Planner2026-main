@@ -42,7 +42,7 @@ const App = {
         shiftSortKey:'custom', 
         shiftSortDir:'asc',
         shiftsViewMode: 'catalog', // 'catalog' | 'adhoc' 
-        monitorTab: 'balance', 
+        monitorTab: 'charts', 
         balanceStartDate: null, 
         balanceEndDate: null, 
         exportEmps: [], 
@@ -53,6 +53,7 @@ const App = {
         icsIncludeFixed: true,
         dragMode: 'edit', // 'edit' or 'swap'
         tempDragMode: null, // para Ctrl temporal
+        gridCuadrados: false, // true = cuadrados (balance en panel principal), false = barras (timeline)
         plannerViewMode: 'group', // 'group' | 'individual'
         individualEmpId: null, // empleado seleccionado en vista individual
         copiedWeekPattern: null, // patrón copiado: { sourceEmpName, sourceWeek, shifts }
@@ -156,6 +157,11 @@ const App = {
         if(App.data.config.valleBolsa === undefined) App.data.config.valleBolsa = 0;
         if(!App.data.config.headerBgColor)      App.data.config.headerBgColor      = '#dde3ed';
         if(!App.data.config.valleHeaderBgColor) App.data.config.valleHeaderBgColor = '#bfdbfe';
+        if(!App.data.config.equilibrioLimits) App.data.config.equilibrioLimits = { M: 0, T: 0, I: 0, P: 0 }; // 0 = sin límite
+        if(!App.data.config.paletteColumns) App.data.config.paletteColumns = 4;
+        if(!App.data.config.workspacePresets) App.data.config.workspacePresets = [];
+        // Asegurar que todos los turnos tienen paletteVisible
+        (App.data.shiftDefs || []).forEach(s => { if(s.paletteVisible === undefined) s.paletteVisible = true; });
         if(!App.data.eventos) App.data.eventos = [];
         if(!App.data.config.llaves) App.data.config.llaves = [];
         if(App.data.config.llavesActivo === undefined) App.data.config.llavesActivo = false;

@@ -20,12 +20,13 @@ Object.assign(App.ui, {
         renderPlannerInspector: function(c) {
             const _ic = (path, vb) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb||'0 0 24 24'}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
             const tabs = [
-                { id: 'charts',    label: 'Gráficos',  icon: _ic('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>') },
+                { id: 'charts',    label: 'Reparto horas',  icon: _ic('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>') },
                 { id: 'balance',   label: 'Balance',   icon: _ic('<line x1="3" y1="12" x2="21" y2="12"/><path d="M3 6h18M3 18h18"/>') },
                 { id: 'findes',    label: 'Fines',     icon: _ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M8 18h.01M12 18h.01"/>') },
                 { id: 'eventos',   label: 'Eventos',   icon: _ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/>') },
                 { id: 'festdom',   label: 'Festivos',  icon: _ic('<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>') },
                 { id: 'equilibrio',label: 'Equilibrio',icon: _ic('<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>') },
+                { id: 'libranzas', label: 'Libranzas', icon: _ic('<path d="M3 12h4l3-9 4 18 3-9h4"/>') },
                 { id: 'semanas',   label: 'Semanas',   icon: _ic('<path d="M3 3h18v18H3z"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/>') },
             ];
             
@@ -56,6 +57,8 @@ Object.assign(App.ui, {
                 html += App.ui.renderMonitorEquilibrio();
             } else if(App.uiState.monitorTab === 'eventos') {
                 html += App.ui.renderMonitorEventos();
+            } else if(App.uiState.monitorTab === 'libranzas') {
+                html += App.ui.renderMonitorLibranzas();
             }
             // Add more module renderers here as they're created
             
@@ -435,97 +438,294 @@ Object.assign(App.ui, {
             return html;
         },
 
-        renderMonitorBalance: function() {
+        // Cálculo de estadísticas del balance semanal — compartido entre inspector y vista cuadrados
+        _calcBalanceStats: function() {
             const monday = Utils.getMonday(App.uiState.currentDate);
             const days = Utils.getWeekDays(monday);
             let stats = [];
             App.data.empleados.filter(e => {
-                // Filtrar por activo Y vigente en esta semana
                 return e.active && Utils.empleadoVigenteEnFecha(e, monday);
             }).sort((a,b)=>a.customOrder-b.customOrder).forEach(e => {
-                let planned = 0;  // horas para cobertura de tienda (sin externos)
-                let asig = 0;     // horas totales del empleado (con externos)
+                let planned = 0;
+                let asig = 0;
                 let dayStatuses = [];
-                
+
                 days.forEach(d => {
                     let status = { color: 'transparent', type: 'empty', label: Utils.getDayName(d), code: null };
                     const req = Utils.getRequest(e.id, d);
-                    
-                    // SIEMPRE verificar qué turno real está asignado
                     const sid = App.data.schedule[d] ? App.data.schedule[d][e.id] : null;
                     const shift = sid ? Utils.getShift(sid) : null;
-                    
+
                     if(shift) {
                         if(shift.fixed) {
-                            // Fixed shifts - usar color y código reales
-                            status = { 
-                                color: shift.color, 
-                                type: 'hollow', 
-                                label: shift.desc,
-                                code: shift.code
-                            };
+                            status = { color: shift.color, type: 'hollow', label: shift.desc, code: shift.code };
                         } else if(shift.start && shift.end) {
-                            // Working shifts - solid background (externos no suman a cobertura pero sí aparecen visualmente)
                             const shiftColor = Utils.isCustomShift(shift) ? '#9ca3af' : shift.color;
                             const h = Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break);
-                            status = { 
-                                color: shiftColor, 
-                                type: 'solid', 
-                                label: `${shift.code || 'CUSTOM'} (${shift.start}-${shift.end})${shift.external ? ' · Externo' : ''}`,
-                                code: shift.code || 'CUSTOM',
-                                hours: h
-                            };
-                            // Externos no suman a cobertura de tienda, pero SÍ cuentan para el empleado
+                            status = { color: shiftColor, type: 'solid', label: `${shift.code || 'CUSTOM'} (${shift.start}-${shift.end})${shift.external ? ' · Externo' : ''}`, code: shift.code || 'CUSTOM', hours: h };
                             asig += h;
-                            if(!shift.external) {
-                                planned += h;
-                            }
+                            if(!shift.external) planned += h;
                         }
                     } else if(req && req.status === 'approved') {
-                        // Request aprobada SIN turno asignado (raro, pero manejarlo)
                         if(req.type === 'VAC') status = { color: '#a855f7', type: 'hollow', label: 'Vacaciones', code: 'V' };
                         else if(req.type === 'BAJ') status = { color: '#ef4444', type: 'hollow', label: 'Baja', code: 'B' };
                         else if(req.type === 'AP') status = { color: '#ec4899', type: 'hollow', label: 'Asuntos Propios', code: 'P' };
                         else status = { color: '#e5e7eb', type: 'hollow', label: req.type, code: req.type };
                     }
-                    
                     dayStatuses.push(status);
                 });
-                
-                // Calcular días consecutivos trabajados ANTES de esta semana
-                const consecutiveDays = App.logic.calcConsecutiveWorkDays(e.id, monday);
-                // Aplicar regla F/L para horas justificadas y esperadas
-                const { justifiedH, totalContrato, countL, countF } = Utils.calcEsperadas(e, days, e.id);
 
-                // Detectar contrato mixto (cambio a mitad de semana)
+                const consecutiveDays = App.logic.calcConsecutiveWorkDays(e.id, monday);
+                const { justifiedH, totalContrato, countL, countF } = Utils.calcEsperadas(e, days, e.id);
                 const DIAS_SEM = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
                 const contratosPorDia = days.map((d, i) => ({ dia: DIAS_SEM[i], h: Utils.getContrato(e, d) }));
-                const contratosUnicos = [...new Set(contratosPorDia.map(c => c.h))];
-                const esMixto = contratosUnicos.length > 1;
+                const esMixto = [...new Set(contratosPorDia.map(c => c.h))].length > 1;
+
+                const prevSunday = new Date(monday);
+                prevSunday.setDate(prevSunday.getDate() - 1);
+                const prevSundayStr = prevSunday.toISOString().split('T')[0];
+                const prevSundaySid = App.data.schedule[prevSundayStr] ? App.data.schedule[prevSundayStr][e.id] : null;
+                const prevSundayShift = prevSundaySid ? Utils.getShift(prevSundaySid) : null;
+                let prevSundayColor = null, prevSundayLabel = null;
+                if(prevSundayShift) {
+                    if(prevSundayShift.fixed) {
+                        prevSundayColor = '#22c55e';
+                        prevSundayLabel = `Dom. anterior: ${prevSundayShift.code} (libre)`;
+                    } else if(prevSundayShift.start) {
+                        prevSundayColor = prevSundayShift.color;
+                        prevSundayLabel = `Dom. anterior: ${prevSundayShift.code || 'CUSTOM'} (${prevSundayShift.start}-${prevSundayShift.end})`;
+                    }
+                }
 
                 stats.push({
-                    name: e.nombre,
-                    empId: e.id,
-                    contract: totalContrato,
-                    planned,
-                    asig,
-                    justifiedH,
-                    dayStatuses,
-                    consecutiveDays,
-                    countL,
-                    countF,
-                    esMixto,
-                    contratosPorDia
+                    name: e.nombre, empId: e.id, contract: totalContrato, planned, asig, justifiedH,
+                    dayStatuses, consecutiveDays, countL, countF, esMixto, contratosPorDia,
+                    prevSundayColor, prevSundayLabel
                 });
             });
 
-            // Totales del equipo (calculados antes de renderizar el header)
-            const totalContrato   = stats.reduce((s, st) => s + st.contract,   0);
-            const totalPlanned    = stats.reduce((s, st) => s + st.planned,     0);
-            const totalJustified  = stats.reduce((s, st) => s + st.justifiedH,  0);
+            const totalContrato   = stats.reduce((s, st) => s + st.contract, 0);
+            const totalPlanned    = stats.reduce((s, st) => s + st.planned, 0);
+            const totalJustified  = stats.reduce((s, st) => s + st.justifiedH, 0);
             const totalDisponible = totalContrato - totalJustified;
             const totalFaltan     = Math.max(0, totalDisponible - totalPlanned);
-            const f1 = n => (Math.round(n * 10) / 10); // máx 1 decimal para display
+
+            return { stats, days, monday, totalContrato, totalPlanned, totalJustified, totalDisponible, totalFaltan };
+        },
+
+        // Vista Cuadrados — balance semanal en el panel principal (reemplaza el grid de barras)
+        _renderCuadradosGrid: function(gridScale) {
+            const { stats, days, monday } = App.ui._calcBalanceStats();
+            const f1 = n => (Math.round(n * 10) / 10);
+            const _weekClosed = App.logic.getWeekState(monday) === 'closed';
+            const DIAS_HDR = ['L','M','X','J','V','S','D'];
+            const eqLimits = App.data.config.equilibrioLimits || { M:0, T:0, I:0, P:0 };
+            const eqTypes = ['M','I','T','P'];
+            const eqBg = { M:'#eff6ff', I:'#fefce8', T:'#fff7ed', P:'#fdf2f8' };
+            const eqHdrFg = { M:'#1e40af', I:'#854d0e', T:'#9a3412', P:'#be185d' };
+
+            const dotSize = 30;
+            const dotFontSize = '1rem';
+            const dotHollowFont = '0.75rem';
+            const fontSize = '0.88rem';
+
+            let html = `<div class="planner-grid-wrapper-scale">
+                <div class="planner-grid-module-scalable" id="planner-grid-scalable" style="transform:scale(${gridScale});transform-origin:top left;${_weekClosed ? 'border-color:#22c55e;' : ''}">
+                <table class="balance-table cuadrados-table" style="font-size:${fontSize};">
+                    <thead><tr>
+                        <th class="cq-name" style="min-width:90px;">Emp</th>
+                        <th>Rol</th>
+                        <th>Tag</th>
+                        <th>Cntr</th>
+                        <th>Asig</th>
+                        <th>Dif</th>
+                        <th style="border-left:2px solid #cbd5e1;">Des</th>
+                        <th>Fes</th>
+                        <th style="border-left:2px solid #cbd5e1;">SEG</th>
+                        <th>LIB</th>
+                        <th style="border-left:2px solid #cbd5e1;min-width:${dotSize - 4}px;background:#f8fafc;"><span class="diff-tooltip-wrap" style="cursor:help;">DA<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Domingo Anterior — turno del domingo de la semana previa. Útil para evitar encadenar partidos u otros turnos pesados entre semanas.</div></span></th>
+                        ${DIAS_HDR.map((d, i) => `<th style="${i === 0 ? 'border-left:1px solid #e2e8f0;' : ''}min-width:${dotSize + 4}px;">${d}</th>`).join('')}
+                        ${eqTypes.map((t, ti) => `<th style="${ti === 0 ? 'border-left:2px solid #cbd5e1;' : ''}background:${eqBg[t]};border-bottom:2px solid ${eqHdrFg[t]}30;"><span class="diff-tooltip-wrap" style="cursor:help;">${t}<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Equilibrio: turnos de tipo <b>${t}</b> en la semana actual.<br><br><a href="#" onclick="event.preventDefault();event.stopPropagation();App.ui._openEquilibrioConfig();" style="color:#60a5fa;text-decoration:underline;">⚙ Configurar límites</a></div></span></th>`).join('')}
+                    </tr></thead>
+                    <tbody>`;
+
+            stats.forEach(st => {
+                const _emp = App.data.empleados.find(e => e.id === st.empId);
+                const rolEnFecha = _emp ? Utils.getRolEnFecha(_emp, monday) : 'STF';
+                const computedTag = ['MNG','AM','SPV'].includes(rolEnFecha) ? 3 : 1;
+                const tag3Class = computedTag >= 3 ? 'tag3-highlight' : '';
+                const tagClass = computedTag === 3 ? 'badge-tag-3' : 'badge-tag-1';
+
+                // Diff
+                const coveredDiff = Math.round((st.asig + st.justifiedH - st.contract) * 10) / 10;
+                const hasJustified = st.justifiedH > 0;
+                const _threshold = st.contract > 0 ? st.contract * 0.1 : 0.5;
+                const isFullyCovered = Math.abs(coveredDiff) <= _threshold;
+                let diffClass = isFullyCovered ? 'val-good' : (coveredDiff < 0 ? 'val-warn' : 'val-good');
+                let diffDisplay = coveredDiff > 0 ? `+${coveredDiff}` : `${coveredDiff}`;
+
+                const _desglose = (extraFooter) => `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desglose de horas</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">🔵 Trabajo</span><span style="font-weight:600;">${f1(st.asig)}h</span></div>${hasJustified ? `<div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">✦ Ausencias</span><span style="color:#a78bfa;font-weight:600;">+${f1(st.justifiedH)}h</span></div>` : ''}<div style="display:flex;justify-content:space-between;gap:16px;border-top:1px solid rgba(255,255,255,0.1);margin-top:5px;padding-top:5px;"><span style="color:#94a3b8;">📋 Contrato</span><span style="font-weight:600;">${f1(st.contract)}h</span></div>${extraFooter}`;
+                let diffTitle;
+                if(isFullyCovered) {
+                    diffTitle = hasJustified ? _desglose(`<div style="margin-top:6px;padding:4px 6px;background:rgba(16,185,129,0.15);border-radius:4px;color:#6ee7b7;font-size:10px;">✓ Semana cubierta</div>`) : null;
+                } else {
+                    diffTitle = _desglose(`<div style="margin-top:6px;padding:4px 6px;background:rgba(245,158,11,0.2);border-radius:4px;color:#fbbf24;font-size:10px;">${coveredDiff < 0 ? `⚠️ Faltan ${f1(Math.abs(coveredDiff))}h por cubrir` : `⬆ ${f1(coveredDiff)}h de más`}</div>`);
+                }
+
+                // SEG
+                let consColor = '#22c55e';
+                if(st.consecutiveDays >= 6) consColor = '#ef4444';
+                else if(st.consecutiveDays >= 4) consColor = '#f59e0b';
+                let consHtml = `<div style="width:22px;height:22px;border-radius:4px;background-color:${consColor};color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;box-shadow:0 1px 2px rgba(0,0,0,0.1);cursor:help;margin:0 auto;" title="Lleva ${st.consecutiveDays} día${st.consecutiveDays !== 1 ? 's' : ''} consecutivo${st.consecutiveDays !== 1 ? 's' : ''}">${st.consecutiveDays}</div>`;
+
+                // Celda DA (Domingo Anterior) — cuadrado más pequeño y translúcido
+                const daSize = dotSize - 6;
+                let daCell = '';
+                if(st.prevSundayColor && st.prevSundayColor !== '#22c55e') {
+                    // Turno de trabajo el domingo anterior
+                    // Obtener horas del domingo anterior
+                    const _prevSun = new Date(monday); _prevSun.setDate(_prevSun.getDate() - 1);
+                    const _prevSunStr = _prevSun.toISOString().split('T')[0];
+                    const _prevSid = App.data.schedule[_prevSunStr] ? App.data.schedule[_prevSunStr][st.empId] : null;
+                    const _prevSh = _prevSid ? Utils.getShift(_prevSid) : null;
+                    const _prevH = _prevSh && _prevSh.start && _prevSh.end ? Utils.calcHours(_prevSh.start, _prevSh.end, _prevSh.breakStart, _prevSh.breakEnd, _prevSh.break) : null;
+                    const _prevLabel = _prevH != null ? (_prevH % 1 === 0 ? String(_prevH) : String(Math.round(_prevH * 10) / 10)) : '';
+                    const _phex = st.prevSundayColor.replace('#',''); const _pr=parseInt(_phex.substring(0,2),16),_pg=parseInt(_phex.substring(2,4),16),_pb=parseInt(_phex.substring(4,6),16);
+                    const _phColor = ((_pr*0.299+_pg*0.587+_pb*0.114)/255) > 0.55 ? '#1e293b' : '#ffffff';
+                    daCell = `<td style="border-left:2px solid #cbd5e1;padding:3px 2px;background:#f8fafc;"><div style="width:${daSize}px;height:${daSize}px;border-radius:3px;background-color:${st.prevSundayColor};opacity:0.45;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;color:${_phColor};line-height:1;margin:0 auto;cursor:help;" title="${st.prevSundayLabel}">${_prevLabel}</div></td>`;
+                } else if(st.prevSundayColor === '#22c55e') {
+                    daCell = `<td style="border-left:2px solid #cbd5e1;padding:3px 2px;background:#f8fafc;"><div style="width:${daSize}px;height:${daSize}px;border-radius:3px;border:2px solid #22c55e;opacity:0.45;margin:0 auto;box-sizing:border-box;cursor:help;" title="${st.prevSundayLabel}"></div></td>`;
+                } else {
+                    daCell = `<td style="border-left:2px solid #cbd5e1;padding:3px 2px;background:#f8fafc;"><div style="width:${daSize}px;height:${daSize}px;border-radius:3px;border:1px dashed #e2e8f0;opacity:0.35;margin:0 auto;box-sizing:border-box;" title="Sin turno asignado el domingo anterior"></div></td>`;
+                }
+
+                // Dots — cada día como celda <td> separada
+                let dotsCells = '';
+                let eqCount = { M:0, T:0, I:0, P:0 };
+
+                st.dayStatuses.forEach((s, di) => {
+                    const _sel = App.uiState._balSwap || {};
+                    const _isSelected = (_sel.a && _sel.a.empId === st.empId && _sel.a.di === di) || (_sel.b && _sel.b.empId === st.empId && _sel.b.di === di);
+                    const _selRing = _isSelected ? 'outline:2.5px solid #f59e0b;outline-offset:1px;' : '';
+                    const _click = `onclick="if(event.altKey){event.stopPropagation();App.ui._balanceErase('${st.empId}',${di});return;}App.ui._balanceSwapSelect('${st.empId}',${di})"`;
+
+                    // Contar tipo de turno para equilibrio
+                    if(s.type === 'solid') {
+                        const dateStr = days[di];
+                        const sid = App.data.schedule[dateStr] ? App.data.schedule[dateStr][st.empId] : null;
+                        const shift = sid ? Utils.getShift(sid) : null;
+                        if(shift) {
+                            const type = Utils.classifyShift(shift);
+                            if(eqCount[type] !== undefined) eqCount[type]++;
+                        }
+                    }
+
+                    let dotHtml = '';
+                    if(s.type === 'solid') {
+                        const hLabel = s.hours != null ? (s.hours % 1 === 0 ? String(s.hours) : String(Math.round(s.hours * 10) / 10)) : '';
+                        const _hex = s.color.replace('#',''); const _r=parseInt(_hex.substring(0,2),16),_g=parseInt(_hex.substring(2,4),16),_b=parseInt(_hex.substring(4,6),16);
+                        const hColor = ((_r*0.299+_g*0.587+_b*0.114)/255) > 0.55 ? '#1e293b' : '#ffffff';
+                        dotHtml = `<div ${_click} style="width:${dotSize}px;height:${dotSize}px;border-radius:4px;background-color:${s.color};display:flex;align-items:center;justify-content:center;font-size:${dotFontSize};font-weight:800;color:${hColor};line-height:1;cursor:pointer;margin:0 auto;${_selRing}" title="${s.label}">${hLabel}</div>`;
+                    } else if(s.type === 'hollow') {
+                        const showLetter = (s.code !== 'L' && s.code !== 'V');
+                        dotHtml = `<div ${_click} style="width:${dotSize}px;height:${dotSize}px;border-radius:4px;border:2.5px solid ${s.color};display:flex;align-items:center;justify-content:center;font-size:${dotHollowFont};font-weight:700;color:${s.color};cursor:pointer;margin:0 auto;box-sizing:border-box;${_selRing}" title="${s.label}">${showLetter ? s.code : ''}</div>`;
+                    } else {
+                        dotHtml = `<div ${_click} style="width:${dotSize}px;height:${dotSize}px;border-radius:4px;border:1.5px dashed #cbd5e1;cursor:pointer;margin:0 auto;box-sizing:border-box;${_selRing}" title="${s.label}"></div>`;
+                    }
+                    dotsCells += `<td style="padding:3px 2px;${di === 0 ? 'border-left:1px solid #e2e8f0;' : ''}">${dotHtml}</td>`;
+                });
+
+                // Equilibrio cells
+                let eqCells = '';
+                eqTypes.forEach((t, ti) => {
+                    const v = eqCount[t];
+                    const limit = eqLimits[t] || 0;
+                    const overLimit = limit > 0 && v > limit;
+                    const color = overLimit ? '#ef4444' : (v > 0 ? '#1e293b' : '#cbd5e1');
+                    eqCells += `<td style="${ti === 0 ? 'border-left:2px solid #cbd5e1;' : ''}font-weight:700;font-size:0.85rem;color:${color};background:${eqBg[t]};">${v || '—'}</td>`;
+                });
+
+                // LIB chivato
+                let chivatoHtml = '';
+                if(st.countL >= 2) {
+                    chivatoHtml = `<div style="width:16px;height:16px;background:#22c55e;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;cursor:help;box-shadow:0 1px 2px rgba(0,0,0,0.2);margin:0 auto;" title="✓ Tiene ${st.countL} libranzas L">✓</div>`;
+                } else if((st.countL >= 1 && st.countF >= 1) || st.countF >= 2) {
+                    chivatoHtml = `<div style="width:16px;height:16px;background:#f59e0b;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;cursor:help;box-shadow:0 1px 2px rgba(0,0,0,0.2);margin:0 auto;" title="⚠ Descansos cubiertos con festivos">⚠</div>`;
+                }
+
+                // DES y FES
+                let _acum = 0, _acumColor = '#10b981', _acumSign = '', _autoRec = 0;
+                if(_emp) {
+                    const _lw = App.ui._getLockedWeeks(_emp);
+                    _acum = _emp.saldoInicial || 0;
+                    _lw.forEach(isoWeek => {
+                        const wdays = Utils.getWeekDays(isoWeek);
+                        let worked = 0;
+                        wdays.forEach(d => { const sid = App.data.schedule[d]?.[_emp.id]; const sh = sid ? Utils.getShift(sid) : null; if(sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break); });
+                        const { esperadas } = Utils.calcEsperadas(_emp, wdays, _emp.id);
+                        _acum += worked - esperadas;
+                    });
+                    _acum = Math.round((_acum + (_emp.ajustes||[]).reduce((s,a)=>s+a.signo*a.horas,0)) * 10) / 10;
+                    _acumColor = _acum > 0.5 ? '#f59e0b' : _acum < -0.5 ? '#3b82f6' : '#10b981';
+                    _acumSign  = _acum > 0 ? '+' : '';
+                    _autoRec   = App.ui._calcFestivosPend(_emp);
+                }
+                const _desCell = `<span style="font-family:monospace;font-weight:700;color:${_acumColor};">${_acumSign}${f1(_acum)}</span>`;
+                let _fesCell = _autoRec > 0
+                    ? `<span style="font-weight:700;color:#ef4444;">${_autoRec}</span>`
+                    : `<span style="font-weight:700;color:#10b981;">✓</span>`;
+
+                let cntrHtml = `${f1(st.contract)}`;
+                if(st.esMixto) cntrHtml = `${f1(st.contract)}<sup style="font-size:0.55rem;color:#f59e0b;">⚡</sup>`;
+
+                const _difTipContent = diffTitle || '';
+                const _difCell = _difTipContent
+                    ? `<span class="diff-tooltip-wrap" style="cursor:help;">${diffDisplay}<div class="diff-tooltip" style="min-width:220px;white-space:normal;line-height:1.6;">${_difTipContent}</div></span>`
+                    : diffDisplay;
+
+                html += `<tr class="b-row ${tag3Class}" style="height:${dotSize + 10}px;">
+                    <td class="cq-name" title="${st.name}" style="cursor:pointer;" onclick="App.uiState.individualEmpId='${st.empId}'; App.uiState.plannerViewMode='individual'; App.ui.renderPlanner(document.getElementById('main-view'));">${st.name}</td>
+                    <td><span class="badge-role">${rolEnFecha}</span></td>
+                    <td><span class="${tagClass}">T${computedTag}</span></td>
+                    <td>${cntrHtml}</td>
+                    <td>${f1(st.asig)}</td>
+                    <td class="${diffClass}" style="position:relative;">${_difCell}</td>
+                    <td style="border-left:2px solid #cbd5e1;">${_desCell}</td>
+                    <td>${_fesCell}</td>
+                    <td style="border-left:2px solid #cbd5e1;">${consHtml}</td>
+                    <td>${chivatoHtml || '—'}</td>
+                    ${daCell}
+                    ${dotsCells}
+                    ${eqCells}
+                </tr>`;
+            });
+
+            html += `</tbody></table>`;
+
+            // Barra de intercambio
+            const _sw = App.uiState._balSwap || {};
+            if (_sw.a && _sw.b && _sw.a.di === _sw.b.di) {
+                const _empA = App.data.empleados.find(e => e.id === _sw.a.empId);
+                const _empB = App.data.empleados.find(e => e.id === _sw.b.empId);
+                const _dayLabel = DIAS_HDR[_sw.a.di];
+                html += `<div style="padding:8px 12px;background:#fffbeb;border-top:1px solid #fde68a;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <span style="font-size:0.85rem;color:#92400e;font-weight:600;">
+                        ${_empA ? _empA.nombre : '?'} ⇄ ${_empB ? _empB.nombre : '?'} · ${['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'][_sw.a.di]}
+                    </span>
+                    <div style="display:flex;gap:4px;">
+                        <button onclick="App.ui._balanceSwapExec()" style="padding:4px 12px;border:none;border-radius:5px;background:#2563eb;color:white;font-size:0.8rem;font-weight:700;cursor:pointer;">Intercambiar</button>
+                        <button onclick="App.uiState._balSwap={};App.ui.renderPlanner(document.getElementById('main-view'));" style="padding:4px 12px;border:1px solid #e2e8f0;border-radius:5px;background:white;color:#64748b;font-size:0.8rem;font-weight:600;cursor:pointer;">Cancelar</button>
+                    </div>
+                </div>`;
+            }
+
+            html += `</div></div>`;
+            return html;
+        },
+
+        renderMonitorBalance: function() {
+            const { stats, days, monday, totalContrato, totalPlanned, totalJustified, totalDisponible, totalFaltan } = App.ui._calcBalanceStats();
+            const f1 = n => (Math.round(n * 10) / 10);
 
             let html = `
             <div class="balance-header" style="flex-direction:column; align-items:stretch; gap:8px; padding:10px 12px;">
@@ -596,17 +796,23 @@ Object.assign(App.ui, {
                 
                 // Renderizar dots de la semana (clickables para intercambio)
                 let dotsHtml = `<div class="week-dots" style="position: relative;">`;
+                // Espacio reservado para destello fantasmal del domingo anterior
+                const _glowBg = st.prevSundayColor
+                    ? `background:linear-gradient(to left, transparent, ${st.prevSundayColor}90);filter:blur(0.5px);`
+                    : '';
+                dotsHtml += `<div style="width:3px;min-height:100%;border-radius:1px;margin-right:-1px;${_glowBg}" title="${st.prevSundayLabel || ''}"></div>`;
                 st.dayStatuses.forEach((s, di) => {
+                    const _titleSuffix = (di === 0 && st.prevSundayLabel) ? `\n${st.prevSundayLabel}` : '';
                     const _sel = App.uiState._balSwap || {};
                     const _isSelected = (_sel.a && _sel.a.empId === st.empId && _sel.a.di === di)
                                      || (_sel.b && _sel.b.empId === st.empId && _sel.b.di === di);
                     const _selRing = _isSelected ? 'outline:2.5px solid #f59e0b;outline-offset:1px;' : '';
-                    const _click = `onclick="App.ui._balanceSwapSelect('${st.empId}',${di})"`;
+                    const _click = `onclick="if(event.altKey){event.stopPropagation();App.ui._balanceErase('${st.empId}',${di});return;}App.ui._balanceSwapSelect('${st.empId}',${di})"`;
                     if(s.type === 'solid') {
                         const hLabel = s.hours != null ? (s.hours % 1 === 0 ? String(s.hours) : String(Math.round(s.hours * 10) / 10)) : '';
                         const _hex = s.color.replace('#',''); const _r=parseInt(_hex.substring(0,2),16),_g=parseInt(_hex.substring(2,4),16),_b=parseInt(_hex.substring(4,6),16);
                         const hColor = ((_r*0.299+_g*0.587+_b*0.114)/255) > 0.55 ? '#1e293b' : '#ffffff';
-                        dotsHtml += `<div class="dot" ${_click} style="background-color:${s.color};display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:800;color:${hColor};line-height:1;cursor:pointer;${_selRing}" title="${s.label}">${hLabel}</div>`;
+                        dotsHtml += `<div class="dot" ${_click} style="background-color:${s.color};display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:800;color:${hColor};line-height:1;cursor:pointer;${_selRing}" title="${s.label}${_titleSuffix}">${hLabel}</div>`;
                     } else if(s.type === 'hollow') {
                         const showLetter = (s.code !== 'L' && s.code !== 'V');
                         dotsHtml += `<div class="dot" ${_click} style="
@@ -614,9 +820,9 @@ Object.assign(App.ui, {
                             display: flex; align-items: center; justify-content: center;
                             font-size: 0.6rem; font-weight: 700; color: ${s.color};
                             cursor:pointer;${_selRing}
-                        " title="${s.label}">${showLetter ? s.code : ''}</div>`;
+                        " title="${s.label}${_titleSuffix}">${showLetter ? s.code : ''}</div>`;
                     } else {
-                        dotsHtml += `<div class="dot" ${_click} style="border:1px dashed #e2e8f0;cursor:pointer;${_selRing}" title="${s.label}"></div>`;
+                        dotsHtml += `<div class="dot" ${_click} style="border:1px dashed #e2e8f0;cursor:pointer;${_selRing}" title="${s.label}${_titleSuffix}"></div>`;
                     }
                 });
                 
@@ -919,35 +1125,231 @@ Object.assign(App.ui, {
 
         // ── Intercambio rápido desde el balance ──
         _balanceSwapSelect: function(empId, di) {
-            // Bloquear si el día está cerrado
             const monday = Utils.getMonday(App.uiState.currentDate);
             const days = Utils.getWeekDays(monday);
             if (App.logic.isDayLocked(days[di])) return;
 
+            // Si hay turno seleccionado en la paleta → pintar directamente
+            if (App.uiState.paintShiftId) {
+                const prevDate = App.uiState.currentDate;
+                App.uiState.currentDate = days[di];
+                App.logic.paint(empId);
+                App.uiState.currentDate = prevDate;
+                return;
+            }
+
+            // Sin turno en paleta → lógica de selección para intercambio
             if (!App.uiState._balSwap) App.uiState._balSwap = {};
             const sw = App.uiState._balSwap;
 
-            // Si se clica la misma casilla ya seleccionada → deseleccionar
             if (sw.a && sw.a.empId === empId && sw.a.di === di) { sw.a = sw.b; sw.b = null; }
             else if (sw.b && sw.b.empId === empId && sw.b.di === di) { sw.b = null; }
-            // Primera selección
             else if (!sw.a) { sw.a = { empId, di }; }
-            // Segunda selección: debe ser mismo día, distinto empleado
             else if (!sw.b) {
                 if (di !== sw.a.di) {
-                    // Día distinto → reemplazar selección
                     sw.a = { empId, di }; sw.b = null;
                 } else if (empId === sw.a.empId) {
-                    // Mismo empleado → deseleccionar
                     sw.a = null;
                 } else {
                     sw.b = { empId, di };
                 }
             }
-            // Ya había 2 → nueva selección, reiniciar
             else { sw.a = { empId, di }; sw.b = null; }
 
+            // Refrescar: en modo cuadrados el grid principal también muestra los dots
+            if (App.uiState.gridCuadrados && App.uiState.plannerViewMode !== 'individual') {
+                App.ui.renderPlanner(document.getElementById('main-view'));
+            }
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
+        },
+
+        // ── Workspace Presets ──
+        _renderWorkspacePresetsModule: function() {
+            const presets = App.data.config.workspacePresets || [];
+            if(presets.length === 0) {
+                return `<div class="planner-module" style="min-width:100px;">
+                    <div class="planner-module-title" style="padding:2px 8px;font-size:0.48rem;letter-spacing:0.1em;">FLUJOS</div>
+                    <div class="planner-module-content" style="padding:4px 5px;display:flex;align-items:center;justify-content:center;">
+                        <button onclick="App.ui._openWorkspacePresetsConfig()" style="border:1px dashed #cbd5e1;background:transparent;border-radius:6px;padding:4px 8px;font-size:0.55rem;color:#94a3b8;cursor:pointer;width:100%;">+ Configurar</button>
+                    </div>
+                </div>`;
+            }
+            const _bStyle = (active) => `width:100%;padding:3px 6px 3px 15%;border:none;outline:none;border-radius:6px;font-size:0.58rem;font-weight:700;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background 0.15s,color 0.15s;background:${active?'#2563eb':'#f1f5f9'};color:${active?'white':'#64748b'};text-align:left;`;
+            // Determine which preset is currently active
+            const _curMode = App.uiState.gridCuadrados ? 'cuadrados' : (App.uiState.plannerViewMode === 'individual' ? 'individual' : 'barras');
+            const _curTab = App.uiState.monitorTab || 'balance';
+            let btns = '';
+            presets.forEach((p, i) => {
+                const isActive = p.gridMode === _curMode && p.inspectorTab === _curTab;
+                btns += `<button tabindex="-1" onclick="App.ui._activateWorkspacePreset(${i})" title="${p.name}" style="${_bStyle(isActive)}">${p.name}</button>`;
+            });
+            return `<div class="planner-module" style="min-width:100px;">
+                <div class="planner-module-title" style="padding:2px 8px;font-size:0.48rem;letter-spacing:0.1em;display:flex;justify-content:space-between;align-items:center;">
+                    <span>FLUJOS</span>
+                    <span onclick="App.ui._openWorkspacePresetsConfig()" style="cursor:pointer;font-size:0.6rem;color:#94a3b8;" title="Configurar flujos">⚙</span>
+                </div>
+                <div class="planner-module-content" style="display:flex;flex-direction:column;gap:2px;padding:4px 5px;">
+                    ${btns}
+                </div>
+            </div>`;
+        },
+
+        _activateWorkspacePreset: function(idx) {
+            const presets = App.data.config.workspacePresets || [];
+            const p = presets[idx];
+            if(!p) return;
+            // Set grid mode
+            if(p.gridMode === 'cuadrados') {
+                App.uiState.plannerViewMode = 'group';
+                App.uiState.gridCuadrados = true;
+            } else if(p.gridMode === 'individual') {
+                if(!App.uiState.individualEmpId) {
+                    const first = App.data.empleados.filter(e=>e.active!==false).sort((a,b)=>a.customOrder-b.customOrder)[0];
+                    if(first) App.uiState.individualEmpId = first.id;
+                }
+                App.uiState.plannerViewMode = 'individual';
+                App.uiState.gridCuadrados = false;
+            } else {
+                App.uiState.plannerViewMode = 'group';
+                App.uiState.gridCuadrados = false;
+            }
+            // Set inspector tab
+            App.uiState.monitorTab = p.inspectorTab || 'balance';
+            App.ui.renderPlanner(document.getElementById('main-view'));
+            App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
+        },
+
+        _openWorkspacePresetsConfig: function() {
+            const presets = JSON.parse(JSON.stringify(App.data.config.workspacePresets || []));
+            const gridModes = [
+                { id:'barras', label:'Barras' },
+                { id:'cuadrados', label:'Cuadrados' },
+                { id:'individual', label:'Individual' }
+            ];
+            const inspTabs = [
+                { id:'charts', label:'Reparto horas' },
+                { id:'balance', label:'Balance' },
+                { id:'findes', label:'Fines' },
+                { id:'eventos', label:'Eventos' },
+                { id:'festdom', label:'Festivos' },
+                { id:'equilibrio', label:'Equilibrio' },
+                { id:'libranzas', label:'Libranzas' },
+                { id:'semanas', label:'Semanas' }
+            ];
+
+            const _renderList = () => {
+                const list = modal.querySelector('#wp-list');
+                let h = '';
+                presets.forEach((p, i) => {
+                    h += `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;">
+                        <span style="font-weight:700;font-size:0.8rem;color:#2563eb;width:16px;text-align:center;">${i+1}</span>
+                        <input type="text" value="${p.name}" data-idx="${i}" data-field="name" style="flex:1;padding:3px 6px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.78rem;font-weight:600;min-width:60px;" maxlength="16">
+                        <select data-idx="${i}" data-field="gridMode" style="padding:3px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.72rem;">
+                            ${gridModes.map(m => `<option value="${m.id}" ${p.gridMode===m.id?'selected':''}>${m.label}</option>`).join('')}
+                        </select>
+                        <select data-idx="${i}" data-field="inspectorTab" style="padding:3px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:0.72rem;">
+                            ${inspTabs.map(t => `<option value="${t.id}" ${p.inspectorTab===t.id?'selected':''}>${t.label}</option>`).join('')}
+                        </select>
+                        <button data-delidx="${i}" style="border:none;background:none;color:#ef4444;cursor:pointer;font-size:1rem;padding:0 2px;" title="Eliminar">×</button>
+                    </div>`;
+                });
+                if(presets.length === 0) {
+                    h = `<div style="text-align:center;padding:16px;color:#94a3b8;font-size:0.78rem;">Sin flujos configurados.</div>`;
+                }
+                list.innerHTML = h;
+
+                // Bind events
+                list.querySelectorAll('input[data-field],select[data-field]').forEach(el => {
+                    const idx = parseInt(el.dataset.idx);
+                    const field = el.dataset.field;
+                    el.onchange = () => { presets[idx][field] = el.value; };
+                    if(el.tagName === 'INPUT') el.oninput = () => { presets[idx][field] = el.value; };
+                });
+                list.querySelectorAll('button[data-delidx]').forEach(el => {
+                    el.onclick = () => { presets.splice(parseInt(el.dataset.delidx), 1); _renderList(); };
+                });
+            };
+
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.innerHTML = `<div style="background:white;border-radius:12px;padding:20px 24px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="font-size:1rem;font-weight:700;margin-bottom:6px;">⚙ Flujos de vista</div>
+                <div style="font-size:0.78rem;color:#64748b;margin-bottom:14px;">Cada atajo activa una combinación de vista principal + pestaña del inspector. Máximo 6.</div>
+                <div id="wp-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;max-height:300px;overflow-y:auto;"></div>
+                <div style="display:flex;gap:8px;justify-content:space-between;">
+                    <button id="wp-add" style="padding:5px 12px;border:1px dashed #cbd5e1;border-radius:6px;background:transparent;color:#64748b;font-size:0.78rem;font-weight:600;cursor:pointer;">+ Añadir flujo</button>
+                    <div style="display:flex;gap:8px;">
+                        <button id="wp-cancel" style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:6px;background:white;color:#64748b;font-weight:600;cursor:pointer;">Cancelar</button>
+                        <button id="wp-save" style="padding:6px 14px;border:none;border-radius:6px;background:#2563eb;color:white;font-weight:700;cursor:pointer;">Guardar</button>
+                    </div>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
+            _renderList();
+
+            modal.querySelector('#wp-add').onclick = () => {
+                if(presets.length >= 6) { alert('Máximo 6 flujos.'); return; }
+                presets.push({ name: 'Atajo ' + (presets.length + 1), gridMode: 'barras', inspectorTab: 'balance' });
+                _renderList();
+            };
+            modal.querySelector('#wp-cancel').onclick = () => modal.remove();
+            modal.querySelector('#wp-save').onclick = () => {
+                App.data.config.workspacePresets = presets;
+                Safe.save('v40_db', App.data);
+                modal.remove();
+                App.ui.renderPlanner(document.getElementById('main-view'));
+            };
+        },
+
+        _balanceErase: function(empId, di) {
+            const monday = Utils.getMonday(App.uiState.currentDate);
+            const days = Utils.getWeekDays(monday);
+            if (App.logic.isDayLocked(days[di])) return;
+            const prevDate = App.uiState.currentDate;
+            App.uiState.currentDate = days[di];
+            App.logic.erase(empId);
+            App.uiState.currentDate = prevDate;
+        },
+
+        _openEquilibrioConfig: function() {
+            const lim = App.data.config.equilibrioLimits || { M:0, T:0, I:0, P:0 };
+            const types = [
+                { key:'M', label:'Mañanas' },
+                { key:'T', label:'Tardes' },
+                { key:'I', label:'Intermedios' },
+                { key:'P', label:'Partidos' }
+            ];
+            const rows = types.map(t =>
+                `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 0;">
+                    <span style="font-weight:600;min-width:90px;">${t.label} (${t.key})</span>
+                    <input type="number" min="0" max="7" value="${lim[t.key] || 0}" id="eq-lim-${t.key}" style="width:50px;padding:4px 6px;border:1px solid #e2e8f0;border-radius:4px;text-align:center;font-size:0.85rem;">
+                    <span style="font-size:0.7rem;color:#94a3b8;">0 = sin límite</span>
+                </div>`
+            ).join('');
+
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            modal.innerHTML = `<div style="background:white;border-radius:12px;padding:20px 24px;max-width:360px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="font-size:1rem;font-weight:700;margin-bottom:12px;">⚙ Límites de Equilibrio</div>
+                <div style="font-size:0.78rem;color:#64748b;margin-bottom:12px;">Máximo de turnos de cada tipo por semana y persona. Si se supera, la celda se marca en rojo.</div>
+                ${rows}
+                <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+                    <button id="eq-cancel" style="padding:6px 14px;border:1px solid #e2e8f0;border-radius:6px;background:white;color:#64748b;font-weight:600;cursor:pointer;">Cancelar</button>
+                    <button id="eq-save" style="padding:6px 14px;border:none;border-radius:6px;background:#2563eb;color:white;font-weight:700;cursor:pointer;">Guardar</button>
+                </div>
+            </div>`;
+            document.body.appendChild(modal);
+
+            modal.querySelector('#eq-cancel').onclick = () => modal.remove();
+            modal.querySelector('#eq-save').onclick = () => {
+                types.forEach(t => {
+                    App.data.config.equilibrioLimits[t.key] = parseInt(document.getElementById('eq-lim-' + t.key).value) || 0;
+                });
+                Safe.save('v40_db', App.data);
+                modal.remove();
+                App.ui.renderPlanner(document.getElementById('main-view'));
+            };
+            modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
         },
 
         _balanceSwapExec: function() {
@@ -1117,6 +1519,193 @@ Object.assign(App.ui, {
             }
 
             html += `</tbody></table></div>`;
+            return html;
+        },
+
+        renderMonitorLibranzas: function() {
+            const mode = App.uiState.equilibrioMode || 'locked';
+            const DIAS = ['L','M','X','J','V','S','D'];
+            const FREE_CODES = new Set(['L','F','R']);
+            const typeColors = {
+                L: { bg:'#dcfce7', fg:'#166534', label:'Libre' },
+                F: { bg:'#fef9c3', fg:'#854d0e', label:'Festivo' },
+                R: { bg:'#dbeafe', fg:'#1e40af', label:'Recuperación' }
+            };
+
+            let validDates = null;
+            let startDate, endDate, lockedWeekCount = 0;
+
+            if(mode === 'locked') {
+                const locked = App.data.lockedDays || {};
+                const mondaySet = new Set(Object.keys(locked).map(d => Utils.getMonday(d)));
+                const lockedMondays = [...mondaySet].sort().filter(monday => Utils.getWeekDays(monday).every(d => locked[d]));
+                lockedWeekCount = lockedMondays.length;
+                if(lockedMondays.length === 0) {
+                    return `<div style="padding:12px 15px;background:#f8fafc;border-bottom:1px solid var(--border);">
+                        <div style="display:flex;gap:4px;margin-bottom:10px;">
+                            ${['locked','range'].map(m=>`<button onclick="App.uiState.equilibrioMode='${m}';App.ui.renderPlannerInspector(document.getElementById('inspector-content'))" style="padding:4px 12px;border-radius:20px;border:1px solid ${mode===m?'#2563eb':'#e2e8f0'};background:${mode===m?'#eff6ff':'white'};color:${mode===m?'#2563eb':'#94a3b8'};font-size:0.68rem;font-weight:700;cursor:pointer;">${m==='locked'?'🔒 Cerradas':'📅 Rango'}</button>`).join('')}
+                        </div>
+                        <div style="padding:24px;text-align:center;color:#94a3b8;font-size:0.78rem;">Sin semanas cerradas todavía.</div>
+                    </div>`;
+                }
+                validDates = new Set();
+                lockedMondays.forEach(monday => Utils.getWeekDays(monday).forEach(d => validDates.add(d)));
+                const sortedValid = [...validDates].sort();
+                startDate = sortedValid[0];
+                endDate = sortedValid[sortedValid.length - 1];
+            } else {
+                startDate = App.uiState.balanceStartDate;
+                endDate = App.uiState.balanceEndDate;
+                if(!startDate || !endDate) {
+                    const allDates = Object.keys(App.data.schedule).sort();
+                    if(allDates.length === 0) return `<div style="padding:40px;text-align:center;color:var(--text-muted);">No hay datos.</div>`;
+                    startDate = allDates[0];
+                    endDate = allDates[allDates.length - 1];
+                }
+            }
+
+            const stats = [];
+            const teamTotals = { byDay: [0,0,0,0,0,0,0], byType: {}, total: 0 };
+
+            App.data.empleados.filter(e => e.active !== false && Utils.empleadoVigenteEnRango(e, startDate, endDate)).sort((a,b) => a.customOrder - b.customOrder).forEach(emp => {
+                const byDay = [0,0,0,0,0,0,0];
+                const byType = {};
+                let total = 0;
+
+                Object.keys(App.data.schedule).forEach(date => {
+                    const inScope = mode === 'locked' ? validDates.has(date) : (date >= startDate && date <= endDate);
+                    if(!inScope) return;
+                    const shiftId = App.data.schedule[date][emp.id];
+                    if(!shiftId) return;
+                    const shift = Utils.getShift(shiftId);
+                    if(!shift || !shift.fixed || !FREE_CODES.has(shift.code)) return;
+
+                    const dow = new Date(date + 'T12:00:00').getDay();
+                    const di = dow === 0 ? 6 : dow - 1;
+                    byDay[di]++;
+                    byType[shift.code] = (byType[shift.code] || 0) + 1;
+                    total++;
+                    teamTotals.byDay[di]++;
+                    teamTotals.byType[shift.code] = (teamTotals.byType[shift.code] || 0) + 1;
+                    teamTotals.total++;
+                });
+
+                stats.push({ emp, byDay, byType, total });
+            });
+
+            // Ordenar
+            const sortKey = App.uiState.libranzasSortKey || null;
+            const sortDir = App.uiState.libranzasSortDir || 'desc';
+            if(sortKey) {
+                const dir = sortDir === 'asc' ? 1 : -1;
+                stats.sort((a, b) => {
+                    if(sortKey === 'nombre') return a.emp.nombre.localeCompare(b.emp.nombre) * dir;
+                    if(sortKey === 'total') return (a.total - b.total) * dir;
+                    if(sortKey.startsWith('day_')) return (a.byDay[parseInt(sortKey.split('_')[1])] - b.byDay[parseInt(sortKey.split('_')[1])]) * dir;
+                    return 0;
+                });
+            }
+
+            const _modeBtn = (m, label) =>
+                `<button onclick="App.uiState.equilibrioMode='${m}';App.ui.renderPlannerInspector(document.getElementById('inspector-content'))"
+                    style="padding:4px 12px;border-radius:20px;border:1px solid ${mode===m?'#2563eb':'#e2e8f0'};background:${mode===m?'#eff6ff':'white'};color:${mode===m?'#2563eb':'#94a3b8'};font-size:0.68rem;font-weight:700;cursor:pointer;">${label}</button>`;
+
+            const _sortHdr = (key, label, align) => {
+                const arrow = App.uiState.libranzasSortKey === key ? (App.uiState.libranzasSortDir === 'asc' ? ' ↑' : ' ↓') : '';
+                return `<th style="padding:4px 5px;cursor:pointer;user-select:none;text-align:${align || 'center'};" onclick="if(App.uiState.libranzasSortKey==='${key}'){App.uiState.libranzasSortDir=App.uiState.libranzasSortDir==='asc'?'desc':'asc';}else{App.uiState.libranzasSortKey='${key}';App.uiState.libranzasSortDir='desc';}App.ui.renderPlannerInspector(document.getElementById('inspector-content'));">${label}${arrow}</th>`;
+            };
+
+            let html = `
+            <div style="padding:12px 15px;background:#f8fafc;border-bottom:1px solid var(--border);">
+                <div style="display:flex;gap:4px;margin-bottom:10px;">
+                    ${_modeBtn('locked','🔒 Semanas cerradas')}
+                    ${_modeBtn('range','📅 Rango')}
+                </div>
+                ${mode === 'locked'
+                    ? `<div style="font-size:0.65rem;color:#64748b;">${lockedWeekCount} semana${lockedWeekCount!==1?'s':''} cerrada${lockedWeekCount!==1?'s':''} · ${Utils.formatDateES(startDate)} → ${Utils.formatDateES(endDate)}</div>`
+                    : `<div style="display:flex;gap:6px;align-items:flex-end;font-size:0.7rem;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:90px;"><label style="display:block;margin-bottom:2px;font-weight:600;font-size:0.65rem;">Desde:</label>${Utils.getDateInputHTML('lib-start', startDate, 'App.logic.storeEquilibrioDate(this,"start")')}</div>
+                        <div style="flex:1;min-width:90px;"><label style="display:block;margin-bottom:2px;font-weight:600;font-size:0.65rem;">Hasta:</label>${Utils.getDateInputHTML('lib-end', endDate, 'App.logic.storeEquilibrioDate(this,"end")')}</div>
+                        <button onclick="App.logic.updateEquilibrioRange()" style="padding:4px 10px;background:var(--primary);color:white;border:none;border-radius:3px;cursor:pointer;font-size:0.65rem;font-weight:600;">Aplicar</button>
+                    </div>
+                    <div style="font-size:0.65rem;color:var(--text-muted);margin-top:6px;">📅 ${Utils.formatDateES(startDate)} → ${Utils.formatDateES(endDate)}</div>`
+                }
+            </div>
+
+            <div style="overflow-y:auto;">
+                <table class="balance-table" style="font-size:0.7rem;">
+                    <thead><tr>
+                        ${_sortHdr('nombre', 'Emp', 'left')}
+                        ${DIAS.map((d, i) => _sortHdr('day_' + i, d)).join('')}
+                        <th style="padding:4px 5px;text-align:center;">Desglose</th>
+                    </tr></thead>
+                    <tbody>`;
+
+            // Max global de todas las celdas de día para gradiente uniforme
+            let globalMax = 0;
+            stats.forEach(st => { st.byDay.forEach(v => { if(v > globalMax) globalMax = v; }); });
+
+            const _greenGrad = (count) => {
+                if(count === 0 || globalMax === 0) return { bg:'', fg:'#cbd5e1' };
+                const t = count / globalMax;
+                if(t >= 0.85) return { bg:'background:#166534;', fg:'#ffffff' };
+                if(t >= 0.65) return { bg:'background:#22c55e;', fg:'#ffffff' };
+                if(t >= 0.45) return { bg:'background:#4ade80;', fg:'#14532d' };
+                if(t >= 0.25) return { bg:'background:#86efac;', fg:'#166534' };
+                return { bg:'background:#dcfce7;', fg:'#15803d' };
+            };
+
+            stats.forEach(st => {
+                let dayCells = '';
+                st.byDay.forEach((count, di) => {
+                    const g = _greenGrad(count);
+                    dayCells += `<td style="text-align:center;padding:4px 5px;${g.bg}color:${g.fg};font-weight:700;" title="${DIAS[di]}: ${count} día${count!==1?'s':''} libre${count!==1?'s':''}">${count || '—'}</td>`;
+                });
+
+                // Desglose por tipo
+                const typeKeys = Object.keys(st.byType).sort();
+                let desgloseHtml = '';
+                if(typeKeys.length > 0) {
+                    desgloseHtml = typeKeys.map(code => {
+                        const tc = typeColors[code] || { bg:'#f1f5f9', fg:'#64748b', label:code };
+                        return `<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 4px;border-radius:3px;background:${tc.bg};color:${tc.fg};font-size:0.6rem;font-weight:600;" title="${tc.label}: ${st.byType[code]}">${code}${st.byType[code]}</span>`;
+                    }).join(' ');
+                } else {
+                    desgloseHtml = '<span style="color:#cbd5e1;">—</span>';
+                }
+
+                html += `<tr>
+                    <td style="font-weight:600;padding:4px 6px;font-size:0.75rem;text-align:left;">${st.emp.nombre}</td>
+                    ${dayCells}
+                    <td style="padding:4px 6px;text-align:center;white-space:nowrap;">${desgloseHtml}</td>
+                </tr>`;
+            });
+
+            // Fila EQUIPO — azul, sin gradiente relativo
+            const teamMax = Math.max(...teamTotals.byDay, 1);
+            let teamDayCells = '';
+            teamTotals.byDay.forEach((count) => {
+                const t = count / teamMax;
+                let bg = '', fg = '#cbd5e1';
+                if(count > 0) {
+                    if(t >= 0.75) { bg = 'background:#1e40af;'; fg = '#ffffff'; }
+                    else if(t >= 0.5) { bg = 'background:#3b82f6;'; fg = '#ffffff'; }
+                    else if(t >= 0.25) { bg = 'background:#93c5fd;'; fg = '#1e3a8a'; }
+                    else { bg = 'background:#dbeafe;'; fg = '#1e40af'; }
+                }
+                teamDayCells += `<td style="text-align:center;padding:4px 5px;${bg}color:${fg};font-weight:800;">${count || '—'}</td>`;
+            });
+
+            html += `</tbody>
+                <tfoot><tr style="border-top:2px solid #cbd5e1;">
+                    <td style="font-weight:700;padding:4px 6px;font-size:0.7rem;text-align:left;color:#64748b;">EQUIPO</td>
+                    ${teamDayCells}
+                    <td style="padding:4px 6px;text-align:center;white-space:nowrap;">${Object.keys(teamTotals.byType).sort().map(code => {
+                        const tc = typeColors[code] || { bg:'#f1f5f9', fg:'#64748b' };
+                        return `<span style="display:inline-flex;align-items:center;gap:2px;padding:1px 4px;border-radius:3px;background:${tc.bg};color:${tc.fg};font-size:0.6rem;font-weight:600;">${code}${teamTotals.byType[code]}</span>`;
+                    }).join(' ')}</td>
+                </tr></tfoot>
+            </table></div>`;
             return html;
         },
 

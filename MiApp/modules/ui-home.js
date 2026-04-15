@@ -46,7 +46,7 @@ Object.assign(App.ui, {
 
             // Constructor de Tile adaptado para modo Espejo (align)
             const tile = (id, iconName, label, dataPill='', badge=false, accent='#2563eb', align='left', subtiles='') => `
-                <button class="home-tile ${align === 'right' ? 'home-tile-right' : ''}" onclick="App.router.go('${id}')" style="--accent:${accent};">
+                <button class="home-tile ${align === 'right' ? 'home-tile-right' : ''}" onclick="App.router.go('${id}')" onmouseenter="document.querySelectorAll('.home-tile-active').forEach(t=>t.classList.remove('home-tile-active'));this.classList.add('home-tile-active');" style="--accent:${accent};">
                     <div class="home-tile-icon" style="background:${accent}15; color:${accent};">${icon(iconName, 20, 2)}</div>
                     <div class="home-tile-text">
                         <span class="home-tile-label">${label}</span>
@@ -58,7 +58,12 @@ Object.assign(App.ui, {
             const subtiles = (subs) => {
                 const h = 38, gap = 4, single = subs.length === 1;
                 const wires = subs.map((_,i) => `<span class="home-wire${single?' home-wire-solo':''}" style="top:${i*(h+gap)+h/2}px;"></span>`).join('');
-                const boxes = subs.map(s => `<div class="home-subtile">${s}</div>`).join('');
+                const boxes = subs.map(s => {
+                    if(typeof s === 'object' && s.action) {
+                        return `<div class="home-subtile home-subtile-link" onclick="event.stopPropagation();${s.action}">${s.label}</div>`;
+                    }
+                    return `<div class="home-subtile">${s}</div>`;
+                }).join('');
                 return `<div class="home-subtiles${single?' home-subtiles-solo':''}">${wires}${boxes}</div>`;
             };
 
@@ -245,11 +250,11 @@ Object.assign(App.ui, {
                     pointer-events: none;
                     display: flex;
                 }
-                .home-tile:hover .home-subtiles { pointer-events: auto; }
+                .home-tile:hover .home-subtiles, .home-tile.home-tile-active .home-subtiles { pointer-events: auto; }
                 .home-subtile {
                     opacity: 0; transition: opacity 0.08s ease;
                 }
-                .home-tile:hover .home-subtile { opacity: 1; transition: opacity 0.6s ease 0.7s; }
+                .home-tile:hover .home-subtile, .home-tile.home-tile-active .home-subtile { opacity: 1; transition: opacity 0.25s ease 0.5s; }
                 .home-tile:not(.home-tile-right) .home-subtiles { right: calc(100% + 48px); align-items: stretch; }
                 .home-tile.home-tile-right .home-subtiles { left: calc(100% + 48px); align-items: stretch; }
                 .home-subtile {
@@ -258,6 +263,8 @@ Object.assign(App.ui, {
                     background: #f8fafc; font-size: 0.88rem; font-weight: 600; color: #94a3b8;
                     cursor: default; white-space: nowrap; text-align: center;
                 }
+                .home-subtile-link { cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+                .home-subtile-link:hover { background: white; color: #2563eb; border-color: #2563eb; }
 
                 /* ── Conectores tipo circuito ── */
 
@@ -307,17 +314,18 @@ Object.assign(App.ui, {
                 }
 
                 /* Animaciones secuenciales: tile → tronco → ramas */
+                /* Secuencia: tronco horizontal (0s) → tronco vertical (0.2s) → ramas (0.35s+) → subtiles (0.5s) */
                 .home-tile:hover .home-subtiles::after {
-                    animation: circuit-draw 0.35s cubic-bezier(0.4,0,0.2,1) 0s forwards;
+                    animation: circuit-draw 0.2s cubic-bezier(0.4,0,0.2,1) 0s forwards;
                 }
                 .home-tile:hover .home-subtiles::before {
-                    animation: circuit-trunk 0.35s cubic-bezier(0.4,0,0.2,1) 0.25s forwards;
+                    animation: circuit-trunk 0.2s cubic-bezier(0.4,0,0.2,1) 0.15s forwards;
                 }
-                .home-tile:hover .home-wire { animation: circuit-draw 0.3s cubic-bezier(0.4,0,0.2,1) forwards; }
-                .home-tile:hover .home-wire:nth-of-type(1) { animation-delay: 0.5s; }
-                .home-tile:hover .home-wire:nth-of-type(2) { animation-delay: 0.4s; }
-                .home-tile:hover .home-wire:nth-of-type(3) { animation-delay: 0.6s; }
-                .home-tile:hover .home-wire:nth-of-type(4) { animation-delay: 0.7s; }
+                .home-tile:hover .home-wire { animation: circuit-draw 0.15s cubic-bezier(0.4,0,0.2,1) forwards; }
+                .home-tile:hover .home-wire:nth-of-type(1) { animation-delay: 0.35s; }
+                .home-tile:hover .home-wire:nth-of-type(2) { animation-delay: 0.3s; }
+                .home-tile:hover .home-wire:nth-of-type(3) { animation-delay: 0.4s; }
+                .home-tile:hover .home-wire:nth-of-type(4) { animation-delay: 0.45s; }
 
                 @keyframes circuit-draw {
                     0%   { opacity: 1; transform: translateY(-50%) scaleX(0); box-shadow: 0 0 6px 2px rgba(245,158,11,0.8); }
@@ -331,20 +339,40 @@ Object.assign(App.ui, {
                 }
                 /* Animaciones columna derecha (usan mismos keyframes, transform-origin las espeja) */
                 .home-tile.home-tile-right:hover .home-subtiles::after {
-                    animation: circuit-draw 0.35s cubic-bezier(0.4,0,0.2,1) 0s forwards;
+                    animation: circuit-draw 0.2s cubic-bezier(0.4,0,0.2,1) 0s forwards;
                 }
                 .home-tile.home-tile-right:hover .home-subtiles::before {
-                    animation: circuit-trunk 0.35s cubic-bezier(0.4,0,0.2,1) 0.25s forwards;
+                    animation: circuit-trunk 0.2s cubic-bezier(0.4,0,0.2,1) 0.15s forwards;
                 }
-                .home-tile.home-tile-right:hover .home-wire { animation: circuit-draw 0.3s cubic-bezier(0.4,0,0.2,1) forwards; }
-                .home-tile.home-tile-right:hover .home-wire:nth-of-type(1) { animation-delay: 0.5s; }
-                .home-tile.home-tile-right:hover .home-wire:nth-of-type(2) { animation-delay: 0.4s; }
-                .home-tile.home-tile-right:hover .home-wire:nth-of-type(3) { animation-delay: 0.6s; }
-                .home-tile.home-tile-right:hover .home-wire:nth-of-type(4) { animation-delay: 0.7s; }
+                .home-tile.home-tile-right:hover .home-wire { animation: circuit-draw 0.15s cubic-bezier(0.4,0,0.2,1) forwards; }
+                .home-tile.home-tile-right:hover .home-wire:nth-of-type(1) { animation-delay: 0.35s; }
+                .home-tile.home-tile-right:hover .home-wire:nth-of-type(2) { animation-delay: 0.3s; }
+                .home-tile.home-tile-right:hover .home-wire:nth-of-type(3) { animation-delay: 0.4s; }
+                .home-tile.home-tile-right:hover .home-wire:nth-of-type(4) { animation-delay: 0.45s; }
 
                 /* Caso solo: 1 subtile → línea recta completa sin tronco */
                 .home-tile.home-tile-right .home-wire.home-wire-solo { width: 48px !important; }
-                .home-tile:hover .home-wire.home-wire-solo { animation-delay: 0s !important; animation-duration: 0.5s !important; }
+                .home-tile:hover .home-wire.home-wire-solo, .home-tile.home-tile-active .home-wire.home-wire-solo { animation-delay: 0s !important; animation-duration: 0.5s !important; }
+
+                /* Active state = sticky hover (se mantiene hasta que otro tile recibe hover) */
+                .home-tile.home-tile-active { background:white; box-shadow:0 10px 25px rgba(0,0,0,0.05); transform:translateY(-2px); }
+                .home-tile.home-tile-active .home-subtiles::after { animation: circuit-draw 0.2s cubic-bezier(0.4,0,0.2,1) 0s forwards; }
+                .home-tile.home-tile-active .home-subtiles::before { animation: circuit-trunk 0.2s cubic-bezier(0.4,0,0.2,1) 0.15s forwards; }
+                .home-tile.home-tile-active .home-wire { animation: circuit-draw 0.15s cubic-bezier(0.4,0,0.2,1) forwards; }
+                .home-tile.home-tile-active .home-wire:nth-of-type(1) { animation-delay: 0.35s; }
+                .home-tile.home-tile-active .home-wire:nth-of-type(2) { animation-delay: 0.3s; }
+                .home-tile.home-tile-active .home-wire:nth-of-type(3) { animation-delay: 0.4s; }
+                .home-tile.home-tile-active .home-wire:nth-of-type(4) { animation-delay: 0.45s; }
+                .home-tile.home-tile-active .home-tile-icon { transform:scale(1.05); }
+                /* Right-side active */
+                .home-tile.home-tile-right.home-tile-active .home-subtiles::after { animation: circuit-draw 0.2s cubic-bezier(0.4,0,0.2,1) 0s forwards; }
+                .home-tile.home-tile-right.home-tile-active .home-subtiles::before { animation: circuit-trunk 0.2s cubic-bezier(0.4,0,0.2,1) 0.15s forwards; }
+                .home-tile.home-tile-right.home-tile-active .home-wire { animation: circuit-draw 0.15s cubic-bezier(0.4,0,0.2,1) forwards; }
+                .home-tile.home-tile-right.home-tile-active .home-wire:nth-of-type(1) { animation-delay: 0.35s; }
+                .home-tile.home-tile-right.home-tile-active .home-wire:nth-of-type(2) { animation-delay: 0.3s; }
+                .home-tile.home-tile-right.home-tile-active .home-wire:nth-of-type(3) { animation-delay: 0.4s; }
+                .home-tile.home-tile-right.home-tile-active .home-wire:nth-of-type(4) { animation-delay: 0.45s; }
+
                 .home-tile-icon {
                     width: 40px; height: 40px;
                     border-radius: 10px;
@@ -464,16 +492,32 @@ Object.assign(App.ui, {
                 <div class="home-col-left">
                     ${group('Ingredientes',
                         tile('empleados', 'users', 'Plantilla', `${activeEmps} activos`, false, '#2563eb', 'left',
-                            subtiles(['Contratos', 'Desvíos', 'Festivos', 'Preferencias'])) +
+                            subtiles([
+                                {label:'Contratos', action:"App.uiState.empViewMode='data';App.uiState.empInspTab='overview';App.router.go('empleados');"},
+                                {label:'Desvíos', action:"App.uiState.empViewMode='data';App.uiState.empInspTab='desvio';App.router.go('empleados');"},
+                                {label:'Festivos', action:"App.uiState.empViewMode='data';App.uiState.empInspTab='festivos';App.router.go('empleados');"},
+                                {label:'Preferencias', action:"App.uiState.empViewMode='prefs';App.router.go('empleados');"}
+                            ])) +
                         tile('requests',  'inbox', 'Gestión diaria', pendingReqs > 0 ? `${pendingReqs} por revisar` : 'Todo al día', pendingReqs > 0, '#f59e0b', 'left',
-                            subtiles(App.data.config.llavesActivo ? ['Solicitudes', 'Eventos', 'Llaves'] : ['Solicitudes', 'Eventos'])),
+                            subtiles([
+                                {label:'Solicitudes', action:"App.uiState.reqSection='solicitudes';App.router.go('requests');"},
+                                {label:'Eventos', action:"App.uiState.reqSection='eventos';App.router.go('requests');"},
+                                ...(App.data.config.llavesActivo ? [{label:'Llaves', action:"App.uiState.reqSection='llaves';App.router.go('requests');"}] : [])
+                            ])),
                         'left'
                     )}
                     ${group('Catálogos',
                         tile('shifts',  'palette', 'Turnos', `${shiftCount} turnos base`, false, '#8b5cf6', 'left',
-                            subtiles(['Paleta de turnos', 'Edición de turnos', 'Turnos Ad Hoc'])) +
+                            subtiles([
+                                {label:'Catálogo', action:"App.uiState.shiftsViewMode='catalog';App.router.go('shifts');"},
+                                {label:'Ad Hoc', action:"App.uiState.shiftsViewMode='adhoc';App.router.go('shifts');"}
+                            ])) +
                         tile('calendario', 'calendar-range', 'Calendario', 'Festivos y cierres', false, '#10b981', 'left',
-                            subtiles(['Horarios de tienda', 'Festivos', 'Bloqueos'])),
+                            subtiles([
+                                {label:'Horarios', action:"App.uiState.calendarioUi=Object.assign({rangeStart:'',rangeEnd:'',dowFilter:[],action:'lock',courseYear:2026,tab:'bloqueos'},App.uiState.calendarioUi||{},{tab:'tienda'});App.router.go('calendario');"},
+                                {label:'Festivos', action:"App.uiState.calendarioUi=Object.assign({rangeStart:'',rangeEnd:'',dowFilter:[],action:'lock',courseYear:2026,tab:'bloqueos'},App.uiState.calendarioUi||{},{tab:'festivos'});App.router.go('calendario');"},
+                                {label:'Bloqueos', action:"App.uiState.calendarioUi=Object.assign({rangeStart:'',rangeEnd:'',dowFilter:[],action:'lock',courseYear:2026,tab:'bloqueos'},App.uiState.calendarioUi||{},{tab:'bloqueos'});App.router.go('calendario');"}
+                            ])),
                         'left'
                     )}
                 </div>
@@ -494,16 +538,30 @@ Object.assign(App.ui, {
                 <div class="home-col-right">
                     ${group('Revisión',
                         tile('analisis', 'bar-chart-2', 'Análisis', 'Desvíos y métricas', false, '#3b82f6', 'right',
-                            subtiles(['Turnos vs Facturación', 'Equilibrio de turnos', 'Turnos más usados'])) +
+                            subtiles([
+                                {label:'Horas', action:"App.uiState.analisisTab='horas';App.router.go('analisis');"},
+                                {label:'Equilibrio', action:"App.uiState.analisisTab='equilibrio';App.router.go('analisis');"},
+                                {label:'Más usados', action:"App.uiState.analisisTab='ranking';App.router.go('analisis');"}
+                            ])) +
                         tile('presentacion', 'printer', 'Presentación', 'Vista PDF e impresión', false, '#64748b', 'right',
-                            subtiles(App.data.config.llavesActivo ? ['Semanal grupo', 'Mensual individual', 'Traspasos de llaves'] : ['Semanal grupo', 'Mensual individual'])),
+                            subtiles([
+                                {label:'Semanal grupo', action:"App.uiState.presentacionMode='group';App.router.go('presentacion');"},
+                                {label:'Mensual individual', action:"App.uiState.presentacionMode='individual';App.router.go('presentacion');"},
+                                ...(App.data.config.llavesActivo ? [{label:'Traspasos llaves', action:"App.uiState.presentacionMode='llaves';App.router.go('presentacion');"}] : [])
+                            ])),
                         'right'
                     )}
                     ${group('Datos',
                         tile('export', 'upload', 'Exportar', 'Excel y Calendar', false, '#059669', 'right',
-                            subtiles(['Hacia Eficiente', 'Hacia Calendar', 'Master Data'])) +
+                            subtiles([
+                                {label:'Hacia Eficiente', action:"App.uiState.exportTab='eficiente';App.router.go('export');"},
+                                {label:'Hacia Calendar', action:"App.uiState.exportTab='calendar';App.router.go('export');"},
+                                {label:'Master Data', action:"App.uiState.exportTab='masterdata';App.router.go('export');"}
+                            ])) +
                         tile('import', 'download', 'Importar', 'Desde el eficiente', false, '#94a3b8', 'right',
-                            subtiles(['Desde Rota Eficiente'])),
+                            subtiles([
+                                {label:'Desde Rota Eficiente', action:"App.router.go('import');"}
+                            ])),
                         'right'
                     )}
                 </div>

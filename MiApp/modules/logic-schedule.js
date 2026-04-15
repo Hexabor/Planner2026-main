@@ -1991,99 +1991,71 @@ Object.assign(App.logic, {
         },
         
         calcConsecutiveWorkDays: function(empId, mondayStr) {
-            // Calcula cuántos días consecutivos ha trabajado el empleado
-            // INCLUYENDO días de la semana actual que ya tienen turno
-            
+            // Calcula cuántos días consecutivos trabaja (o puede trabajar) el empleado.
+            // Los días sin turno asignado cuentan como potenciales días de trabajo.
+            // Solo se rompe la racha al encontrar una libranza (turno fijo: L, F, R, V, B, P).
+
             let consecutiveDays = 0;
-            
+
             // PARTE 1: Contar hacia atrás ANTES del lunes
             const monday = new Date(mondayStr);
             let currentDate = new Date(monday);
             currentDate.setDate(currentDate.getDate() - 1); // Domingo previo
-            
+
             const maxDaysToCheck = 30; // Límite de seguridad
             let daysChecked = 0;
-            
-            // Ir hacia atrás contando días trabajados consecutivos
+
             while(daysChecked < maxDaysToCheck) {
                 const dateStr = currentDate.toISOString().split('T')[0];
-                
-                // Si no hay schedule para esta fecha, parar
+
+                // Si no hay schedule para esta fecha, parar (límite de datos)
                 if(!App.data.schedule[dateStr]) {
                     break;
                 }
-                
+
                 const shiftId = App.data.schedule[dateStr][empId];
-                
-                // Si no tiene turno asignado, parar
-                if(!shiftId) {
-                    break;
+
+                if(shiftId) {
+                    const shift = Utils.getShift(shiftId);
+                    // Si es turno fijo (L, F, R, V, B, P) → libranza, parar
+                    if(shift && shift.fixed) {
+                        break;
+                    }
                 }
-                
-                const shift = Utils.getShift(shiftId);
-                
-                // Si no existe el turno, parar
-                if(!shift) {
-                    break;
-                }
-                
-                // Si es turno fijo (L, F, R, V, B, P) → día libre, parar
-                if(shift.fixed) {
-                    break;
-                }
-                
-                // Si es turno de trabajo (con horas) → contar
-                if(shift.start && shift.end) {
-                    consecutiveDays++;
-                } else {
-                    // Turno sin horas (raro) → parar
-                    break;
-                }
-                
-                // Retroceder un día
+
+                // Todo lo demás cuenta: turno de trabajo, hueco vacío, turno desconocido
+                consecutiveDays++;
+
                 currentDate.setDate(currentDate.getDate() - 1);
                 daysChecked++;
             }
-            
+
             // PARTE 2: Contar hacia adelante EN la semana actual
+            // Aquí solo cuentan turnos realmente asignados (no huecos vacíos),
+            // para que SEG refleje arrastre + lo ya colocado, sin inflarse con días pendientes.
             const weekDays = Utils.getWeekDays(mondayStr);
-            
+
             for(let i = 0; i < weekDays.length; i++) {
                 const dateStr = weekDays[i];
-                
-                // Si no hay schedule para este día, parar
-                if(!App.data.schedule[dateStr]) {
-                    break;
-                }
-                
-                const shiftId = App.data.schedule[dateStr][empId];
-                
-                // Si no tiene turno asignado, parar
+
+                const shiftId = App.data.schedule[dateStr] && App.data.schedule[dateStr][empId];
+
+                // Sin turno asignado → parar (día pendiente, no cuenta)
                 if(!shiftId) {
                     break;
                 }
-                
+
                 const shift = Utils.getShift(shiftId);
-                
-                // Si no existe el turno, parar
-                if(!shift) {
+
+                // Turno fijo (L, F, R, V, B, P) → libranza, parar
+                if(shift && shift.fixed) {
                     break;
                 }
-                
-                // Si es turno fijo (L, F, R, V, B, P) → día libre, parar
-                if(shift.fixed) {
-                    break;
-                }
-                
-                // Si es turno de trabajo (con horas) → contar
-                if(shift.start && shift.end) {
-                    consecutiveDays++;
-                } else {
-                    // Turno sin horas → parar
-                    break;
-                }
+
+                // Turno de trabajo asignado → contar
+                consecutiveDays++;
             }
-            
+
             return consecutiveDays;
         },
         

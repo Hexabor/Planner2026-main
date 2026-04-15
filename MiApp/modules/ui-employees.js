@@ -141,7 +141,7 @@ Object.assign(App.ui, {
                     html+=`<tr class="${isSel} ${inactiveClass}" onclick="App.logic.empSelect('${e.id}')" ${dragAttrs}><td class="drag-handle">${e.active?'☰':''}</td><td style="font-weight:500">${!e.active?'🚫 ':''} ${e.nombre}</td>`;
                     if(!isPrefs) {
                         const rolHoy = Utils.getRolEnFecha(e, _hoy);
-                        const tag = e.tag || (['MNG','AM','SPV'].includes(rolHoy) ? 3 : 1);
+                        const tag = ['MNG','AM','SPV'].includes(rolHoy) ? 3 : 1;
                         const contratoActual = Utils.getContrato(e, _hoy);
                         const pct = Math.min(100, (contratoActual / 40) * 100); const color = contratoActual>=40?'#22c55e':'#f97316'; const bg=`conic-gradient(${color} ${pct}%, #f1f5f9 0)`;
                         const tieneHistorial = e.contratos && e.contratos.length > 0;
@@ -291,7 +291,12 @@ Object.assign(App.ui, {
                                     <option value="STF" ${tRol==='STF'?'selected':''}>Staff</option>
                                 </select>
                                 <div style="display:flex; align-items:center; gap:4px;">
-                                    <input type="number" step="0.01" value="${toDec(t.horas)}" onchange="App.logic.updateContrato('${id}', ${i}, 'horas', this.value);" style="width:100%; text-align:right; font-weight:800; font-size:12px; color:#2563eb; border:1px solid #2563eb; border-radius:4px; padding:4px 6px;">
+                                    ${(() => {
+                                        const opts = App.data.config.opcionesContrato || [40, 37.5, 30, 20, 12];
+                                        const cur = t.horas;
+                                        const allVals = [...new Set([...opts, cur].filter(v => v > 0))].sort((a,b) => b - a);
+                                        return `<select onchange="if(this.value==='_custom'){const v=prompt('Horas semanales:','${cur}');if(v!==null&&!isNaN(parseFloat(v))){App.logic.updateContrato('${id}',${i},'horas',v);}else{this.value='${cur}';}}else{App.logic.updateContrato('${id}',${i},'horas',this.value);}" style="width:100%; text-align:right; font-weight:800; font-size:12px; color:#2563eb; border:1px solid #2563eb; border-radius:4px; padding:4px 6px; appearance:auto;">${allVals.map(v => `<option value="${v}" ${v===cur?'selected':''}>${v}</option>`).join('')}<option value="_custom">Otro...</option></select>`;
+                                    })()}
                                     <span style="font-size:10px; color:#94a3b8; white-space:nowrap;">h/sem</span>
                                 </div>
                             </div>

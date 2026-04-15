@@ -226,6 +226,55 @@ Nuevo atajo de teclado en el grid del planificador: mantener pulsada la tecla AL
 
 ---
 
+## Fase 15: Panel de Justicia y vista Cuadrados (15 abril 2026)
+
+### Vista "Cuadrados" — balance en el panel principal
+Nueva vista del planificador que sustituye el grid de barras (timeline) por una tabla compacta con toda la información de balance integrada. Cada fila es un empleado con: Rol, Tag, Contrato, Asignado, Diferencia, Desvío acumulado, Festivos pendientes, SEG (días consecutivos), LIB (chivato de libranzas), DA (Domingo Anterior — turno del domingo de la semana previa para evitar encadenar partidos entre semanas), los 7 dots de la semana (clickables para pintar/intercambiar/borrar con ALT), y columnas de Equilibrio (M/I/T/P) con límites configurables. Se activa desde el módulo VISTA con el toggle Barras/Cuadrados.
+
+### Pestaña "Libranzas" en el inspector
+Séptima pestaña del inspector del planificador. Muestra la distribución de días libres (L, F, R) por empleado y día de la semana, con heatmap verde proporcional. Fila EQUIPO con gradiente azul. Desglose por tipo (badges L/F/R). Modo "Semanas cerradas" o "Rango". Columnas ordenables.
+
+### Domingo Anterior (DA) en el balance
+Tanto en vista Cuadrados como en el balance del inspector, se muestra el turno del domingo de la semana previa. En Cuadrados aparece como cuadrado translúcido; en balance como destello fantasmal junto al primer dot. Útil para detectar si alguien cierra en partido el domingo y vuelve a abrir en partido el lunes.
+
+### Pintar desde el balance
+Los dots de la semana (en balance y en cuadrados) ahora permiten pintar directamente: si hay un turno seleccionado en la paleta, hacer click en un dot lo asigna. Sin turno en paleta, mantiene la lógica de selección para intercambio. ALT+click borra el turno.
+
+### Workspace Presets (Flujos)
+Nuevo módulo en los controles del planificador: "FLUJOS". Atajos configurables (hasta 6) que activan una combinación de vista principal (Barras/Cuadrados/Individual) + pestaña del inspector. Modal de configuración con nombre, modo grid y pestaña inspector. Permite saltar instantáneamente entre configuraciones de trabajo habituales.
+
+### Visibilidad de turnos en la paleta
+Cada turno del catálogo tiene ahora un toggle "PAL" (visible en la tabla de Turnos) que controla si aparece o no en la paleta del planificador. Los turnos ocultos siguen existiendo y funcionando, simplemente no ocupan espacio en la paleta. Configurable también el número de columnas de la paleta (2-8) desde el botón "Paleta" en Turnos.
+
+### Contrato como selector
+El campo de horas/semana del contrato pasa de input numérico libre a un `<select>` con las opciones configuradas (40, 37.5, 30, 20, 12 por defecto) más "Otro..." para valores personalizados. Más rápido y menos propenso a errores.
+
+### Límites de Equilibrio
+Nueva configuración (accesible desde tooltip de las columnas M/I/T/P en Cuadrados): máximo de turnos de cada tipo por semana y persona. Si se supera el límite, la celda se marca en rojo.
+
+### Validación cruzada de preferencias
+Si un empleado selecciona un turno partido como preferido, la preferencia "Partidos: No" se corrige automáticamente a "OK". Y viceversa: si elige "No partidos", su turno preferido se limpia si era partido.
+
+### Tag dinámico por rol
+El tag del empleado (T1/T3) se recalcula automáticamente al cambiar de rol en un contrato. MNG/AM/SPV → T3, STF → T1. El listado de empleados también usa el rol actual en vez del tag estático.
+
+### Cálculo de días consecutivos (SEG) revisado
+El algoritmo de `calcConsecutiveWorkDays` cambia su semántica: hacia atrás, los días sin turno asignado cuentan como potenciales días de trabajo (solo se rompe la racha con una libranza explícita L/F/R/V/B/P). Hacia adelante en la semana actual, solo cuentan turnos realmente asignados. Más realista para planificación.
+
+### Subtiles del Home como enlaces directos
+Los subtiles del mapa del Home dejan de ser decorativos y pasan a ser clickables: cada uno navega directamente a la vista/pestaña correspondiente (ej: "Preferencias" → Plantilla en modo preferencias, "Ad Hoc" → Turnos en modo ad hoc). Animaciones aceleradas y estado "sticky" al hacer hover.
+
+### Pestaña "Gráficos" renombrada
+La pestaña "Gráficos" del inspector pasa a llamarse "Reparto horas", describiendo mejor su contenido.
+
+### Paleta compactada
+La paleta del planificador se reduce de 313px a 280px de ancho, con items ligeramente más pequeños, para dejar más espacio al grid.
+
+### Tooltips mejorados
+Los diff-tooltips del balance ganan auto-cierre progresivo (transition en visibility con delay 2s) y se mantienen visibles mientras el cursor esté encima (pointer-events: auto al hover).
+
+---
+
 ## Resumen de evolución
 
 | Fecha | Hito |
@@ -243,3 +292,4 @@ Nuevo atajo de teclado en el grid del planificador: mantener pulsada la tecla AL
 | 7-8 Abr | Export COUNTIF, llaves avanzadas (vistas, reinicio, filtros), archivo eventos |
 | 8 Abr | Robustez: error handler, rescue JSON, validación schema, multi-pestaña |
 | 12 Abr | Atajos del grid: ALT+click para borrar turno |
+| 15 Abr | Panel de Justicia: vista Cuadrados, libranzas, flujos, paleta configurable |
