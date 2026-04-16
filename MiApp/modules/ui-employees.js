@@ -553,10 +553,10 @@ markDirty: function() {
 
     const tracking = emp.festivoTracking || {};
     
-    // 1. Festivos en semanas cerradas donde el empleado tiene contrato
+    // 1. Festivos donde el empleado tiene contrato (cerradas y abiertas)
     const locked = App.data.lockedDays || {};
     const holidays = (App.data.storeConfig.holidays || [])
-        .filter(h => locked[h.date] && Utils.empleadoVigenteEnFecha(emp, h.date));
+        .filter(h => Utils.empleadoVigenteEnFecha(emp, h.date));
 
     // --- Helper: calcular estado ---
     const getEstado = (hDate) => {
@@ -677,6 +677,8 @@ markDirty: function() {
 
 // Función auxiliar para renderizar cada tarjeta de festivo
 renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
+    const locked = App.data.lockedDays || {};
+    const isLocked = !!locked[h.date];
     const needsTracking = estado === 'coincide' || estado === 'trabaja' || estado === 'vacaciones';
     const isTrabajado = estado === 'trabaja';
     const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -701,11 +703,11 @@ renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
     });
 
     return `
-    <div style="border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:8px; background:white;">
+    <div style="border:1px solid ${isLocked ? 'var(--border)' : '#bfdbfe'}; border-radius:8px; padding:10px; margin-bottom:8px; background:${isLocked ? 'white' : '#f0f7ff'};">
         <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">
             <div>
-                <div style="font-weight:700; font-size:0.85rem;">${label} <span style="font-weight:400; color:#94a3b8;">'${yearShort}</span></div>
-                <div style="font-size:0.65rem; color:var(--text-muted);">${h.note || 'Festivo'}</div>
+                <div style="font-weight:700; font-size:0.85rem;">${isLocked ? '🔒' : '🔓'} ${label} <span style="font-weight:400; color:#94a3b8;">'${yearShort}</span></div>
+                <div style="font-size:0.65rem; color:var(--text-muted);">${h.note || 'Festivo'}${!isLocked ? ' · <span style="color:#3b82f6;">semana abierta</span>' : ''}</div>
             </div>
             <span style="background:${badge[0]}; color:${badge[1]}; padding:2px 6px; border-radius:6px; font-size:0.6rem; font-weight:800; white-space:nowrap;">${badge[2]}</span>
         </div>

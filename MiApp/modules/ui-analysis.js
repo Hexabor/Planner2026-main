@@ -259,8 +259,8 @@ Object.assign(App.ui, {
                 const endISO   = App.uiState.analisisHorasEnd;
 
                 const weeks = [];
-                let cur = new Date(Utils.getMonday(startISO)+'T00:00:00');
-                const endD = new Date(Utils.getMonday(endISO)+'T00:00:00');
+                let cur = new Date(Utils.getMonday(startISO)+'T12:00:00');
+                const endD = new Date(Utils.getMonday(endISO)+'T12:00:00');
                 while(cur <= endD) { weeks.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+7); }
 
                 const weekData = weeks.map(monday => {
@@ -291,7 +291,7 @@ Object.assign(App.ui, {
                         return s + (emp.contrato || 0);
                     }, 0) * 52;
                     // Usar misma lógica que weeks para generar claves alineadas
-                    let fCur = new Date(Utils.getMonday(wsDate)+'T00:00:00');
+                    let fCur = new Date(Utils.getMonday(wsDate)+'T12:00:00');
                     fact.forEach((val) => {
                         const key = fCur.toISOString().slice(0,10);
                         targetByWeek[key] = Math.round(val / factTotal * horasAnuales * 10) / 10;
@@ -501,7 +501,7 @@ Object.assign(App.ui, {
                             const shift = sid ? Utils.getShift(sid) : null;
                             if (shift) {
                                 if (shift.fixed) { if (shift.code === 'L') countL++; if (shift.code === 'F') countF++; dayStatuses.push({ type: 'hollow', color: shift.color, code: shift.code }); }
-                                else if (shift.start && shift.end) { asig += Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break); dayStatuses.push({ type: 'solid', color: shift.color || '#6b7280' }); }
+                                else if (shift.start && shift.end) { const h = Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break); asig += h; dayStatuses.push({ type: 'solid', color: shift.color || '#6b7280', hours: h }); }
                                 else dayStatuses.push({ type: 'empty' });
                             } else dayStatuses.push({ type: 'empty' });
                         });
@@ -518,9 +518,13 @@ Object.assign(App.ui, {
 
                         let dotsHtml = `<div style="display:flex;gap:3px;justify-content:center;">`;
                         dayStatuses.forEach(s => {
-                            if (s.type === 'solid') dotsHtml += `<div style="width:20px;height:20px;border-radius:4px;background:${s.color};"></div>`;
-                            else if (s.type === 'hollow') dotsHtml += `<div style="width:20px;height:20px;border-radius:4px;border:2px solid ${s.color};box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:0.58rem;font-weight:700;color:${s.color};">${s.code || ''}</div>`;
-                            else dotsHtml += `<div style="width:20px;height:20px;border-radius:4px;border:1px dashed #e2e8f0;"></div>`;
+                            if (s.type === 'solid') {
+                                const hTxt = s.hours ? f1(s.hours) : '';
+                                const txtCol = Utils.isLightColor(s.color) ? '#1e293b' : '#fff';
+                                dotsHtml += `<div style="width:26px;height:22px;border-radius:4px;background:${s.color};display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:700;color:${txtCol};">${hTxt}</div>`;
+                            }
+                            else if (s.type === 'hollow') dotsHtml += `<div style="width:26px;height:22px;border-radius:4px;border:2px solid ${s.color};box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:0.58rem;font-weight:700;color:${s.color};">${s.code || ''}</div>`;
+                            else dotsHtml += `<div style="width:26px;height:22px;border-radius:4px;border:1px dashed #e2e8f0;"></div>`;
                         });
                         dotsHtml += `</div>`;
 

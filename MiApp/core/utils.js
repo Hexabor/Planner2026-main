@@ -317,7 +317,7 @@ const Utils = {
             return `${year}-${month}-${dayStr}`;
     },    
         
-    getWeekDays: function(mondayStr) { let d=new Date(mondayStr); let days=[]; for(let i=0;i<7;i++){ let next=new Date(d); next.setDate(d.getDate()+i); days.push(next.toISOString().slice(0,10)); } return days; },
+    getWeekDays: function(mondayStr) { let d=new Date(mondayStr+'T12:00:00'); let days=[]; for(let i=0;i<7;i++){ let next=new Date(d); next.setDate(d.getDate()+i); const y=next.getFullYear(), m=String(next.getMonth()+1).padStart(2,'0'), dd=String(next.getDate()).padStart(2,'0'); days.push(`${y}-${m}-${dd}`); } return days; },
     getDayName: function(iso) { return ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'][new Date(iso).getDay()]; },
     getDayKey: function(iso) { return ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"][new Date(iso).getDay()]; },
     

@@ -172,7 +172,10 @@ Object.assign(App.ui, {
                                     <button class="week-btn" onclick="App.logic.changeWeek(1)" title="+1 semana">▶</button>
                                     <button class="week-btn week-btn-fast" onclick="App.logic.changeWeek(4)" title="+4 semanas">▶▶</button>
                                 </div>
-                                <span style="font-size:0.58rem; color:#94a3b8; font-weight:500; pointer-events:none; white-space:nowrap;">${_monthLabel}</span>
+                                <div style="display:flex; align-items:center; justify-content:center; gap:0; position:relative; width:100%;">
+                                    ${(() => { const _todayMon = Utils.getMonday(new Date().toISOString().slice(0,10)); if(monday === _todayMon) return ''; const inFuture = monday > _todayMon; return `<button onclick="App.logic.setDate(new Date().toISOString().slice(0,10))" title="Regresar al presente" style="position:absolute; left:0; padding:0; border:none; background:none; cursor:pointer; line-height:1; color:#3b82f6; display:flex; align-items:center;"><svg width="20" height="12" viewBox="0 0 40 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inFuture ? '<path d="M38 11H22"/><path d="M26 6l-5 5 5 5"/><circle cx="10" cy="11" r="8"/><circle cx="10" cy="11" r="3" fill="currentColor" stroke="none"/>' : '<circle cx="30" cy="11" r="8"/><circle cx="30" cy="11" r="3" fill="currentColor" stroke="none"/><path d="M18 11H2"/><path d="M14 6l5 5-5 5"/>'}</svg></button>`; })()}
+                                    <span style="font-size:0.58rem; color:#94a3b8; font-weight:500; pointer-events:none; white-space:nowrap;">${_monthLabel}</span>
+                                </div>
                             </div>
                             <div style="display:flex; align-items:center;">
                                 ${App.logic._weekStateRowHTML(monday)}

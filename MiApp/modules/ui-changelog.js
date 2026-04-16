@@ -6,6 +6,19 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '17/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Vista de Semanas (Análisis) — horas del día dentro de cada cuadrado, color de texto adaptativo (negro/blanco según fondo)',
+                    '✨ Navegador — botón "Regresar al presente" con diana direccional (flecha desde pasado/futuro), visible solo fuera de la semana actual',
+                    '✨ Panel Eventos (Inspector) — click en fecha navega el planificador a ese día',
+                    '✨ Panel Festivos (Inspector) — muestra festivos de semanas abiertas además de cerradas, con indicador visual 🔒/🔓',
+                    '🔧 Fix: guardar evento no actualizaba la descripción en la tabla hasta cambiar de panel',
+                    '🔧 Fix: semanas en análisis de horas mostraban código WK n-1 por desfase UTC/local en toISOString',
+                    '🔧 Fix: barras de objetivo por facturación desaparecían por mismo desfase T00:00 → T12:00',
+                    '🔧 Fix: getWeekDays robustecido — formateo local en vez de toISOString para evitar desajustes de zona horaria',
+                ]
+            },
+            {
                 fecha: '15/04/2026 (noche)', version: 'v1.0',
                 items: [
                     '✨ Inspector Libranzas — disponibilidad diaria de la semana actual: personas sin ausencia y horas potenciales',

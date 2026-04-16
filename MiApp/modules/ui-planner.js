@@ -2284,7 +2284,7 @@ Object.assign(App.ui, {
                         <span style="background:${color}18;color:${color};border:1px solid ${color}40;border-radius:4px;padding:1px 5px;font-size:0.62rem;font-weight:700;">${label}</span>
                         ${isHoy ? `<span style="margin-left:2px;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 4px;font-size:0.6rem;font-weight:700;">HOY</span>` : ''}
                     </td>
-                    <td style="padding:5px 4px;font-size:0.68rem;color:#475569;white-space:nowrap;">${fechaStr}</td>
+                    <td onclick="App.logic.setDate('${ev.fechaInicio}')" style="padding:5px 4px;font-size:0.68rem;color:#2563eb;white-space:nowrap;cursor:pointer;" title="Ir a ${ev.fechaInicio}">${fechaStr}</td>
                     <td style="padding:5px 4px;font-size:0.68rem;color:#475569;white-space:nowrap;">${ev.horaInicio}–${ev.horaFin}</td>
                     <td style="padding:5px 4px;font-size:0.67rem;color:#94a3b8;font-style:italic;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ev.desc||''}">${ev.desc || ''}</td>
                     <td style="padding:5px 2px;white-space:nowrap;">
@@ -2335,7 +2335,7 @@ Object.assign(App.ui, {
                         <input type="text" id="insp-ev-desc" value="${inspEditEv?.desc||''}" placeholder="Opcional" style="width:100%;padding:5px 6px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.75rem;box-sizing:border-box;">
                     </div>
                     <div style="display:flex;gap:6px;">
-                        <button onclick="const f=document.getElementById('insp-ev-fecha').value; App.logic.eventoSave({id:'${inspEditId||''}',empId:document.getElementById('insp-ev-empId').value,tipo:document.getElementById('insp-ev-tipo').value,desc:document.getElementById('insp-ev-desc').value,fechaInicio:f,fechaFin:f,horaInicio:document.getElementById('insp-ev-hi').value,horaFin:document.getElementById('insp-ev-hf').value}); App.uiState.inspEvFormOpen=false; App.uiState.inspEvEditId=null;"
+                        <button onclick="const f=document.getElementById('insp-ev-fecha').value; const _ev={id:'${inspEditId||''}',empId:document.getElementById('insp-ev-empId').value,tipo:document.getElementById('insp-ev-tipo').value,desc:document.getElementById('insp-ev-desc').value,fechaInicio:f,fechaFin:f,horaInicio:document.getElementById('insp-ev-hi').value,horaFin:document.getElementById('insp-ev-hf').value}; App.uiState.inspEvFormOpen=false; App.uiState.inspEvEditId=null; App.logic.eventoSave(_ev);"
                             style="flex:1;padding:7px;background:#2563eb;color:white;border:none;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;">💾 Guardar</button>
                         <button onclick="App.uiState.inspEvFormOpen=false; App.uiState.inspEvEditId=null; App.ui.renderPlannerInspector(document.getElementById('inspector-content'));"
                             style="padding:7px 12px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;font-size:0.75rem;cursor:pointer;">✕</button>
