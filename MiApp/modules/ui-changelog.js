@@ -16,6 +16,8 @@ Object.assign(App.ui, {
                     '🔧 Inspector Rotación — leyenda y nota "Cuadrado superior = Sábado…" compactadas para reducir el scroll',
                     '🗑️ Peticiones Puntuales — vista calendario eliminada (no aportaba valor); solo queda la vista lista',
                     '🔧 Click derecho cierra dropdowns contextuales de la agenda sin disparar acción',
+                    '🔧 Agenda vacaciones — preserva el scroll tras cada cambio (ya no salta al día presente)',
+                    '🔧 Agenda vacaciones — cabecera "PETICIONES / OTORGADAS" congelada (sticky) con anclaje limpio al borde del scrollport',
                 ]
             },
             {

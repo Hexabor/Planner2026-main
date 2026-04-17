@@ -2097,6 +2097,8 @@ Object.assign(App.ui, {
         _renderPlanAgenda: function(c, sectionBar, type) {
             const cfg = this._planConfig(type);
             const st = App.uiState[cfg.uiKey];
+            // Sin padding vertical en el scrollport para que el sticky ancle limpio al borde
+            c.style.padding = '0 16px';
             if (!st.agendaCursoY) {
                 const t = new Date();
                 st.agendaCursoY = t.getMonth() >= 2 ? t.getFullYear() : t.getFullYear() - 1;
@@ -2151,7 +2153,7 @@ Object.assign(App.ui, {
                     style="padding:3px 9px;border:1px solid #e2e8f0;border-radius:5px;background:#f1f5f9;cursor:pointer;font-size:0.82rem;color:#64748b;">▶</button>
             </div>`;
 
-            let html = sectionBar + `<div style="max-width:980px;margin:0 auto;width:100%;">
+            let html = sectionBar + `<div style="max-width:980px;margin:0 auto;width:100%;padding:16px 0;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
                     ${this._planToolbar(type)}
                     ${yearNav}
@@ -2162,15 +2164,14 @@ Object.assign(App.ui, {
                     <span><span style="display:inline-block;width:10px;height:10px;background:#ede9fe;border:1px solid #c4b5fd;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>V en planificador</span>
                     <span style="color:#94a3b8;">· click en vacío de Otorgadas → elegir empleado</span>
                 </div>
-                <div style="overflow-x:auto;">
-                <table style="border-collapse:collapse;font-size:0.75rem;table-layout:fixed;margin:0 auto;">
+                <table style="border-collapse:separate;border-spacing:0;font-size:0.75rem;table-layout:fixed;margin:0 auto;">
                     <thead>
-                        <tr style="background:#f1f5f9;border-bottom:2px solid #cbd5e1;">
-                            <th style="padding:4px 3px;font-size:0.64rem;color:#64748b;font-weight:600;width:28px;border-right:1px solid #e2e8f0;">WK</th>
-                            <th style="padding:4px 4px;text-align:left;font-size:0.64rem;color:#64748b;font-weight:600;width:44px;">Fecha</th>
-                            <th style="padding:4px 3px;font-size:0.64rem;color:#64748b;font-weight:600;width:28px;border-right:2px solid #cbd5e1;">Día</th>
-                            <th colspan="3" style="padding:4px 5px;font-size:0.64rem;color:#92400e;font-weight:700;background:#fef9c3;border-right:2px solid #cbd5e1;">PETICIONES</th>
-                            <th colspan="3" style="padding:4px 5px;font-size:0.64rem;color:#5b21b6;font-weight:700;background:#ede9fe;">OTORGADAS</th>
+                        <tr>
+                            <th style="position:sticky;top:0;z-index:5;padding:4px 3px;font-size:0.64rem;color:#64748b;font-weight:600;width:28px;background:#f1f5f9;border-right:1px solid #e2e8f0;border-bottom:2px solid #cbd5e1;">WK</th>
+                            <th style="position:sticky;top:0;z-index:5;padding:4px 4px;text-align:left;font-size:0.64rem;color:#64748b;font-weight:600;width:44px;background:#f1f5f9;border-bottom:2px solid #cbd5e1;">Fecha</th>
+                            <th style="position:sticky;top:0;z-index:5;padding:4px 3px;font-size:0.64rem;color:#64748b;font-weight:600;width:28px;background:#f1f5f9;border-right:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;">Día</th>
+                            <th colspan="3" style="position:sticky;top:0;z-index:5;padding:4px 5px;font-size:0.64rem;color:#92400e;font-weight:700;background:#fef9c3;border-right:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;">PETICIONES</th>
+                            <th colspan="3" style="position:sticky;top:0;z-index:5;padding:4px 5px;font-size:0.64rem;color:#5b21b6;font-weight:700;background:#ede9fe;border-bottom:2px solid #cbd5e1;">OTORGADAS</th>
                         </tr>
                     </thead>
                     <tbody>`;
@@ -2239,11 +2240,16 @@ Object.assign(App.ui, {
                 </tr>`;
             });
 
-            html += `</tbody></table></div></div>`;
+            html += `</tbody></table></div>`;
+            const prevScroll = c.scrollTop;
             c.innerHTML = html;
 
-            const todayRow = document.getElementById('plan-agenda-today');
-            if (todayRow) setTimeout(() => todayRow.scrollIntoView({ block:'center', behavior:'instant' }), 50);
+            if (prevScroll > 0) {
+                c.scrollTop = prevScroll;
+            } else {
+                const todayRow = document.getElementById('plan-agenda-today');
+                if (todayRow) setTimeout(() => todayRow.scrollIntoView({ block:'center', behavior:'instant' }), 50);
+            }
 
             const insp = document.getElementById('inspector-content');
             if (insp) insp.innerHTML = '';
