@@ -72,10 +72,8 @@ const App = {
         reqShowArchived: false,
         reqSortKey: 'start',
         reqSortDir: 'desc',
-        reqView: 'table',
         reqSection: 'individual',   // 'individual' | 'recurring'
         recurringSelectedId: null,  // patrón seleccionado en vista recurrentes
-        reqCalCursoY: (() => { const t = new Date(); return t.getMonth() >= 2 ? t.getFullYear() : t.getFullYear() - 1; })(),
         // HISTORIAL UNDO/REDO
         history: [], // Array de snapshots
         historyIndex: -1, // Índice actual en el historial

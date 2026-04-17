@@ -6,6 +6,19 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '17/04/2026 (tarde)', version: 'v1.0',
+                items: [
+                    '✨ Plan de Vacaciones — nueva vista "Agenda": tabla día a día del año laboral (mar→feb) con 3 columnas de peticiones + 3 de otorgadas',
+                    '✨ Agenda vacaciones — dropdown contextual por celda: peticiones (Ir a su plan / Aprobar este día), otorgadas (Ir al día / Revocar), huecos (picker de empleado)',
+                    '✨ Agenda vacaciones — pop-up de conflicto si el empleado ya tiene un turno no-fijo; bloquea la asignación y ofrece "Ir al día" para examinar',
+                    '✨ Plan de Vacaciones — barra permanente de 3 vistas (Tarjetas / Vista global / Agenda) sustituye el botón condicional y el "◀ Volver" de global',
+                    '✨ Inspector Rotación Findes — contador "Disponibilidad fin de semana" (sábado/domingo) con jornada tipo editable por día, sobreescribe contrato/5',
+                    '🔧 Inspector Rotación — leyenda y nota "Cuadrado superior = Sábado…" compactadas para reducir el scroll',
+                    '🗑️ Peticiones Puntuales — vista calendario eliminada (no aportaba valor); solo queda la vista lista',
+                    '🔧 Click derecho cierra dropdowns contextuales de la agenda sin disparar acción',
+                ]
+            },
+            {
                 fecha: '17/04/2026', version: 'v1.0',
                 items: [
                     '✨ Vista de Semanas (Análisis) — horas del día dentro de cada cuadrado, color de texto adaptativo (negro/blanco según fondo)',

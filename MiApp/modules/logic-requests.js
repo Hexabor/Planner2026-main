@@ -3,33 +3,6 @@
 // ============================================================
 
 Object.assign(App.logic, {
-        reqNewForDate: function(date, type) {
-            // Abrir inspector de nueva solicitud pre-rellenada con fecha y tipo
-            App.uiState.selectedId = null;
-            App.ui.renderReqInspector(null);
-            // Pre-rellenar fecha y tipo tras render
-            setTimeout(() => {
-                const typeEl  = document.getElementById('rq-type');
-                const startEl = document.getElementById('rq-start');
-                if(typeEl) { typeEl.value = type; App.ui.reqTypeToggle(type); }
-                if(startEl) {
-                    // Formatear fecha como DD/MM/AAAA para el input personalizado
-                    const [y,m,d] = date.split('-');
-                    startEl.value = `${d}/${m}/${y}`;
-                    startEl.dataset.isoValue = date;
-                    startEl.style.borderColor = '';
-                    // Si no es HRL, rellenar también fecha fin igual
-                    const endEl = document.getElementById('rq-end');
-                    if(endEl) { endEl.value = `${d}/${m}/${y}`; endEl.dataset.isoValue = date; }
-                }
-            }, 0);
-        },
-        reqToggleFactorial: function(id) {
-            const i = App.data.requests.findIndex(r => r.id === id);
-            if(i < 0) return;
-            App.data.requests[i].factorialDone = !App.data.requests[i].factorialDone;
-            Safe.save('v40_db', App.data);
-        },
         reqToggleType: function(t) {
             const ALL = ['LIB','HRL','AP','BAJ'];
             const cur = App.uiState.reqTypeFilter || ALL;

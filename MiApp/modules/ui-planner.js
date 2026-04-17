@@ -263,17 +263,74 @@ Object.assign(App.ui, {
 
             html += `   </tbody>
                 </table>
-                <div style="margin-top: 15px; margin-bottom: 15px; font-size: 0.7rem; color: #64748b; text-align: center; font-weight: bold;">
+                <div style="margin-top: 8px; margin-bottom: 6px; font-size: 0.65rem; color: #64748b; text-align: center; font-weight: 600;">
                     Cuadrado superior = Sábado | Cuadrado inferior = Domingo
                 </div>
             </div>`;
 
+            // ── Disponibilidad fin de semana (sábado y domingo de la semana actual) ──
+            const _sabStr = addDays(currentMondayStr, 5);
+            const _domStr = addDays(currentMondayStr, 6);
+            const _computeFindeAvail = (dateStr) => {
+                let count = 0, defaultH = 0;
+                App.data.empleados
+                    .filter(e => e.active !== false && Utils.empleadoVigenteEnRango(e, dateStr, dateStr))
+                    .forEach(emp => {
+                        const sid = (App.data.schedule[dateStr] || {})[emp.id];
+                        const shift = sid ? Utils.getShift(sid) : null;
+                        const isAbsent = shift && shift.fixed;
+                        if(!isAbsent) {
+                            count++;
+                            defaultH += Utils.getContrato(emp, dateStr) / 5;
+                        }
+                    });
+                return { count, defaultH: Math.round(defaultH * 10) / 10 };
+            };
+            const _avSab = _computeFindeAvail(_sabStr);
+            const _avDom = _computeFindeAvail(_domStr);
+            const _f1 = v => (Math.round(v * 10) / 10).toFixed(1);
+            const _jSab = (typeof App.uiState.findesJornadaSab === 'number' && App.uiState.findesJornadaSab >= 0) ? App.uiState.findesJornadaSab : null;
+            const _jDom = (typeof App.uiState.findesJornadaDom === 'number' && App.uiState.findesJornadaDom >= 0) ? App.uiState.findesJornadaDom : null;
+            const _sabH = _jSab !== null ? _avSab.count * _jSab : _avSab.defaultH;
+            const _domH = _jDom !== null ? _avDom.count * _jDom : _avDom.defaultH;
+            const _sabPer = _avSab.count > 0 ? _avSab.defaultH / _avSab.count : 0;
+            const _domPer = _avDom.count > 0 ? _avDom.defaultH / _avDom.count : 0;
+            const _buildFindeCard = (lbl, dateStr, av, totalH, jornada, perDefault, stateKey) => {
+                const val = jornada !== null ? jornada : '';
+                const ph = perDefault > 0 ? _f1(perDefault) : '—';
+                const dd = dateStr.split('-')[2];
+                const mm = dateStr.split('-')[1];
+                return `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:4px 2px;">
+                    <div style="font-size:0.55rem; color:#94a3b8; font-weight:600;">${lbl} <span style="color:#cbd5e1;">${dd}/${mm}</span></div>
+                    <div style="font-size:0.85rem; font-weight:800; color:#1e293b; line-height:1.2;">${av.count}</div>
+                    <div style="font-size:0.55rem; color:#64748b;">pers.</div>
+                    <div style="font-size:0.75rem; font-weight:700; color:${jornada !== null ? '#d97706' : '#2563eb'}; margin-top:2px; line-height:1;">${_f1(totalH)}h</div>
+                    <div style="font-size:0.5rem; color:#94a3b8;">potencial</div>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:3px; margin-top:4px; padding-top:3px; border-top:1px dashed #e2e8f0;">
+                        <span style="font-size:0.5rem; color:#94a3b8;">jornada</span>
+                        <input type="number" step="0.5" min="0" max="24" value="${val}" placeholder="${ph}"
+                            onchange="const v=this.value.trim();App.uiState.${stateKey}=(v===''?null:Number(v));App.ui.renderPlannerInspector(document.getElementById('inspector-content'))"
+                            onclick="event.stopPropagation()"
+                            title="Jornada tipo aplicada a las ${av.count} personas disponibles. Vacío = contrato/5 por persona (${ph}h de media)."
+                            style="width:44px; font-size:0.65rem; font-weight:700; color:${jornada !== null ? '#d97706' : '#2563eb'}; border:1px solid ${jornada !== null ? '#fbbf24' : '#cbd5e1'}; border-radius:3px; text-align:center; padding:1px 2px;" />
+                        <span style="font-size:0.5rem; color:#94a3b8;">h</span>
+                    </div>
+                </div>`;
+            };
+            html += `<div style="padding:8px 12px; background:#f8fafc; border-top:1px solid var(--border);">
+                <div style="font-size:0.65rem; font-weight:700; color:#475569; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.3px; display:flex; align-items:center; gap:4px;">Disponibilidad fin de semana<span class="diff-tooltip-wrap" style="cursor:help; display:inline-flex; align-items:center; justify-content:center; width:13px; height:13px; border-radius:50%; background:#cbd5e1; color:#fff; font-size:0.5rem; font-weight:800; line-height:1;">i<div class="diff-tooltip" style="min-width:220px; white-space:normal; line-height:1.6; font-weight:400; text-transform:none;">Personas sin ausencia en sábado/domingo de la semana actual y horas potenciales. Por defecto cada persona cuenta como contrato/5; puedes fijar una jornada tipo por día (ej. 8h) para sobreescribir ese promedio.</div></span></div>
+                <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:6px; text-align:center;">
+                    ${_buildFindeCard('SÁB', _sabStr, _avSab, _sabH, _jSab, _sabPer, 'findesJornadaSab')}
+                    ${_buildFindeCard('DOM', _domStr, _avDom, _domH, _jDom, _domPer, 'findesJornadaDom')}
+                </div>
+            </div>`;
+
             // 4. LEYENDA
-            html += `<div style="padding:10px 12px; background:#f8fafc; border-top:1px solid var(--border); font-size:0.65rem; color:var(--text-muted); line-height:1.6; margin: 0 15px 15px 15px; border-radius: 4px;">
+            html += `<div style="padding:4px 10px; background:#f8fafc; border-top:1px solid var(--border); font-size:0.65rem; color:var(--text-muted); line-height:1.5; margin: 0 15px 10px 15px; border-radius: 4px;">
                 <div onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.leyenda-arrow').textContent = this.nextElementSibling.style.display === 'none' ? '▸' : '▾';"
-                    style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; padding:2px 0 6px 0; color:#475569; font-weight:700; font-size:0.7rem;">
+                    style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; padding:0; color:#475569; font-weight:700; font-size:0.62rem;">
                     <span>LEYENDA DE FINES DE SEMANA</span>
-                    <span class="leyenda-arrow" style="font-size:0.65rem; color:#94a3b8;">▸</span>
+                    <span class="leyenda-arrow" style="font-size:0.6rem; color:#94a3b8;">▸</span>
                 </div>
                 <div style="display:none;">
                     <div style="margin-bottom:4px; margin-top: 6px;">

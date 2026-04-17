@@ -212,24 +212,16 @@ Object.assign(App.ui, {
             const mod   = document.getElementById('req-module');
             if (!fixed || !mod) { App.ui.renderRequests(document.querySelector('.main-scroll')); return; }
             fixed.innerHTML = App.ui._reqBuildFixed();
-            if (App.uiState.reqView === 'calendar') {
-                App.ui._reqShowCalendar(mod);
-            } else {
-                App.ui._reqShowList(mod);
-            }
+            App.ui._reqShowList(mod);
         },
 
-        // Construye el HTML de controles + filtros con el estado actual
         // Construye el HTML de controles + filtros con el estado actual
         _reqBuildFixed: function() {
             const ico = (path, size=16) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
             const ICO = {
-                list:     ico('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>'),
-                calendar: ico('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
-                plus:     ico('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+                plus: ico('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
             };
             const showArchived = App.uiState.reqShowArchived;
-            const isCalendar   = App.uiState.reqView === 'calendar';
             const active   = App.data.requests.filter(r => !r.archived);
             const archived = App.data.requests.filter(r =>  r.archived);
 
@@ -237,26 +229,6 @@ Object.assign(App.ui, {
                 `<button onclick="${onclick}" style="padding:4px 11px;border-radius:5px;border:none;font-size:0.76rem;font-weight:600;cursor:pointer;
                     background:${on?'white':'transparent'};color:${on?'#1e293b':'#64748b'};
                     box-shadow:${on?'0 1px 3px rgba(0,0,0,0.1)':'none'};">${label}</button>`;
-
-            const iconBtn = (icoHtml, title, on, onclick) =>
-                `<button title="${title}" onclick="${onclick}" style="display:flex;align-items:center;justify-content:center;
-                    width:30px;height:30px;border-radius:6px;border:1px solid ${on?'#2563eb':'#e2e8f0'};cursor:pointer;
-                    background:${on?'#eff6ff':'white'};color:${on?'#2563eb':'#64748b'};">${icoHtml}</button>`;
-
-            let cursoY = App.uiState.reqCalCursoY;
-            if (cursoY === undefined) {
-                const t = new Date();
-                cursoY = t.getMonth() >= 2 ? t.getFullYear() : t.getFullYear() - 1;
-                App.uiState.reqCalCursoY = cursoY;
-            }
-            const calNav = isCalendar ? `
-                <div style="display:flex;align-items:center;gap:4px;">
-                    <button onclick="App.uiState.reqCalCursoY=${cursoY-1}; App.ui._reqRefresh()"
-                        style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;cursor:pointer;padding:3px 9px;font-size:0.82rem;color:#64748b;">◀</button>
-                    <span style="font-size:0.82rem;font-weight:600;color:#475569;min-width:68px;text-align:center;">${cursoY}/${cursoY+1}</span>
-                    <button onclick="App.uiState.reqCalCursoY=${cursoY+1}; App.ui._reqRefresh()"
-                        style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;cursor:pointer;padding:3px 9px;font-size:0.82rem;color:#64748b;">▶</button>
-                </div>` : '';
 
             const controlBar = `
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
@@ -267,13 +239,6 @@ Object.assign(App.ui, {
                             ${pill('Archivadas' + (archived.length ? ' (' + archived.length + ')' : ''), showArchived,
                                 'App.uiState.reqShowArchived=true; App.ui._reqRefresh()')}
                         </div>
-                        <div style="display:flex;gap:4px;">
-                            ${iconBtn(ICO.list,     'Vista lista',      !isCalendar,
-                                "App.uiState.reqView='list'; App.ui.renderRequests(document.querySelector('.main-scroll'))")}
-                            ${iconBtn(ICO.calendar, 'Vista calendario', isCalendar,
-                                "App.uiState.reqView='calendar'; App.ui.renderRequests(document.querySelector('.main-scroll'))")}
-                        </div>
-                        ${calNav}
                     </div>
                     ${!showArchived ? '<button onclick="App.logic.reqSelect(null)" style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;border:none;background:#2563eb;color:white;font-size:0.82rem;font-weight:600;cursor:pointer;">' + ICO.plus + ' Nueva solicitud</button>' : ''}
                 </div>`;
@@ -417,12 +382,7 @@ Object.assign(App.ui, {
                 <div id="req-module" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;padding-bottom:16px;"></div>`;
 
             document.getElementById('req-fixed').innerHTML = App.ui._reqBuildFixed();
-            const mod = document.getElementById('req-module');
-            if (App.uiState.reqView === 'calendar') {
-                App.ui._reqShowCalendar(mod);
-            } else {
-                App.ui._reqShowList(mod);
-            }
+            App.ui._reqShowList(document.getElementById('req-module'));
             // Abrir inspector con nueva petición al entrar en la sección
             App.ui.renderReqInspector(App.uiState.selectedReqId || null);
         },
@@ -527,152 +487,6 @@ Object.assign(App.ui, {
             mod.innerHTML = html;
         },
 
-        // ── Vista calendario ─────────────────────────────────────────────
-        _reqShowCalendar: function(mod) {
-            if (!mod) return;
-            let cursoY = App.uiState.reqCalCursoY;
-            if (cursoY === undefined) {
-                const t = new Date();
-                cursoY = t.getMonth() >= 2 ? t.getFullYear() : t.getFullYear() - 1;
-                App.uiState.reqCalCursoY = cursoY;
-            }
-            const showArchived  = App.uiState.reqShowArchived;
-            const activeFilter  = App.uiState.reqTypeFilter || ['LIB','HRL','AP','BAJ'];
-
-            const rangeStart = `${cursoY}-03-01`;
-            const rangeEnd   = `${cursoY+1}-02-${new Date(cursoY+1, 2, 0).getDate()}`;
-            const days = [];
-            let cur = new Date(rangeStart + 'T00:00:00');
-            const end = new Date(rangeEnd + 'T00:00:00');
-            while(cur <= end) { days.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+1); }
-
-            const allReqs = App.data.requests.filter(r =>
-                (showArchived ? r.archived : !r.archived) && activeFilter.includes(r.type)
-            );
-
-            const DAY_ES   = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-            const empFirst = id => { const e = App.data.empleados.find(e=>e.id===id); return e ? e.nombre.split(' ')[0] : '?'; };
-            const empFull  = id => { const e = App.data.empleados.find(e=>e.id===id); return e ? e.nombre : '?'; };
-
-            // Leyenda
-            let html = `<div style="max-width:fit-content;margin:0 auto;">
-            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;font-size:0.67rem;color:var(--text-muted);">
-                <span><span style="display:inline-block;width:8px;height:8px;background:#fef9c3;border:1px solid #fde047;border-radius:2px;vertical-align:middle;margin-right:2px;"></span>VAC pendiente</span>
-                <span><span style="display:inline-block;width:8px;height:8px;background:#dcfce7;border:1px solid #86efac;border-radius:2px;vertical-align:middle;margin-right:2px;"></span>VAC aprobada</span>
-                <span><span style="display:inline-block;width:8px;height:8px;background:#ede9fe;border:1px solid #c4b5fd;border-radius:2px;vertical-align:middle;margin-right:2px;"></span>LIB/AP/BAJ/HRL</span>
-                <span><span style="display:inline-block;width:8px;height:8px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:2px;vertical-align:middle;margin-right:2px;opacity:0.5;"></span>Archivada</span>
-            </div>
-            <div style="overflow-x:auto;">
-            <table style="border-collapse:collapse;font-size:0.75rem;table-layout:fixed;">
-                <thead>
-                    <tr style="background:#f1f5f9;border-bottom:2px solid #cbd5e1;">
-                        <th style="padding:4px 3px;text-align:center;font-size:0.64rem;color:var(--text-muted);font-weight:600;width:28px;border-right:1px solid #e2e8f0;">WK</th>
-                        <th style="padding:4px 4px;text-align:left;font-size:0.64rem;color:var(--text-muted);font-weight:600;width:36px;">Fecha</th>
-                        <th style="padding:4px 3px;text-align:center;font-size:0.64rem;color:var(--text-muted);font-weight:600;width:22px;border-right:2px solid #cbd5e1;">Día</th>
-                        <th style="padding:4px 5px;font-size:0.64rem;color:var(--text-muted);font-weight:600;width:115px;">VAC 1 <span style="font-weight:400;opacity:0.6;font-size:0.6rem;">☐</span></th>
-                        <th style="padding:4px 5px;font-size:0.64rem;color:var(--text-muted);font-weight:600;width:115px;">VAC 2 <span style="font-weight:400;opacity:0.6;font-size:0.6rem;">☐</span></th>
-                        <th style="padding:4px 5px;font-size:0.64rem;color:var(--text-muted);font-weight:600;width:115px;border-right:2px solid #cbd5e1;">VAC 3 <span style="font-weight:400;opacity:0.6;font-size:0.6rem;">☐</span></th>
-                        <th style="padding:4px 5px;font-size:0.64rem;color:var(--text-muted);font-weight:600;width:150px;">Libre 1</th>
-                        <th style="padding:4px 5px;font-size:0.64rem;color:var(--text-muted);font-weight:600;width:150px;">Libre 2</th>
-                        <th style="padding:4px 5px;font-size:0.64rem;color:var(--text-muted);font-weight:600;width:150px;">Libre 3</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-
-            const today = new Date().toISOString().slice(0,10);
-            let lastWk = null, wkParity = 0, todayRowId = null;
-
-            days.forEach(date => {
-                const d   = new Date(date + 'T00:00:00');
-                const dow = d.getDay();
-                const isWeekend = dow === 0 || dow === 6;
-                const isMon     = dow === 1;
-                const wk        = Utils.getWeekCode(date);
-                const isHoliday = (App.data.storeConfig.holidays || []).some(h => h.date === date);
-                const isToday   = date === today;
-
-                if (wk !== lastWk) { lastWk = wk; wkParity = 1 - wkParity; }
-
-                const dayReqs   = allReqs.filter(r => date >= r.start && date <= r.end);
-                const vacReqs   = dayReqs.filter(r => r.type === 'VAC');
-                const otherReqs = dayReqs.filter(r => r.type !== 'VAC');
-
-                const weekSep  = isMon ? 'border-top:2px solid #94a3b8;' : '';
-                const weekBg   = wkParity === 0 ? '#ffffff' : '#f8fafc';
-                const rowBg    = isHoliday ? '#fef3c7' : isWeekend ? '#f0f4f8' : weekBg;
-                const todayHL  = isToday ? 'outline:2px solid #2563eb;outline-offset:-2px;' : '';
-                const dayColor = isWeekend ? '#94a3b8' : '#1e293b';
-                const dayW     = isWeekend ? '700' : '400';
-                const wkDisplay   = wk.replace(/^\d{4}/, '').replace('WK','W');
-                const dateDisplay = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-                const bdBot    = `border-bottom:1px solid #f1f5f9;`;
-                const cellBase = `padding:2px 5px;${bdBot}${weekSep}`;
-                const rowId    = isToday ? 'id="req-today"' : '';
-
-                const vacCell = (req, isLast=false) => {
-                    const lastBdr = isLast ? 'border-right:2px solid #cbd5e1;' : '';
-                    if (!req) return `<td style="${cellBase}${lastBdr}" onclick="App.logic.reqNewForDate('${date}','VAC')" style="cursor:pointer;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background=''"></td>`;
-                    const isApproved = req.status==='approved', isArchived = req.archived;
-                    const bg  = isApproved ? '#dcfce7' : '#fef9c3';
-                    const bdr = isApproved ? '#86efac' : '#fde047';
-                    const name = empFirst(req.empId), full = empFull(req.empId);
-                    const chk  = req.factorialDone ? 'checked' : '';
-                    const opacity = isArchived ? 'opacity:0.45;' : '';
-                    if (req.status==='rejected') return `<td style="${cellBase}${lastBdr}">
-                        <div style="display:flex;align-items:center;gap:3px;background:#fff5f5;border:1px solid #fca5a5;border-radius:4px;padding:2px 4px;min-height:20px;cursor:pointer;"
-                             onclick="event.stopPropagation(); App.logic.reqSelect('${req.id}')">
-                            <span style="font-weight:600;font-size:0.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55px;" title="${full}">${name}</span>
-                            <span style="font-size:0.58rem;color:#ef4444;font-weight:700;flex-shrink:0;">DENEGADA</span>
-                        </div></td>`;
-                    return `<td style="${cellBase}${lastBdr}">
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:3px;background:${bg};border:1px solid ${bdr};border-radius:4px;padding:2px 4px;min-height:20px;${opacity}cursor:pointer;"
-                             onclick="event.stopPropagation(); App.logic.reqSelect('${req.id}')">
-                            <span style="font-weight:600;font-size:0.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:78px;" title="${full}">${name}${isArchived?' 📦':''}</span>
-                            <input type="checkbox" ${chk} title="Pedido en Factorial"
-                                onclick="event.stopPropagation(); App.logic.reqToggleFactorial('${req.id}')"
-                                style="cursor:pointer;accent-color:#16a34a;flex-shrink:0;width:12px;height:12px;">
-                        </div></td>`;
-                };
-
-                const otherCell = (req) => {
-                    if (!req) return `<td style="${cellBase}"></td>`;
-                    const name = empFirst(req.empId), full = empFull(req.empId);
-                    const opacity = req.archived ? 'opacity:0.45;' : '';
-                    const TYPE_BG = { LIB:'#dbeafe', HRL:'#cffafe', AP:'#ede9fe', BAJ:'#fee2e2' };
-                    const TYPE_BD = { LIB:'#93c5fd', HRL:'#67e8f9', AP:'#c4b5fd', BAJ:'#fca5a5' };
-                    const bg  = TYPE_BG[req.type] || '#f1f5f9';
-                    const bdr = TYPE_BD[req.type] || '#e2e8f0';
-                    const extra = req.type==='HRL' ? `<span style="font-size:0.58rem;color:#0891b2;flex-shrink:0;">${req.hrlFrom}–${req.hrlTo}</span>` : `<span style="font-size:0.62rem;color:#64748b;flex-shrink:0;">${req.type}</span>`;
-                    return `<td style="${cellBase}">
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:3px;background:${bg};border:1px solid ${bdr};border-radius:4px;padding:2px 4px;min-height:20px;${opacity}cursor:pointer;"
-                             onclick="event.stopPropagation(); App.logic.reqSelect('${req.id}')">
-                            <span style="font-weight:600;font-size:0.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70px;" title="${full}">${name}</span>
-                            ${extra}
-                        </div></td>`;
-                };
-
-                html += `<tr ${rowId} style="background:${rowBg};${weekSep}${todayHL}">
-                    <td style="padding:2px 3px;text-align:center;color:#94a3b8;font-size:0.62rem;font-weight:700;border-right:1px solid #e2e8f0;${bdBot}${weekSep}">${isMon?wkDisplay:''}</td>
-                    <td style="padding:2px 6px;font-size:0.71rem;color:${dayColor};${bdBot}${weekSep}">${dateDisplay}</td>
-                    <td style="padding:2px 4px;text-align:center;color:${dayColor};font-size:0.67rem;font-weight:${dayW};border-right:2px solid #cbd5e1;${bdBot}${weekSep}">${DAY_ES[dow]}</td>
-                    ${vacCell(vacReqs[0]||null)}
-                    ${vacCell(vacReqs[1]||null)}
-                    ${vacCell(vacReqs[2]||null, true)}
-                    ${otherCell(otherReqs[0]||null)}
-                    ${otherCell(otherReqs[1]||null)}
-                    ${otherCell(otherReqs[2]||null)}
-                </tr>`;
-            });
-
-            html += `</tbody></table></div></div>`;
-            mod.innerHTML = html;
-
-            // Scroll al día actual
-            const todayRow = document.getElementById('req-today');
-            if (todayRow) {
-                setTimeout(() => todayRow.scrollIntoView({ block: 'center', behavior: 'instant' }), 50);
-            }
-        },
 
         renderReqInspector: function(id) {
             const r = id ? App.data.requests.find(x => x.id === id) : { empId: "", type: "VAC", start: "", end: "", status: "pending", note: "", hrlFrom: "", hrlTo: "" };
@@ -1728,6 +1542,19 @@ Object.assign(App.ui, {
             return null;
         },
 
+        // Barra de 3 vistas siempre visible (en list / global / agenda): Tarjetas / Global / Agenda
+        _planToolbar: function(type) {
+            const cfg = this._planConfig(type);
+            const mode = App.uiState[cfg.uiKey].mode;
+            const _r = `App.ui.renderRequests(document.querySelector('.main-scroll'))`;
+            const btn = (key, label, icon) => {
+                const on = mode === key;
+                return `<button onclick="App.uiState.${cfg.uiKey}.mode='${key}';${_r}"
+                    style="display:flex;align-items:center;gap:5px;padding:5px 12px;border:1px solid ${on?'#2563eb':'#e2e8f0'};border-radius:6px;background:${on?'#eff6ff':'white'};color:${on?'#2563eb':'#64748b'};font-size:0.78rem;font-weight:600;cursor:pointer;">${icon}${label}</button>`;
+            };
+            return `<div style="display:flex;gap:4px;">${btn('list','Tarjetas','📇')}${btn('global','Vista global','📅')}${btn('agenda','Agenda','📋')}</div>`;
+        },
+
         _renderPlanGeneric: function(c, sectionBar, type) {
             if (c.parentElement) c.parentElement.style.cssText += ';display:flex;flex-direction:column;';
             c.style.cssText = 'padding:16px;overflow-y:auto;box-sizing:border-box;scrollbar-gutter:stable;';
@@ -1737,6 +1564,7 @@ Object.assign(App.ui, {
             const st = App.uiState[cfg.uiKey];
             if (st.mode === 'calendar') this._renderPlanCalendar(c, sectionBar, type);
             else if (st.mode === 'global') this._renderPlanGlobal(c, sectionBar, type);
+            else if (st.mode === 'agenda') this._renderPlanAgenda(c, sectionBar, type);
             else this._renderPlanList(c, sectionBar, type);
         },
 
@@ -1752,14 +1580,12 @@ Object.assign(App.ui, {
             const hasDuplicates = Object.values(empPlanCount).some(c => c > 1);
 
             let html = sectionBar + `<div style="max-width:680px;margin:0 auto;width:100%;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                    <span style="font-size:0.82rem;color:#64748b;font-weight:500;">${plans.length} plan${plans.length!==1?'es':''}</span>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px;flex-wrap:wrap;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        ${this._planToolbar(type)}
+                        <span style="font-size:0.82rem;color:#64748b;font-weight:500;">${plans.length} plan${plans.length!==1?'es':''}</span>
+                    </div>
                     <div style="display:flex;gap:6px;">
-                        ${(plans.length > 0 || (type === 'vacaciones' && this._getOrphanVacDays().length > 0)) ? `<button onclick="App.uiState.${uiKey}.mode='global';App.ui.renderRequests(document.querySelector('.main-scroll'))"
-                            style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;border:1px solid #e2e8f0;
-                                   background:white;color:#64748b;font-size:0.82rem;font-weight:600;cursor:pointer;">
-                            📅 Vista global
-                        </button>` : ''}
                         ${hasDuplicates ? `<button onclick="App.ui._planMergeAll('${type}')"
                             style="display:flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;border:1px solid #e2e8f0;
                                    background:white;color:#64748b;font-size:0.82rem;font-weight:600;cursor:pointer;">
@@ -2247,8 +2073,7 @@ Object.assign(App.ui, {
             c.innerHTML = sectionBar + `
                 <div style="max-width:980px;margin:0 auto;width:100%;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                        <button onclick="App.uiState.${cfg.uiKey}.mode='list';${_rerender}"
-                            style="padding:4px 10px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;">◀ Volver</button>
+                        ${this._planToolbar(type)}
                         <div style="display:flex;align-items:center;gap:3px;">
                             <button onclick="App.uiState.${cfg.uiKey}.year--;${_rerender}"
                                 style="padding:3px 8px;border:1px solid #e2e8f0;border-radius:4px;background:#f8fafc;cursor:pointer;font-size:0.78rem;color:#475569;">◀</button>
@@ -2266,6 +2091,296 @@ Object.assign(App.ui, {
                 </div>`;
             const insp = document.getElementById('inspector-content');
             if (insp) insp.innerHTML = '';
+        },
+
+        // ─── Vista Agenda (global día a día, 2 bloques × 3 columnas) ───
+        _renderPlanAgenda: function(c, sectionBar, type) {
+            const cfg = this._planConfig(type);
+            const st = App.uiState[cfg.uiKey];
+            if (!st.agendaCursoY) {
+                const t = new Date();
+                st.agendaCursoY = t.getMonth() >= 2 ? t.getFullYear() : t.getFullYear() - 1;
+            }
+            const cursoY = st.agendaCursoY;
+            const rangeStart = `${cursoY}-03-01`;
+            const endMonthLast = new Date(cursoY+1, 2, 0).getDate();
+            const rangeEnd = `${cursoY+1}-02-${String(endMonthLast).padStart(2,'0')}`;
+
+            const days = [];
+            let cur = new Date(rangeStart + 'T00:00:00');
+            const end = new Date(rangeEnd + 'T00:00:00');
+            while (cur <= end) { days.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+1); }
+
+            // Índice peticiones: date → [{planId, empId, empName, applied}]
+            const plans = App.data[cfg.dataKey] || [];
+            const planIndex = {};
+            plans.forEach(p => {
+                const emp = App.data.empleados.find(e => e.id === p.empId);
+                const empName = emp ? emp.nombre : '?';
+                p.dates.forEach(d => {
+                    if (!planIndex[d]) planIndex[d] = [];
+                    planIndex[d].push({ planId: p.id, empId: p.empId, empName, applied: !!p.applied });
+                });
+            });
+            Object.keys(planIndex).forEach(d => planIndex[d].sort((a,b) => a.empName.localeCompare(b.empName)));
+
+            // Índice V en schedule: date → [{empId, empName}]
+            const grantedIndex = {};
+            Object.keys(App.data.schedule || {}).forEach(date => {
+                const day = App.data.schedule[date];
+                Object.keys(day).forEach(empId => {
+                    const sh = Utils.getShift(day[empId]);
+                    if (sh && sh.fixed && sh.code === 'V') {
+                        if (!grantedIndex[date]) grantedIndex[date] = [];
+                        const emp = App.data.empleados.find(e => e.id === empId);
+                        grantedIndex[date].push({ empId, empName: emp ? emp.nombre : '?' });
+                    }
+                });
+            });
+            Object.keys(grantedIndex).forEach(d => grantedIndex[d].sort((a,b) => a.empName.localeCompare(b.empName)));
+
+            const DAY_ES = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+            const today = new Date().toISOString().slice(0,10);
+            const _r = `App.ui.renderRequests(document.querySelector('.main-scroll'))`;
+
+            const yearNav = `<div style="display:flex;align-items:center;gap:3px;">
+                <button onclick="App.uiState.${cfg.uiKey}.agendaCursoY=${cursoY-1};${_r}"
+                    style="padding:3px 9px;border:1px solid #e2e8f0;border-radius:5px;background:#f1f5f9;cursor:pointer;font-size:0.82rem;color:#64748b;">◀</button>
+                <span style="font-size:0.82rem;font-weight:700;color:#1e293b;min-width:68px;text-align:center;">${cursoY}/${cursoY+1}</span>
+                <button onclick="App.uiState.${cfg.uiKey}.agendaCursoY=${cursoY+1};${_r}"
+                    style="padding:3px 9px;border:1px solid #e2e8f0;border-radius:5px;background:#f1f5f9;cursor:pointer;font-size:0.82rem;color:#64748b;">▶</button>
+            </div>`;
+
+            let html = sectionBar + `<div style="max-width:980px;margin:0 auto;width:100%;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+                    ${this._planToolbar(type)}
+                    ${yearNav}
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;font-size:0.67rem;color:var(--text-muted);">
+                    <span><span style="display:inline-block;width:10px;height:10px;background:#fef9c3;border:1px solid #fde047;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Pendiente</span>
+                    <span><span style="display:inline-block;width:10px;height:10px;background:#dcfce7;border:1px solid #86efac;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Aplicado</span>
+                    <span><span style="display:inline-block;width:10px;height:10px;background:#ede9fe;border:1px solid #c4b5fd;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>V en planificador</span>
+                    <span style="color:#94a3b8;">· click en vacío de Otorgadas → elegir empleado</span>
+                </div>
+                <div style="overflow-x:auto;">
+                <table style="border-collapse:collapse;font-size:0.75rem;table-layout:fixed;margin:0 auto;">
+                    <thead>
+                        <tr style="background:#f1f5f9;border-bottom:2px solid #cbd5e1;">
+                            <th style="padding:4px 3px;font-size:0.64rem;color:#64748b;font-weight:600;width:28px;border-right:1px solid #e2e8f0;">WK</th>
+                            <th style="padding:4px 4px;text-align:left;font-size:0.64rem;color:#64748b;font-weight:600;width:44px;">Fecha</th>
+                            <th style="padding:4px 3px;font-size:0.64rem;color:#64748b;font-weight:600;width:28px;border-right:2px solid #cbd5e1;">Día</th>
+                            <th colspan="3" style="padding:4px 5px;font-size:0.64rem;color:#92400e;font-weight:700;background:#fef9c3;border-right:2px solid #cbd5e1;">PETICIONES</th>
+                            <th colspan="3" style="padding:4px 5px;font-size:0.64rem;color:#5b21b6;font-weight:700;background:#ede9fe;">OTORGADAS</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            let lastWk = null, wkParity = 0;
+            days.forEach(date => {
+                const d = new Date(date + 'T00:00:00');
+                const dow = d.getDay();
+                const isWeekend = dow === 0 || dow === 6;
+                const isMon = dow === 1;
+                const wk = Utils.getWeekCode(date);
+                const isHoliday = (App.data.storeConfig.holidays || []).some(h => h.date === date);
+                const isToday = date === today;
+                if (wk !== lastWk) { lastWk = wk; wkParity = 1 - wkParity; }
+
+                const pets = planIndex[date] || [];
+                const grants = grantedIndex[date] || [];
+
+                const weekSep = isMon ? 'border-top:2px solid #94a3b8;' : '';
+                const weekBg = wkParity === 0 ? '#ffffff' : '#f8fafc';
+                const rowBg = isHoliday ? '#fef3c7' : isWeekend ? '#f0f4f8' : weekBg;
+                const todayHL = isToday ? 'outline:2px solid #2563eb;outline-offset:-2px;' : '';
+                const dayColor = isWeekend ? '#94a3b8' : '#1e293b';
+                const dayW = isWeekend ? '700' : '400';
+                const wkDisplay = wk.replace(/^\d{4}/, '').replace('WK','W');
+                const dateDisplay = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+                const bdBot = 'border-bottom:1px solid #f1f5f9;';
+                const cellBase = `padding:2px 4px;${bdBot}${weekSep}`;
+                const rowId = isToday ? 'id="plan-agenda-today"' : '';
+
+                const petCell = (e, isLast) => {
+                    const lbr = isLast ? 'border-right:2px solid #cbd5e1;' : '';
+                    if (!e) return `<td style="${cellBase}${lbr}width:128px;"></td>`;
+                    const bg = e.applied ? '#dcfce7' : '#fef9c3';
+                    const bdr = e.applied ? '#86efac' : '#fde047';
+                    const first = e.empName.split(' ')[0];
+                    return `<td style="${cellBase}${lbr}width:128px;">
+                        <div style="display:flex;align-items:center;background:${bg};border:1px solid ${bdr};border-radius:4px;padding:2px 5px;min-height:20px;cursor:pointer;"
+                             onclick="event.stopPropagation();App.ui._planAgendaMenu('petition','${date}','${e.empId}','${e.planId}',this)"
+                             title="${e.empName}${e.applied?' · aplicado':' · pendiente'}">
+                            <span style="font-weight:600;font-size:0.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${first}${e.applied?' ✓':''}</span>
+                        </div></td>`;
+                };
+                const grantCell = (e, isLast) => {
+                    const lbr = isLast ? '' : '';
+                    if (!e) return `<td style="${cellBase}${lbr}width:128px;cursor:pointer;" onclick="event.stopPropagation();App.ui._planAgendaMenu('empty','${date}',null,null,this)" onmouseover="this.style.background='#faf5ff'" onmouseout="this.style.background=''"></td>`;
+                    const first = e.empName.split(' ')[0];
+                    return `<td style="${cellBase}${lbr}width:128px;">
+                        <div style="display:flex;align-items:center;background:#ede9fe;border:1px solid #c4b5fd;border-radius:4px;padding:2px 5px;min-height:20px;cursor:pointer;"
+                             onclick="event.stopPropagation();App.ui._planAgendaMenu('granted','${date}','${e.empId}',null,this)"
+                             title="${e.empName}">
+                            <span style="font-weight:600;font-size:0.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${first}</span>
+                        </div></td>`;
+                };
+
+                html += `<tr ${rowId} style="background:${rowBg};${todayHL}">
+                    <td style="padding:2px 3px;text-align:center;color:#94a3b8;font-size:0.62rem;font-weight:700;border-right:1px solid #e2e8f0;${bdBot}${weekSep}">${isMon?wkDisplay:''}</td>
+                    <td style="padding:2px 6px;font-size:0.71rem;color:${dayColor};${bdBot}${weekSep}">${dateDisplay}</td>
+                    <td style="padding:2px 4px;text-align:center;color:${dayColor};font-size:0.67rem;font-weight:${dayW};border-right:2px solid #cbd5e1;${bdBot}${weekSep}">${DAY_ES[dow]}</td>
+                    ${petCell(pets[0]||null,false)}
+                    ${petCell(pets[1]||null,false)}
+                    ${petCell(pets[2]||null,true)}
+                    ${grantCell(grants[0]||null,false)}
+                    ${grantCell(grants[1]||null,false)}
+                    ${grantCell(grants[2]||null,true)}
+                </tr>`;
+            });
+
+            html += `</tbody></table></div></div>`;
+            c.innerHTML = html;
+
+            const todayRow = document.getElementById('plan-agenda-today');
+            if (todayRow) setTimeout(() => todayRow.scrollIntoView({ block:'center', behavior:'instant' }), 50);
+
+            const insp = document.getElementById('inspector-content');
+            if (insp) insp.innerHTML = '';
+        },
+
+        // Dropdown contextual para la vista agenda
+        _planAgendaMenu: function(kind, date, empId, planId, el) {
+            this._planAgendaCloseMenu();
+            const rect = el.getBoundingClientRect();
+            const menu = document.createElement('div');
+            menu.id = 'plan-agenda-menu';
+            const left = Math.min(rect.left, window.innerWidth - 240);
+            const top = Math.min(rect.bottom + 2, window.innerHeight - 200);
+            menu.style.cssText = `position:fixed;left:${left}px;top:${top}px;background:white;border:1px solid #cbd5e1;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,0.15);z-index:9999;min-width:200px;padding:4px;font-size:0.8rem;max-height:320px;overflow-y:auto;`;
+            menu.oncontextmenu = (e) => { e.preventDefault(); App.ui._planAgendaCloseMenu(); };
+
+            const item = (label, onclick, color) => `<button onclick="${onclick}" style="display:block;width:100%;padding:6px 10px;border:none;background:none;text-align:left;cursor:pointer;border-radius:4px;font-size:0.78rem;color:${color||'#1e293b'};" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">${label}</button>`;
+
+            let body = '';
+            if (kind === 'petition') {
+                body = item('📋 Ir a su plan', `App.ui._planAgendaGoToPlan('${planId}')`) +
+                       item('✓ Aprobar este día', `App.ui._planAgendaApproveDate('${date}','${empId}')`, '#16a34a');
+            } else if (kind === 'granted') {
+                body = item('📅 Ir al día en planificador', `App.ui._planAgendaGoToDay('${date}')`) +
+                       item('✕ Revocar vacaciones', `App.ui._planAgendaRevoke('${date}','${empId}')`, '#dc2626');
+            } else if (kind === 'empty') {
+                const dayV = new Set();
+                Object.keys(App.data.schedule[date] || {}).forEach(eid => {
+                    const sh = Utils.getShift(App.data.schedule[date][eid]);
+                    if (sh && sh.fixed && sh.code === 'V') dayV.add(eid);
+                });
+                const picks = App.data.empleados
+                    .filter(e => e.active !== false && !dayV.has(e.id) && Utils.empleadoVigenteEnRango(e, date, date))
+                    .sort((a,b) => a.nombre.localeCompare(b.nombre));
+                if (picks.length === 0) {
+                    body = `<div style="padding:6px 10px;color:#94a3b8;">Sin candidatos.</div>`;
+                } else {
+                    body = `<div style="padding:3px 8px;font-size:0.64rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Otorgar V a…</div>` +
+                        picks.map(e => item(e.nombre, `App.ui._planAgendaAssign('${date}','${e.id}')`)).join('');
+                }
+            }
+            menu.innerHTML = body;
+            document.body.appendChild(menu);
+
+            const close = (ev) => {
+                const insideMenu = ev && ev.target && ev.target.closest && ev.target.closest('#plan-agenda-menu');
+                if (ev && ev.type === 'contextmenu') {
+                    if (insideMenu) ev.preventDefault();
+                    App.ui._planAgendaCloseMenu();
+                    return;
+                }
+                if (insideMenu) return;
+                App.ui._planAgendaCloseMenu();
+            };
+            App.ui._planAgendaCloseFn = close;
+            setTimeout(() => {
+                document.addEventListener('click', close);
+                document.addEventListener('contextmenu', close);
+            }, 0);
+        },
+
+        _planAgendaCloseMenu: function() {
+            const m = document.getElementById('plan-agenda-menu'); if (m) m.remove();
+            const cf = document.getElementById('plan-agenda-conflict'); if (cf) cf.remove();
+            const bd = document.getElementById('plan-agenda-backdrop'); if (bd) bd.remove();
+            if (App.ui._planAgendaCloseFn) {
+                document.removeEventListener('click', App.ui._planAgendaCloseFn);
+                document.removeEventListener('contextmenu', App.ui._planAgendaCloseFn);
+                App.ui._planAgendaCloseFn = null;
+            }
+        },
+
+        _planAgendaGoToDay: function(date) {
+            App.ui._planAgendaCloseMenu();
+            App.uiState.currentDate = date;
+            App.router.go('planificador');
+        },
+
+        _planAgendaGoToPlan: function(planId) {
+            App.ui._planAgendaCloseMenu();
+            App.ui._planEdit('vacaciones', planId);
+        },
+
+        _planAgendaAssign: function(date, empId) {
+            App.ui._planAgendaCloseMenu();
+            const emp = App.data.empleados.find(e => e.id === empId);
+            if (!emp) return;
+            const sv = (App.data.schedule[date] || {})[empId];
+            if (sv) {
+                const sh = Utils.getShift(sv);
+                if (sh && !sh.fixed) { App.ui._planAgendaConflictPopup(date, empId, sh); return; }
+            }
+            const fixed = App.data.fixedShifts.find(s => s.code === 'V');
+            if (!fixed) { alert('No existe el turno fijo V en la configuración.'); return; }
+            if (!App.data.schedule[date]) App.data.schedule[date] = {};
+            App.data.schedule[date][empId] = fixed.id;
+            Safe.save('v40_db', App.data);
+            if (App.logic.checkAlerts) App.logic.checkAlerts();
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        _planAgendaApproveDate: function(date, empId) {
+            App.ui._planAgendaAssign(date, empId);
+        },
+
+        _planAgendaRevoke: function(date, empId) {
+            App.ui._planAgendaCloseMenu();
+            if (!App.data.schedule[date]) return;
+            delete App.data.schedule[date][empId];
+            Safe.save('v40_db', App.data);
+            if (App.logic.checkAlerts) App.logic.checkAlerts();
+            App.ui.renderRequests(document.querySelector('.main-scroll'));
+        },
+
+        _planAgendaConflictPopup: function(date, empId, shift) {
+            App.ui._planAgendaCloseMenu();
+            const emp = App.data.empleados.find(e => e.id === empId);
+            const desc = shift.code || `${shift.start}–${shift.end}`;
+            const bd = document.createElement('div');
+            bd.id = 'plan-agenda-backdrop';
+            bd.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.35);z-index:9999;';
+            bd.onclick = () => App.ui._planAgendaCloseMenu();
+            const pop = document.createElement('div');
+            pop.id = 'plan-agenda-conflict';
+            pop.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border:1px solid #fca5a5;border-radius:8px;padding:18px 22px;box-shadow:0 10px 30px rgba(0,0,0,0.2);z-index:10000;max-width:400px;';
+            pop.innerHTML = `
+                <div style="font-weight:700;color:#dc2626;margin-bottom:8px;font-size:0.95rem;">⚠️ Conflicto de turno</div>
+                <div style="color:#475569;line-height:1.5;font-size:0.85rem;margin-bottom:14px;">
+                    <strong>${emp ? emp.nombre : '?'}</strong> ya tiene el turno <strong>${desc}</strong> asignado el <strong>${Utils.formatDateES(date)}</strong>.<br><br>
+                    No se otorga la vacación. Revisa la situación en el planificador antes de continuar.
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:6px;">
+                    <button onclick="App.ui._planAgendaCloseMenu()" style="padding:6px 14px;border:1px solid #e2e8f0;background:white;color:#64748b;font-size:0.82rem;font-weight:600;border-radius:5px;cursor:pointer;">Cancelar</button>
+                    <button onclick="App.ui._planAgendaGoToDay('${date}')" style="padding:6px 14px;border:none;background:#2563eb;color:white;font-size:0.82rem;font-weight:600;border-radius:5px;cursor:pointer;">📅 Ir al día</button>
+                </div>`;
+            document.body.appendChild(bd);
+            document.body.appendChild(pop);
         },
 
         _renderEventos: function(c, sectionBar) {
