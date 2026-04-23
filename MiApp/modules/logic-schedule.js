@@ -1600,9 +1600,10 @@ Object.assign(App.logic, {
             // PARTE 4: Cobertura de llaves en días cerrados
             const hasLlaves = App.data.config.llavesActivo && App.data.config.llaves && App.data.config.llaves.length > 0;
             const hasKeyHolders = App.data.config.llavesActivo && App.data.empleados.some(e => e.llaveId);
-            if(hasLlaves || hasKeyHolders) {
+            const llavesDias = ((App.data.config.alertas || {}).llavesDias ?? 15) | 0;
+            if((hasLlaves || hasKeyHolders) && llavesDias > 0) {
                 const _hoy = new Date(); _hoy.setHours(0,0,0,0);
-                const _limite = new Date(_hoy); _limite.setDate(_limite.getDate() + 21);
+                const _limite = new Date(_hoy); _limite.setDate(_limite.getDate() + llavesDias);
                 const lockedDays = App.data.lockedDays || {};
                 Object.keys(lockedDays).filter(d => {
                     if(!lockedDays[d]) return false;
@@ -1637,6 +1638,28 @@ Object.assign(App.logic, {
                 const locked6 = App.data.lockedDays || {};
                 const todayStr6 = new Date().toISOString().slice(0, 10);
                 const lockedDates6 = Object.keys(locked6).filter(d => locked6[d] && d >= todayStr6).sort();
+                const alertas6 = App.data.config.alertas || {};
+                const tag3Dias  = (alertas6.tag3Dias  ?? 75) | 0;
+                const solo1Dias = (alertas6.solo1Dias ?? 75) | 0;
+                // Semana 100% cerrada cacheada por lunes (para TAG3 y solo1)
+                const weekClosedCache6 = {};
+                const isWeekClosed6 = (dateStr) => {
+                    const dt = new Date(dateStr + 'T12:00:00');
+                    const dow = dt.getDay();
+                    const off = dow === 0 ? -6 : 1 - dow;
+                    const mon = new Date(dt); mon.setDate(mon.getDate() + off);
+                    const monStr = mon.toISOString().slice(0, 10);
+                    if (weekClosedCache6[monStr] !== undefined) return weekClosedCache6[monStr];
+                    const all = Utils.getWeekDays(monStr).every(x => locked6[x]);
+                    weekClosedCache6[monStr] = all;
+                    return all;
+                };
+                // Días futuros (desde hoy) para comparar contra horizonte por alerta
+                const daysAhead6 = (dateStr) => {
+                    const a = new Date(todayStr6 + 'T00:00:00');
+                    const b = new Date(dateStr    + 'T00:00:00');
+                    return Math.round((b - a) / 86400000);
+                };
                 const toMin = t => { if (!t) return 0; const p = t.split(':'); return Number(p[0]) * 60 + Number(p[1]); };
 
                 const getWorkShift6 = (empId, date) => {
@@ -1683,41 +1706,48 @@ Object.assign(App.logic, {
                         return n;
                     };
 
-                    // 6A: Tramo sin TAG3
-                    const tag3Working = working.filter(w => ['MNG', 'AM', 'SPV'].includes(Utils.getRolEnFecha(w.emp, date)));
-                    if (tag3Working.length === 0 && working.length > 0) {
-                        alerts.push({
-                            title: `👔 Sin TAG3 en todo el día — ${Utils.formatDateES(date)}`,
-                            desc: `Ningún responsable (MNG/AM/SPV) trabaja el ${Utils.formatDateES(date)}. La tienda no tiene cobertura de mando.`,
-                            date
-                        });
-                    } else if (tag3Working.length > 0) {
-                        for (let m = storeOpen; m < storeClose; m += 30) {
-                            if (countAt(tag3Working, m) === 0) {
-                                const hh = String(Math.floor(m / 60)).padStart(2, '0');
-                                const mm = String(m % 60).padStart(2, '0');
-                                alerts.push({
-                                    title: `👔 Tramo sin TAG3 — ${Utils.formatDateES(date)}`,
-                                    desc: `A las ${hh}:${mm} no hay ningún responsable (MNG/AM/SPV) en tienda. Revisa los turnos del equipo TAG3.`,
-                                    date
-                                });
-                                break;
+                    const ahead = daysAhead6(date);
+                    const weekClosed = isWeekClosed6(date);
+
+                    // 6A: Tramo sin TAG3 — solo dentro del horizonte y en semana 100% cerrada
+                    if (tag3Dias > 0 && ahead <= tag3Dias && weekClosed) {
+                        const tag3Working = working.filter(w => ['MNG', 'AM', 'SPV'].includes(Utils.getRolEnFecha(w.emp, date)));
+                        if (tag3Working.length === 0 && working.length > 0) {
+                            alerts.push({
+                                title: `👔 Sin TAG3 en todo el día — ${Utils.formatDateES(date)}`,
+                                desc: `Ningún responsable (MNG/AM/SPV) trabaja el ${Utils.formatDateES(date)}. La tienda no tiene cobertura de mando.`,
+                                date
+                            });
+                        } else if (tag3Working.length > 0) {
+                            for (let m = storeOpen; m < storeClose; m += 30) {
+                                if (countAt(tag3Working, m) === 0) {
+                                    const hh = String(Math.floor(m / 60)).padStart(2, '0');
+                                    const mm = String(m % 60).padStart(2, '0');
+                                    alerts.push({
+                                        title: `👔 Tramo sin TAG3 — ${Utils.formatDateES(date)}`,
+                                        desc: `A las ${hh}:${mm} no hay ningún responsable (MNG/AM/SPV) en tienda. Revisa los turnos del equipo TAG3.`,
+                                        date
+                                    });
+                                    break;
+                                }
                             }
                         }
                     }
 
-                    // 6B: Solo 1 persona en algún tramo
-                    for (let m = storeOpen; m < storeClose; m += 30) {
-                        const c = countAt(working, m);
-                        if (c === 1) {
-                            const hh = String(Math.floor(m / 60)).padStart(2, '0');
-                            const mm = String(m % 60).padStart(2, '0');
-                            alerts.push({
-                                title: `👤 Solo 1 persona en tienda — ${Utils.formatDateES(date)}`,
-                                desc: `A las ${hh}:${mm} solo hay 1 empleado trabajando. Mínimo recomendado: 2 personas en tienda.`,
-                                date
-                            });
-                            break;
+                    // 6B: Solo 1 persona en algún tramo — solo dentro del horizonte y en semana 100% cerrada
+                    if (solo1Dias > 0 && ahead <= solo1Dias && weekClosed) {
+                        for (let m = storeOpen; m < storeClose; m += 30) {
+                            const c = countAt(working, m);
+                            if (c === 1) {
+                                const hh = String(Math.floor(m / 60)).padStart(2, '0');
+                                const mm = String(m % 60).padStart(2, '0');
+                                alerts.push({
+                                    title: `👤 Solo 1 persona en tienda — ${Utils.formatDateES(date)}`,
+                                    desc: `A las ${hh}:${mm} solo hay 1 empleado trabajando. Mínimo recomendado: 2 personas en tienda.`,
+                                    date
+                                });
+                                break;
+                            }
                         }
                     }
 
@@ -1762,9 +1792,13 @@ Object.assign(App.logic, {
 
             // PARTE 7: Racha de 7+ días consecutivos trabajando en semanas cerradas
             // Detecta rachas que empiezan incluso en la semana anterior.
-            try {
+            const rachaDias = ((App.data.config.alertas || {}).rachaDias ?? 75) | 0;
+            if (rachaDias > 0) try {
                 const locked7 = App.data.lockedDays || {};
-                const todayStr7 = new Date().toISOString().slice(0, 10);
+                const hoy7 = new Date(); hoy7.setHours(0,0,0,0);
+                const todayStr7 = hoy7.toISOString().slice(0, 10);
+                const limite7 = new Date(hoy7); limite7.setDate(limite7.getDate() + rachaDias);
+                const limiteStr7 = limite7.toISOString().slice(0, 10);
                 const activeEmps7 = App.data.empleados.filter(e => e.active !== false);
 
                 // Helper: ¿trabaja el empleado ese día? (turno real, no fijo)
@@ -1775,9 +1809,9 @@ Object.assign(App.logic, {
                     return sh && !sh.fixed;
                 };
 
-                // Recopilar lunes de semanas completamente cerradas (futuras o actuales)
+                // Recopilar lunes de semanas completamente cerradas dentro del horizonte
                 const mondaysSet7 = new Set();
-                Object.keys(locked7).filter(d => locked7[d] && d >= todayStr7).forEach(d => {
+                Object.keys(locked7).filter(d => locked7[d] && d >= todayStr7 && d <= limiteStr7).forEach(d => {
                     const dt = new Date(d + 'T12:00:00');
                     const dow = dt.getDay(); // 0=Dom
                     const off = dow === 0 ? -6 : 1 - dow;

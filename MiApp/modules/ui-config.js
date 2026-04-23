@@ -40,6 +40,7 @@ Object.assign(App.ui, {
                 { id: 'valle',       icon: '🕐',  label: 'Valle' },
                 { id: 'facturacion', icon: '📊',  label: 'Facturación' },
                 { id: 'backups',     icon: '🛡',  label: 'Backups' },
+                { id: 'alertas',     icon: '🔔',  label: 'Alertas' },
                 { id: 'peligro',     icon: '⚠️',  label: 'Peligro' },
             ];
 
@@ -294,6 +295,46 @@ Object.assign(App.ui, {
                                 📥 Importar backup local
                             </button>
                         </div>
+                    </div>
+                </div>`;
+            }
+
+            else if(tab === 'alertas') {
+                if(!App.data.config.alertas) App.data.config.alertas = {};
+                const a = App.data.config.alertas;
+                // Handler global en App.ui para evitar pérdida de this/contexto y manejar errores
+                App.ui._cfgSetAlerta = App.ui._cfgSetAlerta || function(key, val) {
+                    try {
+                        if(!App.data.config.alertas) App.data.config.alertas = {};
+                        App.data.config.alertas[key] = Math.max(0, parseInt(val) || 0);
+                        Safe.save('v40_db', App.data);
+                        if(App.logic && typeof App.logic.checkAlerts === 'function') App.logic.checkAlerts();
+                    } catch(e) { console.error('[cfgAlerta]', e); }
+                };
+                const field = (key, label, desc) => `
+                    <div style="display:grid; grid-template-columns:1fr 110px; gap:14px; align-items:center; padding:14px 0; border-top:1px solid #f1f5f9;">
+                        <div>
+                            <div style="font-size:0.85rem; font-weight:700; color:#1e293b; margin-bottom:2px;">${label}</div>
+                            <div style="font-size:0.76rem; color:#94a3b8; line-height:1.4;">${desc}</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <input type="number" min="0" step="1" value="${a[key] ?? 0}"
+                                   onchange="App.ui._cfgSetAlerta('${key}', this.value)"
+                                   style="width:70px; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; text-align:right; box-sizing:border-box;">
+                            <span style="font-size:0.78rem; color:#64748b; font-weight:600;">días</span>
+                        </div>
+                    </div>`;
+
+                content = `
+                <div style="max-width:560px;">
+                    <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <h3 style="margin:0 0 6px 0; font-size:0.9rem; font-weight:700; color:#1e293b;">🔔 Horizonte de vigilancia</h3>
+                        <p style="margin:0 0 6px 0; font-size:0.82rem; color:#64748b;">Cuántos días a futuro (desde hoy) vigila cada alerta. Usa <strong>0</strong> para desactivarla por completo.</p>
+                        <p style="margin:0 0 4px 0; font-size:0.75rem; color:#94a3b8;">Las alertas de TAG3, 1 persona y racha solo se emiten en semanas con los 7 días bloqueados en el calendario.</p>
+                        ${field('llavesDias', '🔑 Llaves de apertura / cierre', 'Avisa si en un día bloqueado no hay portador de llave cubriendo apertura o cierre.')}
+                        ${field('tag3Dias',   '👔 Cobertura de TAG3',           'Avisa si en algún tramo no hay ningún MNG/AM/SPV en tienda.')}
+                        ${field('solo1Dias',  '👤 Solo 1 persona en tienda',    'Avisa si en algún tramo solo hay 1 empleado trabajando.')}
+                        ${field('rachaDias',  '🔥 Turnos seguidos sin descanso','Avisa si un empleado encadena 7 o más días consecutivos trabajando.')}
                     </div>
                 </div>`;
             }

@@ -6,6 +6,18 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '23/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Configuración — nueva pestaña "🔔 Alertas" con horizonte de vigilancia configurable por tipo (en días)',
+                    '✨ Alerta llaves apertura/cierre — horizonte configurable (antes 21 días fijos, ahora default 15)',
+                    '✨ Alerta cobertura TAG3 — horizonte configurable (default 75 días) + filtro de semana 100% cerrada',
+                    '✨ Alerta solo 1 persona en tienda — horizonte configurable (default 75 días) + filtro de semana 100% cerrada',
+                    '✨ Alerta racha 7+ días seguidos — horizonte configurable (default 75 días)',
+                    '🔧 Cualquier alerta puesta a 0 días queda desactivada por completo',
+                    '🔧 Persistencia de config.alertas incluida en backups (completo y selectivo bajo "Configuración")',
+                ]
+            },
+            {
                 fecha: '17/04/2026 (tarde)', version: 'v1.0',
                 items: [
                     '✨ Plan de Vacaciones — nueva vista "Agenda": tabla día a día del año laboral (mar→feb) con 3 columnas de peticiones + 3 de otorgadas',

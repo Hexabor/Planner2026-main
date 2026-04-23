@@ -165,6 +165,11 @@ const App = {
         if(App.data.config.llavesActivo === undefined) App.data.config.llavesActivo = false;
         if(!App.data.traspasoLlaves) App.data.traspasoLlaves = [];
         if(!App.data.dismissedAlerts) App.data.dismissedAlerts = [];
+        if(!App.data.config.alertas) App.data.config.alertas = {};
+        if(App.data.config.alertas.llavesDias === undefined) App.data.config.alertas.llavesDias = 15;
+        if(App.data.config.alertas.tag3Dias   === undefined) App.data.config.alertas.tag3Dias   = 75;
+        if(App.data.config.alertas.solo1Dias  === undefined) App.data.config.alertas.solo1Dias  = 75;
+        if(App.data.config.alertas.rachaDias  === undefined) App.data.config.alertas.rachaDias  = 75;
 
         // Facturación: siempre desde ADMIN_CONFIG (override local con clave si existe)
         if(typeof ADMIN_CONFIG !== 'undefined' && ADMIN_CONFIG.facturacion) {
