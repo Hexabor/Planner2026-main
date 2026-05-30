@@ -413,7 +413,8 @@ Object.assign(App.ui, {
                     let count = 0; const list = [];
                     holidays.forEach(h => {
                         const tr = tracking[h.date] || {};
-                        if(tr.rDate && realRs.has(tr.rDate)) return; // ya tiene R válida → recuperado
+                        // Compensado SOLO si su R cae dentro del tramo anterior; si la R está en el rango actual, sigue siendo deuda heredada
+                        if(tr.rDate && realRs.has(tr.rDate) && tr.rDate >= prevStart && tr.rDate < startISO) return;
                         const sid = App.data.schedule[h.date]?.[emp.id];
                         const shift = sid ? Utils.getShift(sid) : null;
                         if(!shift) return;
@@ -443,7 +444,11 @@ Object.assign(App.ui, {
                         const cW = Utils.getContrato(emp, monday);
                         theoH += stdH * (cW / REF_CONTRATO) / 52;
                         theoTramos[cW] = (theoTramos[cW] || 0) + 1;
-                        Utils.getWeekDays(monday).forEach(d => {
+                        const wdays = Utils.getWeekDays(monday);
+                        // Libranzas (L) de la semana — para decidir si un festivo se disfrutó (≥2 L sin contar el festivo)
+                        let weekL = 0;
+                        wdays.forEach(d => { const s = App.data.schedule[d]?.[emp.id]; const sh = s ? Utils.getShift(s) : null; if(sh && sh.fixed && sh.code==='L') weekL++; });
+                        wdays.forEach(d => {
                             const sid = App.data.schedule[d]?.[emp.id];
                             if(!sid) return;
                             const sh = Utils.getShift(sid);
@@ -452,7 +457,7 @@ Object.assign(App.ui, {
                                 if(sh.code==='L') countL++;
                                 else if(sh.code==='V') countV++;
                                 else if(sh.code==='B') countB++;
-                                else if(sh.code==='F') countF++;
+                                else if(sh.code==='F') { if(weekL >= 2) countF++; } // solo festivos disfrutados; "coincide" (<2 L) no cuenta
                                 else if(sh.code==='R') countR++;
                                 else if(sh.code==='P') countP++;
                                 else { countOtros++; otrosCodes[sh.code]=(otrosCodes[sh.code]||0)+1; }
@@ -469,7 +474,7 @@ Object.assign(App.ui, {
                         theoH: f1(theoH), theoTramos, weeksVig,
                         workedDays, countL, countV, countB, countF, countR, countP,
                         pendPrev: pend.count, pendPrevList: pend.list,
-                        festRec: countF + countR,
+                        festRecA: countF + countR - pend.count,
                         countOtros, otrosCodes,
                         workedH: f1(workedH),
                         customOrder: emp.customOrder ?? 0
@@ -490,7 +495,7 @@ Object.assign(App.ui, {
                 const T = k => rows.reduce((s,r)=>s+(r[k]||0),0);
                 const totWorkedDays=T('workedDays'), totL=T('countL'), totV=T('countV'),
                       totB=T('countB'), totF=T('countF'), totR=T('countR'), totP=T('countP'),
-                      totFestRec=T('festRec'), totTheo=f1(T('theoH')), totPendPrev=T('pendPrev'),
+                      totFestRecA=T('festRecA'), totTheo=f1(T('theoH')), totPendPrev=T('pendPrev'),
                       totOtros=T('countOtros'), totWorkedH=f1(T('workedH'));
 
                 // Estilos + helpers de orden
@@ -510,10 +515,10 @@ Object.assign(App.ui, {
                     ${th('Libr.','countL','Días librados (L)')}
                     ${th('Vac.','countV','Días de vacaciones (V)')}
                     ${th('Baja','countB','Días de baja médica (B)')}
-                    ${th('Fest.','countF','Días de festivo (F)')}
-                    ${th('Ant.','pendPrev','Festivos del año anterior pendientes de recuperación')}
+                    ${th('Fest.','countF','Festivos disfrutados — la semana tuvo 2 libranzas sin contar el festivo (los “coincide” no cuentan)')}
                     ${th('Rec.','countR','Días de recuperación de festivo (R)')}
-                    ${th('F+R','festRec','Festivos + recuperaciones (suma)')}
+                    ${th('Ant.','pendPrev','Festivos del tramo anterior no compensados dentro de ese tramo')}
+                    ${th('F+R-A','festRecA','Festivos disfrutados + recuperaciones − festivos del tramo anterior sin compensar (A)')}
                     ${th('Perm.','countP','Días de permiso (P)')}
                     ${th('H. trab.','workedH','Horas trabajadas (turnos con horario, descontando descansos)')}
                 `;
@@ -523,7 +528,7 @@ Object.assign(App.ui, {
                         ? `<div class="diff-tooltip-wrap" style="cursor:help;">${r.theoH}h<div class="diff-tooltip" style="min-width:260px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Horas teóricas (${r.weeksVig} sem vigente)</div>${Object.entries(r.theoTramos).sort((a,b)=>parseFloat(b[0])-parseFloat(a[0])).map(([c,wk])=>{const cN=parseFloat(c);const sub=f1(stdH*(cN/REF_CONTRATO)/52*wk);return `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">${cN}h/sem × ${wk} sem</span><span style="font-weight:600;font-family:monospace;">${sub}h</span></div>`;}).join('')}<div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">= Total teóricas</span><span style="font-weight:700;">${r.theoH}h</span></div><div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Base convenio <strong>${stdH}h/año</strong> para 37,5h/sem · proporcional al contrato y a las semanas con contrato vigente (año = 52 sem). Cada tramo cuenta con sus propias horas.</div></div></div>`
                         : '—';
                     const pendPrevCell = r.pendPrev > 0
-                        ? `<div class="diff-tooltip-wrap" style="cursor:help;font-weight:700;color:#ef4444;">${r.pendPrev}<div class="diff-tooltip" style="min-width:230px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:4px;">Festivos del año anterior pendientes</div>${r.pendPrevList.map(p=>`<div style="color:#fca5a5;font-size:0.72rem;line-height:1.7;">${fmtFestDateV2(p.date)} <span style="color:#94a3b8;">— ${p.reason}</span></div>`).join('')}<div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Festivos en los 12 meses previos al inicio del rango, en semanas cerradas, sin recuperación (R) asignada todavía.</div></div></div>`
+                        ? `<div class="diff-tooltip-wrap" style="cursor:help;font-weight:700;color:#ef4444;">${r.pendPrev}<div class="diff-tooltip" style="min-width:230px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:4px;">Festivos del tramo anterior sin compensar</div>${r.pendPrevList.map(p=>`<div style="color:#fca5a5;font-size:0.72rem;line-height:1.7;">${fmtFestDateV2(p.date)} <span style="color:#94a3b8;">— ${p.reason}</span></div>`).join('')}<div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Festivos de los 12 meses previos al inicio del rango (semanas cerradas) cuya recuperación no se hizo dentro de ese tramo: su R cae en el rango actual o aún no existe.</div></div></div>`
                         : '<span style="color:#10b981;font-weight:700;">✓</span>';
                     return `<tr style="border-bottom:1px solid #f1f5f9;">
                     <td style="${tdStyleL}font-weight:600;">${r.emp.nombre}</td>
@@ -534,9 +539,9 @@ Object.assign(App.ui, {
                     <td style="${tdStyle}color:#a855f7;">${r.countV || '—'}</td>
                     <td style="${tdStyle}color:#ef4444;">${r.countB || '—'}</td>
                     <td style="${tdStyle}color:#d97706;">${r.countF || '—'}</td>
-                    <td style="${tdStyle}">${pendPrevCell}</td>
                     <td style="${tdStyle}color:#10b981;">${r.countR || '—'}</td>
-                    <td style="${tdStyle}color:#0891b2;font-weight:600;">${r.festRec || '—'}</td>
+                    <td style="${tdStyle}">${pendPrevCell}</td>
+                    <td style="${tdStyle}color:${r.festRecA<0?'#ef4444':'#0891b2'};font-weight:600;">${r.festRecA || '—'}</td>
                     <td style="${tdStyle}color:#ec4899;">${r.countP || '—'}</td>
                     <td style="${tdStyle}font-weight:700;color:#1e293b;">${r.workedH}h</td>
                 </tr>`;
@@ -580,9 +585,9 @@ Object.assign(App.ui, {
                                 <td style="${tdStyle}">${totV||'—'}</td>
                                 <td style="${tdStyle}">${totB||'—'}</td>
                                 <td style="${tdStyle}">${totF||'—'}</td>
-                                <td style="${tdStyle}">${totPendPrev>0?`<span style="color:#ef4444;">${totPendPrev}</span>`:'<span style="color:#10b981;">✓</span>'}</td>
                                 <td style="${tdStyle}">${totR||'—'}</td>
-                                <td style="${tdStyle}">${totFestRec||'—'}</td>
+                                <td style="${tdStyle}">${totPendPrev>0?`<span style="color:#ef4444;">${totPendPrev}</span>`:'<span style="color:#10b981;">✓</span>'}</td>
+                                <td style="${tdStyle}">${totFestRecA||'—'}</td>
                                 <td style="${tdStyle}">${totP||'—'}</td>
                                 <td style="${tdStyle}">${totWorkedH}h</td>
                             </tr>
