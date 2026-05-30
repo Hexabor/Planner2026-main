@@ -5,7 +5,7 @@
 const App = {
     data: {
         meta: { ver: "41.93" },
-        config: { weekStart: "2025-12-29", stdHours: 1800 }, 
+        config: { weekStart: "2025-12-29", stdHours: 1711 }, 
         empleados: [], requests: [], recurringRequests: [], storeConfig: { base: {}, special: [], holidays: [] },
         fixedShifts: [
             { id: "fixed_L", code: "L", desc: "Libre", start: "", end: "", color: "#22c55e", fixed: true },
@@ -148,7 +148,7 @@ const App = {
         }
         
         if(!App.data.schedule) App.data.schedule = {};
-        if(!App.data.config) App.data.config = { weekStart: "2025-12-29", stdHours: 1800 };
+        if(!App.data.config) App.data.config = { weekStart: "2025-12-29", stdHours: 1711 };
         if(!App.data.config.colors) App.data.config.colors = { L: '#94a3b8', V: '#22c55e', F: '#eab308', R: '#6366f1' };
         if(!App.data.config.valleStart) App.data.config.valleStart = '14:00';
         if(!App.data.config.valleEnd)   App.data.config.valleEnd   = '17:00';
@@ -254,7 +254,7 @@ const App = {
         D.forEach(d => { if(!App.data.storeConfig.base[d]) App.data.storeConfig.base[d]={open:"10:00",close:"22:00",closed:false}; });
         if(!App.data.storeConfig.base["Festivo"]) App.data.storeConfig.base["Festivo"]={open:"12:00",close:"20:00",closed:false};
         
-        App.data.empleados.forEach((e, idx) => { if(!e.prefs) e.prefs = {}; if(e.customOrder === undefined) e.customOrder = idx; if(e.active === undefined) e.active = true; if(e.saldoInicial === undefined) e.saldoInicial = 0; if(e.recPendientes === undefined) e.recPendientes = 0; if(e.vacPendientes === undefined) e.vacPendientes = 0; if(!e.festivoTracking) e.festivoTracking = {}; if(!e.ajustes) e.ajustes = []; if(e.llaveId === undefined) e.llaveId = null; });
+        App.data.empleados.forEach((e, idx) => { if(!e.prefs) e.prefs = {}; if(e.customOrder === undefined) e.customOrder = idx; if(e.active === undefined) e.active = true; if(e.saldoInicial === undefined) e.saldoInicial = 0; if(e.recPendientes === undefined) e.recPendientes = 0; if(e.vacPendientes === undefined) e.vacPendientes = 0; if(!e.festivoTracking) e.festivoTracking = {}; if(!e.recuperacionesInferidas) e.recuperacionesInferidas = {}; if(!e.ajustes) e.ajustes = []; if(e.llaveId === undefined) e.llaveId = null; });
         App.data.shiftDefs.forEach((s, idx) => { if(s.customOrder === undefined) s.customOrder = idx; });
         App.logic.migrateData(); // Normaliza datos de backups antiguos (break heredado, campos faltantes)
         

@@ -74,8 +74,8 @@ Object.assign(App.ui, {
                                value="${App.data.config.opcionesContrato ? App.data.config.opcionesContrato.join(', ') : '40, 37.5, 30, 20, 12'}"
                                onchange="App.data.config.opcionesContrato = this.value.split(',').map(s=>parseFloat(s.trim())).filter(n=>!isNaN(n)); Safe.save('v40_db',App.data)"
                                placeholder="Ej: 40, 30, 20"
-                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; box-sizing:border-box;">
-                        <p style="margin:8px 0 0; font-size:0.78rem; color:#94a3b8;">Valores separados por comas. Aparecen en el desplegable al editar contratos.</p>
+                               style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; box-sizing:border-box; margin-bottom:16px;">
+                        <p style="margin:0 0 16px; font-size:0.78rem; color:#94a3b8;">Valores separados por comas. Aparecen en el desplegable al editar contratos.</p>
                     </div>
                     <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:${App.data.config.llavesActivo ? '16px' : '0'};">
@@ -117,6 +117,23 @@ Object.assign(App.ui, {
                                    style="width:44px; height:36px; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; padding:2px;">
                             <span style="font-size:0.82rem; color:#64748b;">Azul marino por defecto</span>
                         </div>
+                    </div>
+                    <div style="background:white; padding:22px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                            <h3 style="margin:0; font-size:0.9rem; font-weight:700; color:#1e293b;">📥 Modo fácil al importar</h3>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <span style="font-size:11px; font-weight:700; color:${App.data.config.importEasyMode ? '#059669' : '#94a3b8'};">${App.data.config.importEasyMode ? 'Activado' : 'Desactivado'}</span>
+                                <input type="checkbox" ${App.data.config.importEasyMode ? 'checked' : ''}
+                                       onchange="App.data.config.importEasyMode=this.checked; Safe.save('v40_db',App.data); App.router.go('config');"
+                                       style="width:16px; height:16px; cursor:pointer; accent-color:#059669;">
+                            </label>
+                        </div>
+                        <p style="margin:0; font-size:0.82rem; color:#64748b; line-height:1.55;">
+                            Si está activo, al importar desde el Eficiente el Planner detectará los festivos trabajados (o festivos con menos de 2 libranzas en la semana) y reclasificará automáticamente las libranzas en exceso como recuperaciones de festivo.
+                        </p>
+                        <p style="margin:8px 0 0; font-size:0.78rem; color:#b45309; line-height:1.55;">
+                            ⚠️ Las recuperaciones inferidas se marcan visualmente en el grid (subrayado punteado) para que puedas revisarlas y corregirlas con un clic si alguna debería seguir siendo libranza.
+                        </p>
                     </div>
                 </div>`;
             }

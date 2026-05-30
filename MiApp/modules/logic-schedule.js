@@ -163,6 +163,10 @@ Object.assign(App.logic, {
             }
             if(!App.data.schedule[date] || !App.data.schedule[date][empId]) return;
 
+            // Limpia marca de "recuperación inferida" si la había para este día
+            const _empClean = App.data.empleados.find(e => e.id === empId);
+            if (_empClean?.recuperacionesInferidas?.[date]) delete _empClean.recuperacionesInferidas[date];
+
             // Comprobar solicitudes/planes antes de borrar
             const req = Utils.getRequest(empId, date);
             if(req && req.status === 'approved' && req.type !== 'HRL') {
@@ -217,6 +221,10 @@ Object.assign(App.logic, {
                 alert('🔒 Esta semana está cerrada.\n\nPara editar los turnos, ábrela primero con el switch del planificador.');
                 return;
             }
+
+            // Limpia marca de "recuperación inferida": cualquier acción manual la deja de ser auto
+            const _empClean = App.data.empleados.find(e => e.id === empId);
+            if (_empClean?.recuperacionesInferidas?.[date]) delete _empClean.recuperacionesInferidas[date];
 
             if(!App.data.schedule[date]) App.data.schedule[date] = {};
 

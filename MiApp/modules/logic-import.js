@@ -960,10 +960,12 @@ Object.assign(App.logic, {
             const state = App.uiState.importState;
             const analyzed = state.analyzed;
             const markFree = state.markFree || false;
+            const easyMode = !!App.data.config?.importEasyMode;
             let shiftsCreated = 0;
             let customCreated = 0;
             let empsCreated = 0;
             let freesMarked = 0;
+            let recuperacionesInferidas = 0;
             
             // Mapear o crear empleados
             const empMap = {}; // nombre -> id
@@ -1073,7 +1075,69 @@ Object.assign(App.logic, {
                     });
                 }
             });
-            
+
+            // ── MODO FÁCIL: inferir recuperaciones de festivo ─────────────
+            // Para cada empleado, contar festivos en el rango con derecho a recuperación
+            // (trabajó el festivo, o tiene F con menos de 2 L en la semana, o tiene V).
+            // Si hay déficit frente a las R explícitas, reclasificar las primeras
+            // 'fixed_L' del rango como 'fixed_R' inferida.
+            if (easyMode) {
+                const importedDates = daysToImport.map(d => d.date);
+                const holidaysSet = new Set((App.data.storeConfig.holidays || []).map(h => h.date));
+
+                Object.values(empMap).forEach(empId => {
+                    const emp = App.data.empleados.find(e => e.id === empId);
+                    if (!emp || emp.active === false) return;
+
+                    let pendientes = 0;
+                    importedDates.forEach(date => {
+                        if (!holidaysSet.has(date)) return;
+                        if (!Utils.empleadoVigenteEnFecha(emp, date)) return;
+                        const sid = App.data.schedule[date]?.[empId];
+                        const sh = sid ? Utils.getShift(sid) : null;
+                        if (!sh) return;
+                        if (sh.fixed && sh.code === 'V') { pendientes++; return; }
+                        if (sh.fixed && sh.code === 'F') {
+                            const wdays = Utils.getWeekDays(Utils.getMonday(date));
+                            let countL = 0;
+                            wdays.forEach(d => {
+                                const s2 = App.data.schedule[d]?.[empId];
+                                const sh2 = s2 ? Utils.getShift(s2) : null;
+                                if (sh2 && sh2.fixed && sh2.code === 'L') countL++;
+                            });
+                            if (countL < 2) pendientes++;
+                        } else if (sh.start && sh.end) {
+                            pendientes++;
+                        }
+                    });
+
+                    if (pendientes === 0) return;
+
+                    // R explícitas ya marcadas en el rango
+                    let rExplicitas = 0;
+                    importedDates.forEach(date => {
+                        const sid = App.data.schedule[date]?.[empId];
+                        if (sid === 'fixed_R') rExplicitas++;
+                    });
+
+                    let aInferir = pendientes - rExplicitas;
+                    if (aInferir <= 0) return;
+
+                    // Candidatos: 'fixed_L' del rango, ordenados cronológicamente
+                    const candidatos = importedDates
+                        .filter(date => App.data.schedule[date]?.[empId] === 'fixed_L')
+                        .sort();
+
+                    if (!emp.recuperacionesInferidas) emp.recuperacionesInferidas = {};
+                    for (let i = 0; i < Math.min(aInferir, candidatos.length); i++) {
+                        const date = candidatos[i];
+                        App.data.schedule[date][empId] = 'fixed_R';
+                        emp.recuperacionesInferidas[date] = true;
+                        recuperacionesInferidas++;
+                    }
+                });
+            }
+
             Safe.save('v40_db', App.data);
             
             App.uiState.importState = {
@@ -1082,7 +1146,8 @@ Object.assign(App.logic, {
                     shiftsCreated: shiftsCreated,
                     customCreated: customCreated,
                     empsCreated: empsCreated,
-                    freesMarked: freesMarked
+                    freesMarked: freesMarked,
+                    recuperacionesInferidas: recuperacionesInferidas
                 }
             };
             

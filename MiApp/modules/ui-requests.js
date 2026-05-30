@@ -130,7 +130,11 @@ Object.assign(App.ui, {
                 html += `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.85rem;">No hay festivos configurados</div>`;
             } else {
                 html += `<table class="store-table"><thead><tr><th>Fecha</th><th>Nombre</th><th style="width:60px;"></th></tr></thead><tbody>`;
-                App.data.storeConfig.holidays.forEach((hol, i) => {
+                // Mostrar de más nuevo a más viejo, preservando el índice original para los handlers
+                const holsOrdenados = App.data.storeConfig.holidays
+                    .map((hol, i) => ({ hol, i }))
+                    .sort((a, b) => (b.hol.date || '').localeCompare(a.hol.date || ''));
+                holsOrdenados.forEach(({ hol, i }) => {
                     const holOnChange = `App.logic.holUpd(${i}, 'date', this.dataset.isoValue); ${rerender}`;
                     html += `<tr>
                         <td>${Utils.getDateInputHTML('cal-hol-' + i, hol.date, holOnChange)}</td>

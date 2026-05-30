@@ -509,8 +509,11 @@ Object.assign(App.ui, {
 
                 if(shift) {
                     if(shift.fixed) {
-                        hoursContent = `<span style="color:${shift.color}; font-weight:700; font-size:0.8rem;">${shift.code}</span>`;
-                        scheduleContent = `<span style="color:${shift.color}; font-size:0.6rem;">${shift.desc}</span>`;
+                        const _isInferidaR = shift.code === 'R' && e.recuperacionesInferidas?.[date];
+                        const _infTitle = _isInferidaR ? ' title="Recuperación inferida automáticamente al importar (modo fácil). Si debería ser libranza, cámbiala con un clic."' : '';
+                        const _infStyle = _isInferidaR ? 'text-decoration:underline dotted #059669; text-underline-offset:2px;' : '';
+                        hoursContent = `<span${_infTitle} style="color:${shift.color}; font-weight:700; font-size:0.8rem; ${_infStyle}">${shift.code}${_isInferidaR ? '<sup style="font-size:0.5rem; color:#059669; font-weight:700; margin-left:1px;">auto</sup>' : ''}</span>`;
+                        scheduleContent = `<span style="color:${shift.color}; font-size:0.6rem; ${_infStyle}">${shift.desc}${_isInferidaR ? ' <em style="color:#059669; font-style:normal; font-weight:600;">(auto)</em>' : ''}</span>`;
                     } else if(shift.start && shift.end) {
                         const hours = Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break);
                         hoursContent = `${hours}h`;
@@ -520,8 +523,8 @@ Object.assign(App.ui, {
                 }
 
                 let reqClass = ''; let reqIcon = '';
-                if(request && request.status !== 'rejected') { 
-                    let icon='⚠️'; if(request.type==='VAC') icon='🏖️'; if(request.type==='BAJ') icon='🏥'; 
+                if(request && request.status !== 'rejected') {
+                    let icon='⚠️'; if(request.type==='VAC') icon='🏖️'; if(request.type==='BAJ') icon='🏥';
                     if(request.type==='LIB') icon='🏠'; if(request.type==='AP') icon='📋'; if(request.type==='HRL') icon='⏰';
                     reqIcon = icon;
                     if(request.status === 'approved') reqClass = 'req-approved-attended';
@@ -792,7 +795,10 @@ Object.assign(App.ui, {
                 let hours = 0;
                 if(shift) {
                     if(shift.fixed) {
-                        scheduleContent = `<span style="color:${shift.color}; font-size:0.65rem;">${shift.desc}</span>`;
+                        const _isInferidaR = shift.code === 'R' && emp?.recuperacionesInferidas?.[d];
+                        const _infTitle = _isInferidaR ? ' title="Recuperación inferida automáticamente al importar (modo fácil). Si debería ser libranza, cámbiala con un clic."' : '';
+                        const _infStyle = _isInferidaR ? 'text-decoration:underline dotted #059669; text-underline-offset:2px;' : '';
+                        scheduleContent = `<span${_infTitle} style="color:${shift.color}; font-size:0.65rem; ${_infStyle}">${shift.desc}${_isInferidaR ? ' <em style="color:#059669; font-style:normal; font-weight:600;">(auto)</em>' : ''}</span>`;
                     } else if(shift.start && shift.end) {
                         hours = Utils.calcHours(shift.start, shift.end, shift.breakStart, shift.breakEnd, shift.break);
                         scheduleColor = `color:${shift.color || '#6b7280'};font-weight:600;`;

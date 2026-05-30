@@ -38,6 +38,10 @@ Object.assign(App.ui, {
                             <p style="color:#b45309; font-size:0.78em; margin:6px 0 0 24px;">
                                 ⚠️ Vacaciones, bajas y permisos solo se distinguen de las libranzas si tienen su letra correspondiente (V, B, P) en el documento original. Si no, el Planner las interpretará como libranzas. Para evitarlo, asegúrate de poner a cada día sin turno su letra en el Eficiente antes de copiar, o bien impórtalas así y edítalas después en el Planner.
                             </p>
+                            ${App.data.config?.importEasyMode ? `
+                            <p style="color:#059669; font-size:0.78em; margin:6px 0 0 24px; font-weight:600;">
+                                ✨ Modo fácil activo — el Planner reclasificará automáticamente las libranzas en exceso como recuperaciones de festivo. Se pueden revisar después en el grid.
+                            </p>` : ''}
                         </div>
                         
                         <div style="display:flex; gap:10px; justify-content:flex-end;">
@@ -385,7 +389,9 @@ Object.assign(App.ui, {
                             <div>• <strong>${result.customCreated}</strong> turnos CUSTOM detectados</div>
                             ${result.empsCreated > 0 ? `<div>• <strong>${result.empsCreated}</strong> empleados nuevos creados</div>` : ''}
                             ${result.freesMarked > 0 ? `<div>• <strong>${result.freesMarked}</strong> días libres marcados</div>` : ''}
+                            ${result.recuperacionesInferidas > 0 ? `<div style="color:#059669;">• <strong>${result.recuperacionesInferidas}</strong> libranza${result.recuperacionesInferidas!==1?'s':''} reclasificada${result.recuperacionesInferidas!==1?'s':''} como recuperación de festivo (modo fácil)</div>` : ''}
                         </div>
+                        ${result.recuperacionesInferidas > 0 ? `<p style="margin:12px 0 0; font-size:0.78rem; color:#b45309; line-height:1.5;">⚠️ Las recuperaciones inferidas aparecen subrayadas en el grid. Revísalas y, si alguna debería seguir siendo libranza, cámbiala con un clic.</p>` : ''}
                     </div>
                     
                     <div style="display:flex; gap:10px; justify-content:center;">

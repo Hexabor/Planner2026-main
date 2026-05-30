@@ -6,6 +6,50 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '31/05/2026', version: 'v1.0',
+                items: [
+                    '✨ Análisis → "Horas por Staff": nueva versión en construcción (la anterior se conserva como "Horas por Staff (legacy)")',
+                    '✨ Recuento de días por tipo en columnas propias — Trab. · Libr. · Vac. · Baja · Fest. · Rec. · Perm. — con fila TOTAL y aviso si aparecen días de otro tipo (p.ej. DH)',
+                    '✨ Columna "Teóricas": horas de convenio prorrateadas por contrato y por semanas con contrato vigente (descuenta los meses previos al alta); tooltip con desglose por tramo',
+                    '✨ Columna "F+R" (festivos + recuperaciones) y columna "Ant." (festivos del año anterior pendientes de recuperar, con tooltip de fechas y motivo)',
+                    '✨ Rango y orden por defecto del equipo compartidos con el panel legacy; clic en cabecera para ordenar',
+                    '🔧 Horas convenio (anuales) por defecto: 1800 → 1711 (para 37,5h/sem)',
+                    '🔧 Calendario → Festivos: lista ordenada de más nuevo a más viejo (preservando el índice para editar/borrar)',
+                ]
+            },
+            {
+                fecha: '30/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Análisis → Horas por Staff: tabla rediseñada con columnas completas — Cntr · Días · Bruto · −Vac · −Fest · Esperadas · Trabajadas · Justif. · Δ · Media',
+                    '✨ Tooltip de Cntr con historial de contratos del rango (badge ⚡ si la persona ha cambiado de contrato durante el período)',
+                    '🔧 Media reformulada: Trabajadas × 5 ÷ Días con turno (semana equivalente al ritmo real de los turnos). No se distorsiona por festivos ni vacaciones; se acerca al contrato si la persona trabaja sus turnos típicos.',
+                    '🔧 Fila TOTAL incluye sumas de Bruto, Vacaciones y Festivos para ver el balance global del equipo.',
+                ]
+            },
+            {
+                fecha: '29/04/2026', version: 'v1.0',
+                items: [
+                    '✨ Análisis — nueva pestaña "Horas por Staff": tabla ordenable por empleado con días trabajados, horas reales, justificadas, esperadas, Δ, contrato y media semanal',
+                    '✨ Tabla por staff con totales, tooltip por empleado con desglose L/F/R/V/B/P y semanas vigente, rango persistente en localStorage',
+                    '🔧 Esperadas reformulado: contrato semanal × semanas vigente − vacaciones REALES (días V marcados en el schedule × contrato/5) − festivos × (contrato/5). Sin prorrateo estándar. Para una persona en baja todo el año (sin marcar V), no se descuentan vacaciones — su esperada refleja el contrato real menos festivos.',
+                    '🔧 Justif. ahora incluye solo B (baja) y P (permiso). V/F ya están descontadas de Esperadas; R no se cuenta porque cancela un festivo trabajado (la persona trabajó un día descontado y libró otro que sí estaba esperado, neto 0).',
+                    '🔧 Cap semanal en justificadas: B+P por semana ≤ contrato_semanal − festivos − V de la semana. Evita que días B/P marcados en libranzas inflen las horas justificadas.',
+                    '🔧 Si un día está marcado V y es festivo, no se doble-descuenta de Esperadas (cuenta solo como festivo).',
+                    '✨ Tooltips de Justif. y Esperadas con desglose por tipo y nota sobre la tasa de cada día (= contrato/5 del día)',
+                    '✨ Tooltip en columna "Esperadas" con desglose contrato − descuentos (V/B/P/R/F)',
+                    '✨ Tooltips explicativos en cada cabecera de columna del staff tab (al hover sobre el título)',
+                    '✨ Tooltip en Media/sem con desglose: trabajadas ÷ (semanas vigente − semanas de vacaciones)',
+                    '✨ Media/sem excluye semanas de vacaciones (sin trabajo y con ≥1 día V) para no bajar artificialmente la media',
+                    '✨ Botón "☰ Mi orden" para reordenar la tabla por el orden personalizado del equipo (default)',
+                    '✨ Selectores de semana en Análisis ahora muestran las fechas del rango (DD.MM–DD.MM) además del código WK',
+                    '🔧 Δ del staff tab: corregido bug que duplicaba las justificadas y producía exceso falso de horas',
+                    '✨ Modo fácil al importar — nuevo toggle en Configuración → General: detecta festivos trabajados (o festivos con <2 libranzas en la semana) y reclasifica automáticamente las libranzas en exceso como recuperaciones de festivo',
+                    '✨ Recuperaciones inferidas marcadas visualmente — subrayado punteado verde y badge "auto" en la rejilla; tooltip explica el origen y cómo revertirlas',
+                    '✨ Resumen de import incluye contador de recuperaciones inferidas con aviso para revisarlas',
+                    '🔧 Editar manualmente una recuperación inferida (paint/erase) limpia la marca "auto" automáticamente',
+                ]
+            },
+            {
                 fecha: '23/04/2026', version: 'v1.0',
                 items: [
                     '✨ Configuración — nueva pestaña "🔔 Alertas" con horizonte de vigilancia configurable por tipo (en días)',
