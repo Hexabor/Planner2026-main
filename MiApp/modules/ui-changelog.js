@@ -9,6 +9,7 @@ Object.assign(App.ui, {
                 fecha: '10/06/2026', version: 'v1.0',
                 items: [
                     '✨ Indicador de Drive (barra superior): al pulsarlo con Drive conectado abre directamente el modal "Guardar en Drive" — ya puedes guardar desde cualquier módulo sin pasar por el Home',
+                    '✨ El indicador conserva la fecha y hora del último guardado (p.ej. "Guardado 10/06 14:32"), persistiendo tras recargar o reconectar',
                 ]
             },
             {

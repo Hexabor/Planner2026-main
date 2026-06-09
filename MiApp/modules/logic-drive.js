@@ -159,7 +159,7 @@ App.drive = {
                     this._pendingSync = false;
                     const now = new Date().toISOString();
                     this._saveConfig({ lastSave: now, folderId: folderId });
-                    this._updateStatus('saved', this._formatTime(new Date()));
+                    this._updateStatus('saved', this._formatDateTime(new Date()));
                     if (type === 'Manual') {
                         this._showToast(`✅ Guardado en Drive: ${filename}`);
                     }
@@ -298,7 +298,7 @@ App.drive = {
                     ];
                     Safe.saveImmediate('v40_db', App.data);
                     this._saveConfig({ lastSave: new Date().toISOString(), lastLocal: new Date().toISOString() });
-                    this._updateStatus('saved', this._formatTime(new Date()));
+                    this._updateStatus('saved', this._formatDateTime(new Date()));
                     App.router.refreshCurrent();
                     this._showToast('✅ Datos cargados desde Drive');
                 },
@@ -415,6 +415,13 @@ App.drive = {
         const el = document.getElementById('drive-status');
         if (!el) return;
 
+        // En estado "conectado e inactivo", conservar la fecha/hora del último
+        // guardado (persiste tras recargar o reconectar) en lugar del genérico.
+        if (status === 'connected') {
+            const lastSave = this._loadConfig().lastSave;
+            if (lastSave) { status = 'saved'; detail = this._formatDateTime(new Date(lastSave)); }
+        }
+
         const states = {
             disconnected: { text: 'Drive',          color: '#94a3b8', dot: '#94a3b8', pulse: false },
             connected:    { text: 'Drive conectado', color: '#10b981', dot: '#10b981', pulse: false },
@@ -433,6 +440,10 @@ App.drive = {
 
     _formatTime: function(d) {
         return d.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+    },
+
+    _formatDateTime: function(d) {
+        return d.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit' }) + ' ' + this._formatTime(d);
     },
 
     _showToast: function(msg) {
@@ -668,7 +679,7 @@ App.drive = {
                     this._pendingSync = false;
                     const now = new Date().toISOString();
                     this._saveConfig({ lastSave: now, folderId });
-                    this._updateStatus('saved', this._formatTime(new Date()));
+                    this._updateStatus('saved', this._formatDateTime(new Date()));
                     this._showToast(`✅ Guardado en Drive: ${filename}`);
                     App.router.refreshCurrent();
                 },
