@@ -202,8 +202,8 @@
 <div class="app-layout">
     <header class="header">
         <div class="app-title">Planificador 2026 <span style="font-size:0.68rem;font-weight:600;color:#94a3b8;letter-spacing:0.05em;padding:1px 6px;border:1px solid #e2e8f0;border-radius:4px;line-height:1.6;">v1.0</span> <button onclick="App.router.go('changelog')" title="Novedades" style="background:none;border:none;cursor:pointer;font-size:0.68rem;font-weight:600;color:#94a3b8;padding:1px 6px;border:1px solid #e2e8f0;border-radius:4px;line-height:1.6;margin-left:4px;transition:all 0.15s;" onmouseover="this.style.color='#2563eb';this.style.borderColor='#93c5fd';" onmouseout="this.style.color='#94a3b8';this.style.borderColor='#e2e8f0';">✦ Novedades</button> <span id="drive-status" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:#f8fafc;border:1px solid #e2e8f0;cursor:pointer;margin-right:8px;"
-    onclick="App.drive.isConnected() ? App.router.go('home') : App.drive.connect()"
-    title="Google Drive"></span>
+    onclick="App.drive.isConnected() ? document.getElementById('drive-save-modal').classList.add('open') : App.drive.connect()"
+    title="Guardar en Drive"></span>
 <span id="storage-warning">⚠️ Sin Memoria</span></div>
         <div style="display:flex; gap:8px; align-items:center;">
             <button class="btn-header" id="undo-btn" onclick="App.logic.undo()" title="Deshacer (Ctrl+Z)" style="padding:8px 12px;">

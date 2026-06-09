@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '10/06/2026', version: 'v1.0',
+                items: [
+                    '✨ Indicador de Drive (barra superior): al pulsarlo con Drive conectado abre directamente el modal "Guardar en Drive" — ya puedes guardar desde cualquier módulo sin pasar por el Home',
+                ]
+            },
+            {
                 fecha: '31/05/2026', version: 'v1.0',
                 items: [
                     '✨ Análisis → "Horas por Staff": nueva versión en construcción (la anterior se conserva como "Horas por Staff (legacy)")',
