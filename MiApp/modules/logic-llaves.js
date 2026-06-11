@@ -55,7 +55,8 @@ App.llaves = {
         return streak;
     },
 
-    // true si empId cierra la tienda ese día (turno termina a la hora de cierre)
+    // true si empId puede cerrar la tienda ese día (sigue presente a la hora de cierre:
+    // su turno termina al cierre o después)
     _esCloser: function(empId, dateStr) {
         if (!empId || empId === '__TIENDA__') return false;
         const shiftId = (App.data.schedule[dateStr] || {})[empId];
@@ -63,10 +64,11 @@ App.llaves = {
         const shift = Utils.getShift(shiftId);
         if (!shift || shift.fixed) return false;
         const h = App.logic._getHorarioDelDia(dateStr);
-        return !!(h && !h.closed && shift.end === h.close);
+        return !!(h && !h.closed && shift.end >= h.close);
     },
 
-    // true si empId abre la tienda ese día (turno empieza a la hora de apertura)
+    // true si empId puede abrir la tienda ese día (ya está presente a la hora de apertura:
+    // su turno empieza a la apertura o antes, p. ej. adelantado para recibir un recurso)
     _esOpener: function(empId, dateStr) {
         if (!empId || empId === '__TIENDA__') return false;
         const shiftId = (App.data.schedule[dateStr] || {})[empId];
@@ -74,7 +76,7 @@ App.llaves = {
         const shift = Utils.getShift(shiftId);
         if (!shift || shift.fixed) return false;
         const h = App.logic._getHorarioDelDia(dateStr);
-        return !!(h && !h.closed && shift.start === h.open);
+        return !!(h && !h.closed && shift.start <= h.open);
     },
 
     // true si la tienda está abierta ese día (necesita cobertura de llave)

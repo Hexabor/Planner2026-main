@@ -1457,17 +1457,19 @@ Object.assign(App.logic, {
             if (keyHoldersInicio.length === 0 && keyHoldersFin.length === 0) {
                 return { hasApertura: true, hasCierre: true, horario };
             }
+            // Abre quien entra a la apertura o antes (p. ej. adelantado para recibir un recurso):
+            // ya está presente cuando la tienda abre. Cierra quien sale al cierre o después.
             const hasApertura = keyHoldersInicio.some(emp => {
                 const shiftId = daySched[emp.id];
                 if(!shiftId) return false;
                 const shift = Utils.getShift(shiftId);
-                return shift && !shift.fixed && shift.start === horario.open;
+                return shift && !shift.fixed && shift.start <= horario.open;
             });
             const hasCierre = keyHoldersFin.some(emp => {
                 const shiftId = daySched[emp.id];
                 if(!shiftId) return false;
                 const shift = Utils.getShift(shiftId);
-                return shift && !shift.fixed && shift.end === horario.close;
+                return shift && !shift.fixed && shift.end >= horario.close;
             });
             return { hasApertura, hasCierre, horario };
         },

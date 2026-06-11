@@ -6,6 +6,13 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '11/06/2026', version: 'v1.0',
+                items: [
+                    '🔧 Llaves — apertura/cierre por presencia: quien entra a la hora de apertura o antes (p.ej. adelantado para recibir un recurso) cuenta como que abre; quien sale al cierre o después cuenta como que cierra. Antes exigía coincidencia exacta y marcaba "nadie abre" en falso',
+                    '✨ Llaves — botón "Revalidar desde hoy": coloca un punto de inicio con el portador actual de cada llave y evalúa la cadena desde el presente, SIN borrar traspasos. Corta los rojos en cascada que arrastraba un eslabón roto del pasado archivado',
+                ]
+            },
+            {
                 fecha: '10/06/2026', version: 'v1.0',
                 items: [
                     '✨ Indicador de Drive (barra superior): al pulsarlo con Drive conectado abre directamente el modal "Guardar en Drive" — ya puedes guardar desde cualquier módulo sin pasar por el Home',

@@ -2784,6 +2784,56 @@ Object.assign(App.ui, {
             App.logic._refreshLlaves();
         },
 
+        // Revalida la cadena desde HOY sin borrar nada: coloca un punto de inicio
+        // (ancla 'reset') con el portador actual de cada llave. Corta la cascada de
+        // "flujo roto" que arrastra el pasado archivado, conservando los traspasos
+        // futuros ya planificados, que se reevalúan contra el portador presente.
+        _llavesRevalidar: function() {
+            const llaves = App.data.config.llaves || [];
+            if (llaves.length === 0) { alert('No hay llaves configuradas.'); return; }
+
+            const hoy = new Date().toISOString().slice(0, 10);
+            if (!confirm('🔄 Revalidar desde hoy\n\nSe colocará un punto de inicio en la fecha de hoy con el portador actual de cada llave, para que la cadena se evalúe a partir del presente.\n\nNo se borra ningún traspaso: los futuros se conservan y se reevalúan.\n\n¿Continuar?')) return;
+
+            // Portador actual de cada llave (el mismo que muestra "Estado actual")
+            const titulares = {};
+            llaves.forEach(l => {
+                titulares[l.id] = App.logic.getTitularLlave(l.id, hoy) || '__TIENDA__';
+            });
+
+            // Quitar anclas de reinicio previas en la fecha de hoy (idempotente: evita duplicados)
+            App.data.traspasoLlaves = (App.data.traspasoLlaves || []).filter(t =>
+                !(t.source === 'reset' && t.fecha === hoy)
+            );
+
+            // Crear nueva ancla de inicio por llave con el portador actual
+            const now = new Date().toISOString();
+            llaves.forEach(l => {
+                App.data.traspasoLlaves.push({
+                    id: 'tr_reset_' + Date.now() + '_' + l.id,
+                    llaveId: l.id,
+                    dadorId: '__TIENDA__',
+                    receptorId: titulares[l.id],
+                    fecha: hoy,
+                    source: 'reset',
+                    creadoEn: now
+                });
+            });
+
+            Safe.save('v40_db', App.data);
+            App.logic.checkAlerts();
+
+            const resumen = llaves.map((l, i) => {
+                const tid = titulares[l.id];
+                const emp = tid !== '__TIENDA__' ? App.data.empleados.find(e => e.id === tid) : null;
+                const nombre = emp ? emp.nombre : '🏪 Tienda';
+                return `• L${i + 1}${l.alias ? ' ' + l.alias : ''} → ${nombre}`;
+            }).join('\n');
+            alert(`✅ Cadena revalidada desde ${Utils.formatDateES(hoy)}\n\nPortadores de partida:\n${resumen}\n\nLos traspasos futuros se conservan y se evalúan desde aquí.`);
+
+            App.logic._refreshLlaves();
+        },
+
         _renderLlaves: function(c, sectionBar) {
             const hoy = new Date().toISOString().slice(0,10);
             const llaves = App.data.config.llaves || [];
@@ -2997,8 +3047,10 @@ Object.assign(App.ui, {
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
                         <h3 style="margin:0;font-size:1rem;font-weight:700;color:#1e293b;">🔑 Traspasos de llave</h3>
                         <div style="display:flex;gap:6px;">
-                            <button onclick="App.ui._llavesReiniciar()"
-                                style="padding:7px 14px;background:white;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;font-weight:600;font-size:0.78rem;cursor:pointer;">🔄 Reiniciar cadena</button>
+                            <button onclick="App.ui._llavesRevalidar()" title="Coloca un punto de inicio hoy con el portador actual y evalúa la cadena desde el presente, sin borrar traspasos"
+                                style="padding:7px 14px;background:white;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;font-weight:600;font-size:0.78rem;cursor:pointer;">🔄 Revalidar desde hoy</button>
+                            <button onclick="App.ui._llavesReiniciar()" title="Reinicia la cadena desde una fecha y archiva (borra) todo lo posterior"
+                                style="padding:7px 14px;background:white;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;font-weight:600;font-size:0.78rem;cursor:pointer;">🧹 Reiniciar cadena</button>
                             <button onclick="App.ui.renderDayInspector('${hoy}')"
                                 style="padding:7px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;font-size:0.82rem;cursor:pointer;">+ Nuevo traspaso</button>
                         </div>
@@ -3227,7 +3279,7 @@ Object.assign(App.ui, {
                     const sv = daySched[tid];
                     if (!sv) return false;
                     const sh = Utils.getShift(sv);
-                    return sh && !sh.fixed && sh.start === horario.open;
+                    return sh && !sh.fixed && sh.start <= horario.open;
                 });
 
                 // Llaves que cubren cierre (titular al final del día trabaja y cierra)
@@ -3237,7 +3289,7 @@ Object.assign(App.ui, {
                     const sv = daySched[tid];
                     if (!sv) return false;
                     const sh = Utils.getShift(sv);
-                    return sh && !sh.fixed && sh.end === horario.close;
+                    return sh && !sh.fixed && sh.end >= horario.close;
                 });
 
                 const aKeysHtml = keysApertura.length > 0
