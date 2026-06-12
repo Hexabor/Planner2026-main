@@ -1463,13 +1463,13 @@ Object.assign(App.logic, {
                 const shiftId = daySched[emp.id];
                 if(!shiftId) return false;
                 const shift = Utils.getShift(shiftId);
-                return shift && !shift.fixed && shift.start <= horario.open;
+                return shift && !shift.fixed && !shift.external && shift.start <= horario.open;
             });
             const hasCierre = keyHoldersFin.some(emp => {
                 const shiftId = daySched[emp.id];
                 if(!shiftId) return false;
                 const shift = Utils.getShift(shiftId);
-                return shift && !shift.fixed && shift.end >= horario.close;
+                return shift && !shift.fixed && !shift.external && shift.end >= horario.close;
             });
             return { hasApertura, hasCierre, horario };
         },

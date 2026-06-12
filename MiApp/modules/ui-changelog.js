@@ -8,6 +8,7 @@ Object.assign(App.ui, {
             {
                 fecha: '12/06/2026', version: 'v1.0',
                 items: [
+                    '🔧 Gestor de llaves (escritorio y móvil): los turnos externos ya no cuentan como apertura/cierre — quien tiene turno externo no puede abrir/cerrar la tienda. Se trata como ausencia y se marca con una "E" en rosa',
                     '📱 Versión móvil: al abrir la app desde el móvil ahora carga una interfaz ligera de consulta (detección automática; se puede forzar con ?desktop=1 o ?mobile=1). El escritorio no cambia',
                     '📱 Móvil → Horarios de un día: rejilla de barras por persona en el mismo orden que la vista principal, con columna de llave a la izquierda. Responsables (Tag 3) sombreados en amarillo tenue, línea de referencia en el inicio/fin de la hora valle, y contadores de cobertura debajo (Tag 3 y Total) por franjas de 30′. Libranzas ocultas por defecto (cada ausente con su letra en un cuadradito de color)',
                     '📱 Móvil → navegador: avance por día (‹ ›) y por semana (« »), código de semana visible y desplegable para saltar directo a cualquier semana',

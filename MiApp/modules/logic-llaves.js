@@ -28,7 +28,8 @@ App.llaves = {
         const shiftId = (App.data.schedule[dateStr] || {})[empId];
         if (!shiftId) return false;
         const shift = Utils.getShift(shiftId);
-        return !!(shift && !shift.fixed);
+        // Los turnos externos NO cuentan como presencia real en tienda (no abren/cierran)
+        return !!(shift && !shift.fixed && !shift.external);
     },
 
     _tag3Ids: function() {
@@ -62,7 +63,7 @@ App.llaves = {
         const shiftId = (App.data.schedule[dateStr] || {})[empId];
         if (!shiftId) return false;
         const shift = Utils.getShift(shiftId);
-        if (!shift || shift.fixed) return false;
+        if (!shift || shift.fixed || shift.external) return false;
         const h = App.logic._getHorarioDelDia(dateStr);
         return !!(h && !h.closed && shift.end >= h.close);
     },
@@ -74,7 +75,7 @@ App.llaves = {
         const shiftId = (App.data.schedule[dateStr] || {})[empId];
         if (!shiftId) return false;
         const shift = Utils.getShift(shiftId);
-        if (!shift || shift.fixed) return false;
+        if (!shift || shift.fixed || shift.external) return false;
         const h = App.logic._getHorarioDelDia(dateStr);
         return !!(h && !h.closed && shift.start <= h.open);
     },

@@ -3118,18 +3118,25 @@ Object.assign(App.ui, {
             };
 
             // Info turno/apertura/cierre para cualquier día
+            // Externo: tiene horario pero NO cubre apertura/cierre (se trata como ausencia).
+            // openerHrs/closerHrs = coincide por horario (para pintar A/C en rosa si es externo).
             const getDayInfo = (empId, date) => {
                 const horD = App.logic._getHorarioDelDia(date);
                 const storeOpenD = !!(horD && !horD.closed);
                 const sv = (App.data.schedule[date] || {})[empId];
-                let isFixed = false;
-                if (sv && typeof sv === 'string') { const sh = Utils.getShift(sv); if (sh) isFixed = !!sh.fixed; }
-                const isWorking = !isFixed && !!sv;
+                const sh = sv ? Utils.getShift(sv) : null;
+                const isFixed = !!(sh && sh.fixed);
+                const isExternal = !!(sh && !sh.fixed && sh.external);
+                const code = sh ? (sh.code || (typeof sv === 'string' ? '' : (sv.start + '–' + sv.end))) : '';
+                const color = sh ? (sh.color || '#94a3b8') : '#94a3b8';
+                const openerHrs = storeOpenD && !!(sh && !sh.fixed && sh.start && sh.start <= horD.open);
+                const closerHrs = storeOpenD && !!(sh && !sh.fixed && sh.end && sh.end >= horD.close);
                 return {
-                    isLibre: !sv || isFixed,
-                    opens:   storeOpenD && isWorking && App.llaves._esOpener(empId, date),
-                    closes:  storeOpenD && isWorking && App.llaves._esCloser(empId, date),
-                    sv, isFixed
+                    sv, isFixed, isExternal, code, color,
+                    isLibre: !sv || isFixed,             // libranza real (sin turno o turno fijo)
+                    openerHrs, closerHrs,                // coincide por horario (ignora externo)
+                    opens:  openerHrs && !isExternal,    // cobertura válida de apertura
+                    closes: closerHrs && !isExternal     // cobertura válida de cierre
                 };
             };
 
@@ -3138,8 +3145,9 @@ Object.assign(App.ui, {
                 const tid = App.logic.getTitularLlave(l.id, fecha);
                 const emp = tid && tid !== '__TIENDA__' ? App.data.empleados.find(e => e.id === tid) : null;
                 const titLabel = tid === '__TIENDA__' ? '🏪 Tienda' : (emp ? emp.nombre : '—');
-                // Detectar si el titular está ausente hoy (libra, vacaciones, baja...)
-                const isAbsent = emp ? getDayInfo(emp.id, fecha).isLibre : (tid === '__TIENDA__');
+                // Detectar si el titular está ausente hoy (libra, vacaciones, baja... o turno externo)
+                const _giTit = emp ? getDayInfo(emp.id, fecha) : null;
+                const isAbsent = emp ? (_giTit.isLibre || _giTit.isExternal) : (tid === '__TIENDA__');
                 const absentStyle = isAbsent ? 'background:#f1f5f9;opacity:0.55;border-radius:4px;padding:2px 6px;' : 'padding:2px 6px;';
                 const absentTitle = isAbsent && emp ? ' title="Ausente hoy"' : '';
                 return `<div style="display:flex;align-items:center;gap:6px;font-size:0.8rem;${absentStyle}"${absentTitle}>
@@ -3159,21 +3167,11 @@ Object.assign(App.ui, {
 
             // Filas de empleados
             const tdS = 'padding:3px 2px;text-align:center;vertical-align:middle;border-bottom:1px solid #f1f5f9;';
+            const PINK = '#ec4899';
             const rowsHtml = tag3.map(emp => {
-                // Datos de hoy
-                const sv = (App.data.schedule[fecha] || {})[emp.id];
-                let shiftLabel = '—', isFixed = false, shiftColor = '#94a3b8';
-                if (sv && typeof sv === 'string') {
-                    const sh = Utils.getShift(sv);
-                    if (sh) { shiftLabel = sh.code; isFixed = !!sh.fixed; shiftColor = sh.color || '#94a3b8'; }
-                    else shiftLabel = sv;
-                } else if (sv) {
-                    shiftLabel = `${sv.start}–${sv.end}`; shiftColor = sv.color || '#6b7280';
-                }
-                const isWorking = !isFixed && !!sv;
-                const isLibreToday = !sv || isFixed;
-                const opens  = storeOpen && isWorking && App.llaves._esOpener(emp.id, fecha);
-                const closes = storeOpen && isWorking && App.llaves._esCloser(emp.id, fecha);
+                // Datos de hoy (vía getDayInfo, coherente con los días futuros)
+                const info = getDayInfo(emp.id, fecha);
+                const isExt = info.isExternal;
 
                 // Col 2: llave (réplica planner grid)
                 const keyContent = getKeyContent(emp.id, fecha);
@@ -3184,20 +3182,24 @@ Object.assign(App.ui, {
                     keyContent.includes('stroke="#ef4444"') ? 'Entrega llave' :
                     keyContent.includes('stroke="#22c55e"') ? 'Recibe llave' : 'Tiene llave';
 
-                // Col 3: LIBRE — muestra el código de turno si es fijo, o L si no hay turno
-                const libreLabel = shiftLabel !== '—' ? shiftLabel : 'L';
-                const libreTitle = !isLibreToday ? '' : (shiftLabel !== '—' ? `Libranza (${shiftLabel})` : 'Sin turno asignado');
-                const libreCell = isLibreToday
-                    ? `<span style="display:inline-block;padding:2px 6px;background:${shiftColor}22;color:${shiftColor};border-radius:4px;font-size:0.72rem;font-weight:700;">${libreLabel}</span>`
-                    : '';
+                // Col 3: LIBRE — libranza real (fijo/sin turno) o EXTERNO ("E" en rosa, tratado como ausencia)
+                let libreCell = '', libreTitle = '';
+                if (info.isLibre) {
+                    const lbl = info.code || 'L';
+                    libreTitle = info.code ? `Libranza (${info.code})` : 'Sin turno asignado';
+                    libreCell = `<span style="display:inline-block;padding:2px 6px;background:${info.color}22;color:${info.color};border-radius:4px;font-size:0.72rem;font-weight:700;">${lbl}</span>`;
+                } else if (isExt) {
+                    libreTitle = 'Turno externo — no cubre apertura/cierre';
+                    libreCell = `<span style="display:inline-block;padding:2px 6px;background:${PINK}22;color:${PINK};border-radius:4px;font-size:0.72rem;font-weight:700;" title="${libreTitle}">E</span>`;
+                }
 
-                // Col 4: ABRE
-                const abreCell = opens
+                // Col 4: ABRE (externo no cuenta → no muestra A)
+                const abreCell = info.opens
                     ? `<span style="display:inline-block;padding:2px 6px;background:#dbeafe;color:#1d4ed8;border-radius:4px;font-size:0.72rem;font-weight:700;">A</span>`
                     : '';
 
-                // Col 5: CIERRA
-                const cierraCell = closes
+                // Col 5: CIERRA (externo no cuenta → no muestra C)
+                const cierraCell = info.closes
                     ? `<span style="display:inline-block;padding:2px 6px;background:#fef9c3;color:#854d0e;border-radius:4px;font-size:0.72rem;font-weight:700;">C</span>`
                     : '';
 
@@ -3206,13 +3208,13 @@ Object.assign(App.ui, {
                     const info = getDayInfo(emp.id, fd);
                     let content = '', tooltip = '';
                     if (info.isLibre) {
-                        let fLabel = 'L';
-                        if (info.sv && typeof info.sv === 'string') {
-                            const fSh = Utils.getShift(info.sv);
-                            if (fSh && fSh.fixed) fLabel = fSh.code;
-                        }
-                        tooltip = fLabel === 'L' ? 'Sin turno' : `Libranza (${fLabel})`;
+                        const fLabel = info.code || 'L';
+                        tooltip = info.code ? `Libranza (${info.code})` : 'Sin turno';
                         content = `<span style="color:#16a34a;font-size:0.72rem;font-weight:600;">${fLabel}</span>`;
+                    } else if (info.isExternal) {
+                        // Externo: "E" en rosa (no cubre apertura/cierre)
+                        tooltip = 'Turno externo — no cubre apertura/cierre';
+                        content = `<span style="color:${PINK};font-size:0.72rem;font-weight:700;">E</span>`;
                     } else {
                         const parts = [];
                         if (info.opens)  { parts.push(`<span style="color:#1d4ed8;font-size:0.72rem;font-weight:700;">A</span>`); }
@@ -3233,8 +3235,8 @@ Object.assign(App.ui, {
                     <td style="padding:3px 6px 3px 2px;font-size:0.78rem;font-weight:600;color:#1e293b;white-space:nowrap;border-bottom:1px solid #f1f5f9;">${emp.nombre}</td>
                     <td style="${tdS}white-space:nowrap;" title="${keyTitle}">${keyContent}</td>
                     <td style="${tdS}" title="${libreTitle}">${libreCell}</td>
-                    <td style="${tdS}" title="${opens ? 'Abre tienda' : ''}">${abreCell}</td>
-                    <td style="${tdS}" title="${closes ? 'Cierra tienda' : ''}">${cierraCell}</td>
+                    <td style="${tdS}" title="${info.opens ? 'Abre tienda' : ''}">${abreCell}</td>
+                    <td style="${tdS}" title="${info.closes ? 'Cierra tienda' : ''}">${cierraCell}</td>
                     ${sepTd}
                     ${futureCells}
                 </tr>`;

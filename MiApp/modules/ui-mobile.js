@@ -405,7 +405,7 @@ App.mobile = {
                         : App.logic.getTitularLlave(l.id, fecha);
                     if (!tid || tid === '__TIENDA__') return false;
                     const sh = Utils.getShift(daySched[tid]);
-                    if (!sh || sh.fixed) return false;
+                    if (!sh || sh.fixed || sh.external) return false;
                     return tipo === 'open' ? sh.start <= horario.open : sh.end >= horario.close;
                 }).length;
                 const KEY_MINI = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><circle cx="8" cy="15" r="4"/><line x1="11.5" y1="11.5" x2="22" y2="1"/><line x1="18" y1="5" x2="21" y2="2"/><line x1="15" y1="8" x2="18" y2="5"/></svg>';
@@ -430,18 +430,23 @@ App.mobile = {
         const futuros = [];
         for (let i = 1; i <= 5; i++) { const fd = new Date(dObj); fd.setDate(fd.getDate() + i); futuros.push(fd.getFullYear() + '-' + String(fd.getMonth() + 1).padStart(2, '0') + '-' + String(fd.getDate()).padStart(2, '0')); }
 
+        const PINK = '#ec4899';
         const dayInfo = (empId, d) => {
             const horD = App.logic._getHorarioDelDia(d);
             const openD = !!(horD && !horD.closed);
             const sv = (App.data.schedule[d] || {})[empId];
             const sh = sv ? Utils.getShift(sv) : null;
             const isFixed = !!(sh && sh.fixed);
-            const isWorking = !!sv && !isFixed;
+            const isExternal = !!(sh && !sh.fixed && sh.external);
+            const openerHrs = openD && !!(sh && !sh.fixed && sh.start && sh.start <= horD.open);
+            const closerHrs = openD && !!(sh && !sh.fixed && sh.end && sh.end >= horD.close);
             return {
                 isLibre: !sv || isFixed,
+                isExternal,
                 code: sh ? (sh.code || '') : '',
-                opens: openD && isWorking && App.llaves._esOpener(empId, d),
-                closes: openD && isWorking && App.llaves._esCloser(empId, d)
+                openerHrs, closerHrs,
+                opens: openerHrs && !isExternal,
+                closes: closerHrs && !isExternal
             };
         };
 
@@ -462,14 +467,18 @@ App.mobile = {
 
         const rows = tag3.map(emp => {
             const info = dayInfo(emp.id, fecha);
+            const isExt = info.isExternal;
             const kc = keyCell(emp.id, fecha);
-            const libreCell = info.isLibre ? '<span style="display:inline-block;padding:1px 5px;background:#dcfce7;color:#16a34a;border-radius:4px;font-weight:700;">' + (info.code || 'L') + '</span>' : '';
+            let libreCell = '';
+            if (info.isLibre) libreCell = '<span style="display:inline-block;padding:1px 5px;background:#dcfce7;color:#16a34a;border-radius:4px;font-weight:700;">' + (info.code || 'L') + '</span>';
+            else if (isExt) libreCell = '<span title="Turno externo — no cubre apertura/cierre" style="display:inline-block;padding:1px 5px;background:' + PINK + '22;color:' + PINK + ';border-radius:4px;font-weight:700;">E</span>';
             const abreCell = info.opens ? '<span style="display:inline-block;padding:1px 5px;background:#dbeafe;color:#1d4ed8;border-radius:4px;font-weight:800;">A</span>' : '';
             const cierraCell = info.closes ? '<span style="display:inline-block;padding:1px 5px;background:#fef9c3;color:#854d0e;border-radius:4px;font-weight:800;">C</span>' : '';
             const futCells = futuros.map(fd => {
                 const fi = dayInfo(emp.id, fd);
                 let c = '';
                 if (fi.isLibre) c = '<span style="color:#16a34a;font-weight:600;">' + (fi.code || 'L') + '</span>';
+                else if (fi.isExternal) c = '<span style="color:' + PINK + ';font-weight:800;">E</span>';
                 else {
                     const parts = [];
                     if (fi.opens) parts.push('<span style="color:#1d4ed8;font-weight:800;">A</span>');
