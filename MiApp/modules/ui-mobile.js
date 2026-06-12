@@ -393,15 +393,31 @@ App.mobile = {
 
         const stepper = this._stepper(fecha, 'l');
 
-        // Cobertura apertura/cierre
+        // Cobertura apertura/cierre — una mini llave por cada llave que la cubre (como escritorio)
         let coverageHtml = '';
         if (abierta) {
             const cov = App.logic._checkKeysCoverageDay(fecha);
             if (cov) {
-                const badge = (ok, txt) => '<span style="display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:3px 9px;font-size:0.72rem;font-weight:700;' +
-                    (ok ? 'background:#dcfce7;color:#15803d;">✓ ' : 'background:#fee2e2;color:#dc2626;">✕ ') + txt + '</span>';
-                coverageHtml = '<div style="display:flex;justify-content:center;gap:10px;margin-bottom:12px;">' +
-                    badge(cov.hasApertura, 'Apertura') + badge(cov.hasCierre, 'Cierre') + '</div>';
+                const daySched = App.data.schedule[fecha] || {};
+                const cuentaCobertura = (tipo) => llaves.filter(l => {
+                    const tid = tipo === 'open'
+                        ? (App.logic.getTitularLlaveInicio ? App.logic.getTitularLlaveInicio(l.id, fecha) : App.logic.getTitularLlave(l.id, fecha))
+                        : App.logic.getTitularLlave(l.id, fecha);
+                    if (!tid || tid === '__TIENDA__') return false;
+                    const sh = Utils.getShift(daySched[tid]);
+                    if (!sh || sh.fixed) return false;
+                    return tipo === 'open' ? sh.start <= horario.open : sh.end >= horario.close;
+                }).length;
+                const KEY_MINI = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;"><circle cx="8" cy="15" r="4"/><line x1="11.5" y1="11.5" x2="22" y2="1"/><line x1="18" y1="5" x2="21" y2="2"/><line x1="15" y1="8" x2="18" y2="5"/></svg>';
+                const side = (ok, txt, n) => {
+                    const badge = '<span style="display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:3px 9px;font-size:0.72rem;font-weight:700;' +
+                        (ok ? 'background:#dcfce7;color:#15803d;">✓ ' : 'background:#fee2e2;color:#dc2626;">✕ ') + txt + '</span>';
+                    const keys = (ok && n > 0) ? '<div style="margin-top:3px;display:flex;justify-content:center;gap:1px;">' + KEY_MINI.repeat(n) + '</div>' : '';
+                    return '<div style="text-align:center;">' + badge + keys + '</div>';
+                };
+                coverageHtml = '<div style="display:flex;justify-content:center;gap:14px;margin-bottom:12px;">' +
+                    side(cov.hasApertura, 'Apertura', cuentaCobertura('open')) +
+                    side(cov.hasCierre, 'Cierre', cuentaCobertura('close')) + '</div>';
             }
         }
 
