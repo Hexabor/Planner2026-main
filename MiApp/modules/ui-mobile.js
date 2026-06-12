@@ -1,0 +1,582 @@
+// ============================================================
+// VERSIÓN MÓVIL — interfaz ligera de consulta
+// Reutiliza toda la capa de lógica/datos (App.data, App.logic,
+// App.llaves, Utils, Safe, App.drive). NO carga la UI de escritorio.
+//
+// Arranque: core/data.js init() detecta window.__PLANNER_MOBILE__
+// y llama a App.mobile.init() en vez del router de escritorio.
+//
+// Pantallas:
+//   📅 Horarios de un día — orden = vista principal, rejilla de barras,
+//      libranzas ocultas por defecto.
+//   🔑 Llaves — réplica del panel lateral de escritorio (titulares,
+//      cobertura, rejilla TAG3 con próximos) + alta de traspasos.
+// ============================================================
+
+App.mobile = {
+
+    _state: { tab: 'horarios', date: null, llavesDate: null, showLibran: false, trLlaveId: null, trReceptorId: '__TIENDA__' },
+
+    DIAS_LARGO: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+    DIAS_CORTO: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'],
+    MESES: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
+
+    // ─── HELPERS DE FECHA ────────────────────────────────────────────────────
+    _todayISO: function() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    },
+    _shiftDate: function(iso, delta) {
+        const d = new Date(iso + 'T12:00:00');
+        d.setDate(d.getDate() + delta);
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    },
+    _dow: function(iso) { return new Date(iso + 'T12:00:00').getDay(); },
+    _parseMin: function(t) {
+        if (!t || typeof t !== 'string' || t.indexOf(':') < 0) return null;
+        const p = t.split(':');
+        return parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
+    },
+    _empNombre: function(id) {
+        if (!id || id === '__TIENDA__') return 'Tienda';
+        return (App.data.empleados.find(e => e.id === id) || {}).nombre || id;
+    },
+
+    // Empleados en el MISMO orden que la vista principal (vigentes en la fecha
+    // o con turno ese día), ordenados por customOrder.
+    _empListOrdenada: function(fecha) {
+        const daySched = App.data.schedule[fecha] || {};
+        return App.data.empleados
+            .filter(e => Utils.empleadoVigenteEnFecha(e, fecha) || daySched[e.id] !== undefined)
+            .sort((a, b) => (a.customOrder || 0) - (b.customOrder || 0));
+    },
+
+    // ─── ARRANQUE ─────────────────────────────────────────────────────────────
+    init: function() {
+        const hoy = this._todayISO();
+        this._state.date = hoy;
+        this._state.llavesDate = hoy;
+
+        // El router de escritorio no existe en móvil: redirigir sus hooks a
+        // nuestro render para que los callbacks de Drive re-rendericen aquí.
+        if (App.router) {
+            App.router.refreshCurrent = () => this.render();
+            App.router.go = () => this.render();
+            App.router.current = () => 'mobile';
+        }
+
+        // App.io vive inline en index.html (no se carga en móvil): definimos lo
+        // mínimo que la capa de Drive necesita (timestamp para auto-guardado).
+        if (!App.io) App.io = {};
+        if (!App.io.getTimestamp) {
+            App.io.getTimestamp = function() {
+                const now = new Date();
+                return now.toISOString().slice(0, 10).replace(/-/g, '') + '_' + now.toTimeString().slice(0, 8).replace(/:/g, '');
+            };
+        }
+
+        this._buildShell();
+        this.render();
+    },
+
+    _buildShell: function() {
+        document.body.innerHTML = '';
+        document.body.style.cssText = 'margin:0;padding:0;background:#f1f5f9;-webkit-tap-highlight-color:transparent;';
+
+        const app = document.createElement('div');
+        app.id = 'm-app';
+        app.style.cssText = 'display:flex;flex-direction:column;height:100vh;height:100dvh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;';
+        app.innerHTML =
+            '<header id="m-top" style="flex:0 0 auto;background:#1e293b;color:#f8fafc;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 6px rgba(0,0,0,0.15);">' +
+                '<span style="font-size:1.02rem;font-weight:700;letter-spacing:0.01em;">Planificador</span>' +
+                '<button id="m-drive-btn" onclick="App.mobile.driveTap()" style="display:inline-flex;align-items:center;gap:6px;background:#334155;color:#e2e8f0;border:none;border-radius:20px;padding:7px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;">☁︎ <span id="m-drive-label">Drive</span></button>' +
+            '</header>' +
+            '<main id="m-content" style="flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 24px;box-sizing:border-box;"></main>' +
+            '<nav id="m-tabs" style="flex:0 0 auto;display:flex;background:white;border-top:1px solid #e2e8f0;box-shadow:0 -1px 6px rgba(0,0,0,0.06);"></nav>';
+        document.body.appendChild(app);
+        this._renderTabs();
+        this._updateDriveBtn();
+    },
+
+    _renderTabs: function() {
+        const nav = document.getElementById('m-tabs');
+        if (!nav) return;
+        const tabs = [
+            { key: 'horarios', label: 'Horarios', icon: '📅' },
+            { key: 'llaves', label: 'Llaves', icon: '🔑' }
+        ];
+        nav.innerHTML = tabs.map(t => {
+            const active = this._state.tab === t.key;
+            return '<button onclick="App.mobile.setTab(\'' + t.key + '\')" ' +
+                'style="flex:1;background:none;border:none;padding:10px 0 12px;cursor:pointer;' +
+                'display:flex;flex-direction:column;align-items:center;gap:3px;' +
+                'color:' + (active ? '#2563eb' : '#94a3b8') + ';' +
+                'border-top:2px solid ' + (active ? '#2563eb' : 'transparent') + ';margin-top:-1px;">' +
+                '<span style="font-size:1.15rem;line-height:1;">' + t.icon + '</span>' +
+                '<span style="font-size:0.7rem;font-weight:700;">' + t.label + '</span>' +
+            '</button>';
+        }).join('');
+    },
+
+    setTab: function(tab) {
+        this._state.tab = tab;
+        this._renderTabs();
+        this.render();
+        const c = document.getElementById('m-content');
+        if (c) c.scrollTop = 0;
+    },
+
+    render: function() {
+        const c = document.getElementById('m-content');
+        if (!c) return;
+        if (this._state.tab === 'horarios') c.innerHTML = this._renderHorarios();
+        else if (this._state.tab === 'llaves') c.innerHTML = this._renderLlaves();
+        this._updateDriveBtn();
+    },
+
+    // Stepper de fecha reutilizable
+    _stepper: function(iso, prevFn, nextFn, todayFn) {
+        const esHoy = iso === this._todayISO();
+        const label = this.DIAS_LARGO[this._dow(iso)] + ', ' + Utils.formatDateES(iso);
+        return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+                '<button onclick="' + prevFn + '" style="flex:0 0 auto;width:44px;height:44px;border-radius:12px;border:1px solid #e2e8f0;background:white;font-size:1.3rem;color:#334155;cursor:pointer;">‹</button>' +
+                '<div style="flex:1 1 auto;text-align:center;background:white;border:1px solid #e2e8f0;border-radius:12px;padding:8px 6px;">' +
+                    '<div style="font-size:0.95rem;font-weight:700;color:#1e293b;">' + label + '</div>' +
+                    (esHoy ? '<div style="font-size:0.68rem;font-weight:700;color:#2563eb;margin-top:1px;">HOY</div>'
+                           : '<button onclick="' + todayFn + '" style="font-size:0.68rem;font-weight:700;color:#94a3b8;background:none;border:none;cursor:pointer;padding:0;margin-top:1px;">ir a hoy</button>') +
+                '</div>' +
+                '<button onclick="' + nextFn + '" style="flex:0 0 auto;width:44px;height:44px;border-radius:12px;border:1px solid #e2e8f0;background:white;font-size:1.3rem;color:#334155;cursor:pointer;">›</button>' +
+            '</div>';
+    },
+
+    _storeBadge: function(horario) {
+        const abierta = !!(horario && !horario.closed);
+        return abierta
+            ? '<div style="display:inline-flex;align-items:center;gap:6px;background:#dcfce7;color:#15803d;border-radius:8px;padding:6px 12px;font-size:0.82rem;font-weight:700;margin-bottom:14px;">🟢 Abierta ' + horario.open + '–' + horario.close + '</div>'
+            : '<div style="display:inline-flex;align-items:center;gap:6px;background:#fee2e2;color:#dc2626;border-radius:8px;padding:6px 12px;font-size:0.82rem;font-weight:700;margin-bottom:14px;">🔴 Cerrada</div>';
+    },
+
+    // ─── PANTALLA: HORARIOS DE UN DÍA ─────────────────────────────────────────
+    _renderHorarios: function() {
+        const fecha = this._state.date;
+        const horario = App.logic._getHorarioDelDia(fecha);
+        const abierta = !!(horario && !horario.closed);
+        const llavesActivo = !!App.data.config.llavesActivo;
+        const llaves = App.data.config.llaves || [];
+
+        const stepper = this._stepper(fecha, 'App.mobile.stepDate(-1)', 'App.mobile.stepDate(1)', 'App.mobile.goToday()');
+
+        // Empleados en orden de la vista principal, clasificados
+        const ordenada = this._empListOrdenada(fecha);
+        const trabajan = [];
+        const libran = [];
+        ordenada.forEach(emp => {
+            const shift = Utils.getShift((App.data.schedule[fecha] || {})[emp.id]);
+            if (shift && !shift.fixed && shift.start && shift.end) trabajan.push({ emp, shift });
+            else libran.push({ emp, shift });
+        });
+
+        // Marcador de llave (sin letras A/C: la cobertura va en los contadores)
+        const keyMarkers = (empId) => {
+            if (!llavesActivo) return '';
+            const tiene = llaves.some(l => App.logic.getTitularLlave(l.id, fecha) === empId);
+            return tiene ? '<span title="Tiene la llave" style="font-size:0.9rem;">🔑</span>' : '';
+        };
+
+        if (trabajan.length === 0) {
+            return stepper + this._storeBadge(horario) +
+                '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;padding:24px 0;">Nadie con turno este día.</div>' +
+                this._libranBlock(libran);
+        }
+
+        // ── Rejilla de barras ────────────────────────────────────────────────
+        // Span horario: del inicio más temprano al fin más tardío (mín. horario tienda)
+        let minStart = 24 * 60, maxEnd = 0;
+        trabajan.forEach(({ shift }) => {
+            const s = this._parseMin(shift.start), e = this._parseMin(shift.end);
+            if (s != null && s < minStart) minStart = s;
+            if (e != null && e > maxEnd) maxEnd = e;
+        });
+        if (abierta) {
+            const so = this._parseMin(horario.open), sc = this._parseMin(horario.close);
+            if (so != null && so < minStart) minStart = so;
+            if (sc != null && sc > maxEnd) maxEnd = sc;
+        }
+        const spanStart = Math.floor(minStart / 60) * 60;
+        const spanEnd = Math.ceil(maxEnd / 60) * 60;
+        const spanTotal = Math.max(60, spanEnd - spanStart);
+        const horas = spanTotal / 60;
+        const pct = (min) => ((min - spanStart) / spanTotal) * 100;
+
+        const NAME_W = '92px';
+        const TRACK_LEFT = '100px'; // NAME_W (92) + gap (8): origen de la zona de pista
+
+        // Hora valle: línea de referencia más marcada en su inicio y fin
+        const valleBolsa = parseFloat(App.data.config.valleBolsa) || 0;
+        const vS = this._parseMin(App.data.config.valleStart || '14:00');
+        const vE = this._parseMin(App.data.config.valleEnd || '17:00');
+        const showValle = valleBolsa > 0 && vS != null && vE != null;
+        const valleLines = !showValle ? '' :
+            [vS, vE].filter(v => v >= spanStart && v <= spanEnd).map(v =>
+                '<div style="position:absolute;top:0;bottom:0;left:' + pct(v) + '%;width:0;border-left:2px dashed rgba(59,130,246,0.55);"></div>'
+            ).join('');
+        const valleOverlay = valleLines
+            ? '<div style="position:absolute;top:0;bottom:0;left:' + TRACK_LEFT + ';right:0;pointer-events:none;z-index:2;">' + valleLines + '</div>'
+            : '';
+
+        // Cabecera de horas
+        let hourLabels = '';
+        for (let h = spanStart; h <= spanEnd; h += 60) {
+            const isEdge = h === spanStart;
+            hourLabels += '<span style="position:absolute;left:' + pct(h) + '%;transform:translateX(' + (isEdge ? '0' : '-50%') + ');font-size:0.6rem;color:#94a3b8;font-variant-numeric:tabular-nums;">' + String(h / 60).padStart(2, '0') + '</span>';
+        }
+        // Fondo de rejilla (una línea por hora)
+        const gridBg = 'background-image:repeating-linear-gradient(to right,#eef2f7 0,#eef2f7 1px,transparent 1px,transparent calc(100%/' + horas + '));';
+
+        const barRows = trabajan.map(({ emp, shift }) => {
+            const color = shift.color || '#6b7280';
+            const s = this._parseMin(shift.start), e = this._parseMin(shift.end);
+            const left = pct(s), width = Math.max(1.5, pct(e) - pct(s));
+            const horasTxt = shift.start + '–' + shift.end;
+            const esTag3 = ['MNG', 'AM', 'SPV'].includes(Utils.getRolEnFecha(emp, fecha));
+            const rowBg = esTag3 ? 'background:rgba(250,204,21,0.12);' : '';
+            // Descanso (si el turno lo define) como hueco claro sobre la barra
+            let breakHtml = '';
+            const bs = this._parseMin(shift.breakStart), be = this._parseMin(shift.breakEnd);
+            if (bs != null && be != null && be > bs) {
+                breakHtml = '<div style="position:absolute;top:0;bottom:0;left:' + pct(bs) + '%;width:' + (pct(be) - pct(bs)) + '%;background:#f1f5f9;opacity:0.85;"></div>';
+            }
+            const mk = keyMarkers(emp.id);
+            return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;border-radius:6px;' + rowBg + '">' +
+                    '<div style="flex:0 0 ' + NAME_W + ';width:' + NAME_W + ';overflow:hidden;padding-left:4px;">' +
+                        '<div style="font-size:0.8rem;font-weight:700;color:#1e293b;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;">' + emp.nombre + '</div>' +
+                        '<div style="display:flex;align-items:center;gap:4px;"><span style="font-size:0.66rem;color:' + color + ';font-weight:700;font-variant-numeric:tabular-nums;">' + horasTxt + '</span>' + mk + '</div>' +
+                    '</div>' +
+                    '<div style="position:relative;flex:1 1 auto;height:22px;border-radius:5px;border:1px solid #e2e8f0;' + gridBg + '">' +
+                        '<div style="position:absolute;top:2px;bottom:2px;left:' + left + '%;width:' + width + '%;background:' + color + ';border-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,0.12);"></div>' +
+                        breakHtml +
+                    '</div>' +
+                '</div>';
+        }).join('');
+
+        // ── Contadores de cobertura (chivato) — Tag 3 y Total, por franjas 30' ──
+        const nSlots = spanTotal / 30;
+        const openMin = abierta ? this._parseMin(horario.open) : null;
+        const closeMin = abierta ? this._parseMin(horario.close) : null;
+        const tag3Style = (n, open) => {
+            if (!open) return 'background:#f8fafc;color:#cbd5e1;';
+            if (n === 0) return 'background:#fee2e2;color:#dc2626;';
+            if (n === 1) return 'background:#dcfce7;color:#16a34a;';
+            if (n === 2) return 'background:#bbf7d0;color:#15803d;';
+            return 'background:#fef08a;color:#854d0e;'; // ≥3
+        };
+        const totalStyle = (n, open) => {
+            if (!open) return 'background:#f8fafc;color:#cbd5e1;';
+            if (n <= 1) return 'background:#ffffff;color:#ef4444;';
+            const level = Math.min(n, 10), intensity = (level - 2) / 8;
+            const r = Math.round(224 - 221 * intensity), g = Math.round(242 - 137 * intensity), b = Math.round(254 - 93 * intensity);
+            return 'background:rgb(' + r + ',' + g + ',' + b + ');color:' + (intensity > 0.5 ? '#ffffff' : '#0c4a6e') + ';';
+        };
+        let tag3Cells = '', totalCells = '';
+        for (let i = 0; i < nSlots; i++) {
+            const slotMin = spanStart + i * 30;
+            const open = abierta && openMin != null && slotMin >= openMin && slotMin < closeMin;
+            const st = App.logic.calcCoverage(fecha, slotMin);
+            const cellBase = 'flex:1 1 0;min-width:0;text-align:center;font-size:0.55rem;font-weight:700;line-height:16px;height:16px;font-variant-numeric:tabular-nums;border-right:1px solid rgba(255,255,255,0.5);';
+            tag3Cells += '<div style="' + cellBase + tag3Style(st.tag3, open) + '">' + (open || st.tag3 ? st.tag3 : '') + '</div>';
+            totalCells += '<div style="' + cellBase + totalStyle(st.total, open) + '">' + (open || st.total ? st.total : '') + '</div>';
+        }
+        const counterRow = (label, cells) =>
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;">' +
+                '<div style="flex:0 0 ' + NAME_W + ';width:' + NAME_W + ';font-size:0.62rem;font-weight:700;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px;">' + label + '</div>' +
+                '<div style="display:flex;flex:1 1 auto;border-radius:4px;overflow:hidden;border:1px solid #e2e8f0;">' + cells + '</div>' +
+            '</div>';
+        const countersHtml =
+            '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;">' +
+                counterRow('🔑 Tag 3', tag3Cells) +
+                counterRow('👥 Total', totalCells) +
+            '</div>';
+
+        const barsSection =
+            '<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:12px 12px 14px;margin-bottom:14px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">' +
+                    '<div style="flex:0 0 ' + NAME_W + ';width:' + NAME_W + ';font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;">Trabajan (' + trabajan.length + ')</div>' +
+                    '<div style="position:relative;flex:1 1 auto;height:14px;">' + hourLabels + '</div>' +
+                '</div>' +
+                '<div style="position:relative;">' + valleOverlay + barRows + countersHtml + '</div>' +
+            '</div>';
+
+        return stepper + this._storeBadge(horario) + barsSection + this._libranBlock(libran);
+    },
+
+    // Bloque de libranzas — oculto por defecto, con botón para mostrar
+    _libranBlock: function(libran) {
+        if (!libran.length) return '';
+        const btn = '<button onclick="App.mobile.toggleLibran()" style="width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:0.78rem;font-weight:700;color:#64748b;cursor:pointer;">' +
+            (this._state.showLibran ? '▲ Ocultar libranzas / ausencias' : '▼ Ver libranzas / ausencias (' + libran.length + ')') + '</button>';
+        if (!this._state.showLibran) return btn;
+        const chips = libran.map(({ emp, shift }) => {
+            const code = shift && shift.code ? shift.code : 'L';
+            const color = shift && shift.color ? shift.color : '#94a3b8';
+            return '<span style="display:inline-flex;align-items:center;gap:5px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:4px 9px;font-size:0.78rem;color:#475569;">' +
+                '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + color + ';"></span>' +
+                emp.nombre + ' <strong style="color:#64748b;">' + code + '</strong></span>';
+        }).join('');
+        return btn + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">' + chips + '</div>';
+    },
+
+    toggleLibran: function() { this._state.showLibran = !this._state.showLibran; this.render(); },
+    stepDate: function(delta) { this._state.date = this._shiftDate(this._state.date, delta); this.render(); },
+    goToday: function() { this._state.date = this._todayISO(); this.render(); },
+
+    // ─── PANTALLA: LLAVES (réplica del panel lateral + alta de traspaso) ──────
+    _renderLlaves: function() {
+        if (!App.data.config.llavesActivo) {
+            return '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;padding:40px 16px;">La gestión de llaves no está activada.</div>';
+        }
+        const llaves = App.data.config.llaves || [];
+        if (!llaves.length) {
+            return '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;padding:40px 16px;">No hay llaves configuradas.</div>';
+        }
+
+        const fecha = this._state.llavesDate;
+        const horario = App.logic._getHorarioDelDia(fecha);
+        const abierta = !!(horario && !horario.closed);
+
+        const stepper = this._stepper(fecha, 'App.mobile.stepLlavesDate(-1)', 'App.mobile.stepLlavesDate(1)', 'App.mobile.goLlavesToday()');
+
+        // Cobertura apertura/cierre
+        let coverageHtml = '';
+        if (abierta) {
+            const cov = App.logic._checkKeysCoverageDay(fecha);
+            if (cov) {
+                const badge = (ok, txt) => '<span style="display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:3px 9px;font-size:0.72rem;font-weight:700;' +
+                    (ok ? 'background:#dcfce7;color:#15803d;">✓ ' : 'background:#fee2e2;color:#dc2626;">✕ ') + txt + '</span>';
+                coverageHtml = '<div style="display:flex;justify-content:center;gap:10px;margin-bottom:12px;">' +
+                    badge(cov.hasApertura, 'Apertura') + badge(cov.hasCierre, 'Cierre') + '</div>';
+            }
+        }
+
+        // Titular por llave
+        const keysHtml = llaves.map((l, idx) => {
+            const tid = App.logic.getTitularLlave(l.id, fecha);
+            const esPersona = tid && tid !== '__TIENDA__';
+            const nombre = esPersona ? this._empNombre(tid) : '🏪 Tienda';
+            const color = esPersona ? '#059669' : '#f59e0b';
+            return '<div style="display:flex;align-items:center;gap:8px;font-size:0.84rem;padding:3px 0;">' +
+                '<span style="font-weight:800;color:#2563eb;width:24px;">L' + (idx + 1) + '</span>' +
+                '<span style="color:#94a3b8;flex:1 1 auto;">' + (l.alias || '') + '</span>' +
+                '<span style="color:' + color + ';font-weight:700;">' + nombre + '</span></div>';
+        }).join('');
+
+        // Rejilla TAG3 + próximos 5 días
+        const tag3 = App.data.empleados
+            .filter(e => e.active !== false && ['MNG', 'AM', 'SPV'].includes(Utils.getRolEnFecha(e, fecha)))
+            .sort((a, b) => (a.customOrder || 0) - (b.customOrder || 0));
+
+        const dObj = new Date(fecha + 'T12:00:00');
+        const futuros = [];
+        for (let i = 1; i <= 5; i++) { const fd = new Date(dObj); fd.setDate(fd.getDate() + i); futuros.push(fd.getFullYear() + '-' + String(fd.getMonth() + 1).padStart(2, '0') + '-' + String(fd.getDate()).padStart(2, '0')); }
+
+        const dayInfo = (empId, d) => {
+            const horD = App.logic._getHorarioDelDia(d);
+            const openD = !!(horD && !horD.closed);
+            const sv = (App.data.schedule[d] || {})[empId];
+            const sh = sv ? Utils.getShift(sv) : null;
+            const isFixed = !!(sh && sh.fixed);
+            const isWorking = !!sv && !isFixed;
+            return {
+                isLibre: !sv || isFixed,
+                code: sh ? (sh.code || '') : '',
+                opens: openD && isWorking && App.llaves._esOpener(empId, d),
+                closes: openD && isWorking && App.llaves._esCloser(empId, d)
+            };
+        };
+
+        const keyCell = (empId, d) => {
+            const tras = App.data.traspasoLlaves || [];
+            const entrega = tras.some(t => t.dadorId === empId && t.fecha === d);
+            const recibe = tras.some(t => t.receptorId === empId && t.dadorId != null && t.fecha === d);
+            const tiene = llaves.some(l => App.logic.getTitularLlave(l.id, d) === empId);
+            if (entrega) return '🔑→';
+            if (recibe) return '→🔑';
+            if (tiene) return '🔑';
+            return '';
+        };
+
+        const thS = 'padding:3px 2px;text-align:center;font-size:0.6rem;font-weight:700;color:#94a3b8;border-bottom:2px solid #e2e8f0;white-space:nowrap;';
+        const tdS = 'padding:4px 2px;text-align:center;border-bottom:1px solid #f1f5f9;font-size:0.72rem;';
+        const futHead = futuros.map(fd => { const fo = new Date(fd + 'T12:00:00'); return '<th style="' + thS + '">' + this.DIAS_CORTO[fo.getDay()] + '<br>' + fo.getDate() + '</th>'; }).join('');
+
+        const rows = tag3.map(emp => {
+            const info = dayInfo(emp.id, fecha);
+            const kc = keyCell(emp.id, fecha);
+            const libreCell = info.isLibre ? '<span style="display:inline-block;padding:1px 5px;background:#dcfce7;color:#16a34a;border-radius:4px;font-weight:700;">' + (info.code || 'L') + '</span>' : '';
+            const abreCell = info.opens ? '<span style="display:inline-block;padding:1px 5px;background:#dbeafe;color:#1d4ed8;border-radius:4px;font-weight:800;">A</span>' : '';
+            const cierraCell = info.closes ? '<span style="display:inline-block;padding:1px 5px;background:#fef9c3;color:#854d0e;border-radius:4px;font-weight:800;">C</span>' : '';
+            const futCells = futuros.map(fd => {
+                const fi = dayInfo(emp.id, fd);
+                let c = '';
+                if (fi.isLibre) c = '<span style="color:#16a34a;font-weight:600;">' + (fi.code || 'L') + '</span>';
+                else {
+                    const parts = [];
+                    if (fi.opens) parts.push('<span style="color:#1d4ed8;font-weight:800;">A</span>');
+                    if (fi.closes) parts.push('<span style="color:#854d0e;font-weight:800;">C</span>');
+                    c = parts.length ? parts.join(' ') : '<span style="color:#cbd5e1;">·</span>';
+                }
+                return '<td style="' + tdS + '">' + c + '</td>';
+            }).join('');
+            return '<tr>' +
+                '<td style="padding:4px 4px 4px 2px;font-size:0.74rem;font-weight:600;color:#1e293b;white-space:nowrap;border-bottom:1px solid #f1f5f9;">' + emp.nombre + '</td>' +
+                '<td style="' + tdS + 'white-space:nowrap;">' + kc + '</td>' +
+                '<td style="' + tdS + '">' + libreCell + '</td>' +
+                '<td style="' + tdS + '">' + abreCell + '</td>' +
+                '<td style="' + tdS + '">' + cierraCell + '</td>' +
+                '<td style="width:2px;background:#e2e8f0;padding:0;"></td>' +
+                futCells +
+            '</tr>';
+        }).join('');
+
+        const gridSection =
+            '<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:10px;margin-bottom:14px;overflow-x:auto;">' +
+                '<div style="font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Equipo TAG3</div>' +
+                '<table style="border-collapse:collapse;min-width:100%;">' +
+                    '<thead><tr>' +
+                        '<th style="' + thS + 'text-align:left;"></th>' +
+                        '<th style="' + thS + '">🔑</th><th style="' + thS + '">LIBRA</th><th style="' + thS + '">ABRE</th><th style="' + thS + '">CIERRA</th>' +
+                        '<th style="width:2px;padding:0;background:#e2e8f0;"></th>' +
+                        futHead +
+                    '</tr></thead><tbody>' + rows + '</tbody>' +
+                '</table>' +
+            '</div>';
+
+        // ── Formulario: nuevo traspaso ────────────────────────────────────────
+        if (!this._state.trLlaveId) this._state.trLlaveId = llaves[0].id;
+        const llaveOpts = llaves.map((l, idx) => {
+            const tid = App.logic.getTitularLlave(l.id, fecha);
+            const lbl = 'L' + (idx + 1) + (l.alias ? ' ' + l.alias : '') + ' — ' + this._empNombre(tid);
+            return '<option value="' + l.id + '"' + (l.id === this._state.trLlaveId ? ' selected' : '') + '>' + lbl + '</option>';
+        }).join('');
+        const recOpts = '<option value="__TIENDA__"' + (this._state.trReceptorId === '__TIENDA__' ? ' selected' : '') + '>🏪 Dejar en tienda</option>' +
+            tag3.map(e => '<option value="' + e.id + '"' + (e.id === this._state.trReceptorId ? ' selected' : '') + '>' + e.nombre + '</option>').join('');
+
+        const selStyle = 'width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:0.9rem;background:white;color:#1e293b;-webkit-appearance:none;appearance:none;';
+        const lblStyle = 'display:block;font-size:0.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin:0 0 5px 2px;';
+
+        const form =
+            '<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">' +
+                '<div style="font-size:0.74rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;">Nuevo traspaso</div>' +
+                '<div style="margin-bottom:11px;"><label style="' + lblStyle + '">Fecha</label>' +
+                    '<input type="date" value="' + fecha + '" onchange="App.mobile.setLlavesDate(this.value)" style="' + selStyle + 'font-variant-numeric:tabular-nums;"></div>' +
+                '<div style="margin-bottom:11px;"><label style="' + lblStyle + '">Llave</label>' +
+                    '<select onchange="App.mobile._state.trLlaveId=this.value" style="' + selStyle + '">' + llaveOpts + '</select></div>' +
+                '<div style="margin-bottom:14px;"><label style="' + lblStyle + '">Recibe</label>' +
+                    '<select onchange="App.mobile._state.trReceptorId=this.value" style="' + selStyle + '">' + recOpts + '</select></div>' +
+                '<button onclick="App.mobile.guardarTraspaso()" style="width:100%;padding:14px;border:none;border-radius:10px;background:#2563eb;color:white;font-size:0.95rem;font-weight:700;cursor:pointer;">💾 Guardar traspaso</button>' +
+            '</div>';
+
+        return stepper + this._storeBadge(horario) + coverageHtml +
+            '<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:14px;">' +
+                '<div style="font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Llaves</div>' + keysHtml +
+            '</div>' +
+            gridSection + form;
+    },
+
+    stepLlavesDate: function(delta) { this._state.llavesDate = this._shiftDate(this._state.llavesDate, delta); this.render(); },
+    goLlavesToday: function() { this._state.llavesDate = this._todayISO(); this.render(); },
+    setLlavesDate: function(iso) { if (iso) { this._state.llavesDate = iso; this.render(); } },
+
+    guardarTraspaso: function() {
+        const ok = App.logic.traspasoSave(this._state.trLlaveId, this._state.llavesDate, this._state.trReceptorId);
+        if (ok) {
+            this._state.trReceptorId = '__TIENDA__';
+            this._toast('✅ Traspaso guardado');
+        }
+        this.render();
+    },
+
+    // ─── DRIVE (carga manual) ─────────────────────────────────────────────────
+    _updateDriveBtn: function() {
+        const label = document.getElementById('m-drive-label');
+        if (!label) return;
+        label.textContent = (App.drive && App.drive.isConnected()) ? 'Cargar' : 'Conectar';
+    },
+
+    driveTap: function() {
+        if (!App.drive) return;
+        if (App.drive.isConnected()) this._showDriveList();
+        else App.drive.connect();
+    },
+
+    _showDriveList: function() {
+        const overlay = document.createElement('div');
+        overlay.id = 'm-drive-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:9999;display:flex;align-items:flex-end;';
+        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        overlay.innerHTML =
+            '<div style="background:white;width:100%;max-height:80vh;border-radius:16px 16px 0 0;display:flex;flex-direction:column;box-shadow:0 -8px 40px rgba(0,0,0,0.3);">' +
+                '<div style="padding:16px 18px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f1f5f9;">' +
+                    '<span style="font-size:1rem;font-weight:700;color:#1e293b;">☁︎ Cargar copia de Drive</span>' +
+                    '<button onclick="document.getElementById(\'m-drive-overlay\').remove()" style="background:none;border:none;font-size:1.3rem;color:#94a3b8;cursor:pointer;">✕</button>' +
+                '</div>' +
+                '<div id="m-drive-files" style="overflow-y:auto;padding:12px 14px 20px;">' +
+                    '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;padding:24px 0;">Buscando copias…</div>' +
+                '</div>' +
+            '</div>';
+        document.body.appendChild(overlay);
+
+        App.drive.listFiles((files) => {
+            const cont = document.getElementById('m-drive-files');
+            if (!cont) return;
+            if (!files.length) {
+                cont.innerHTML = '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;padding:24px 0;">No se encontraron copias en Drive.</div>';
+                return;
+            }
+            cont.innerHTML = files.map(f => {
+                const nombre = f.name.replace(/Backup_(Auto|Manual)_/, '').replace(/_\d{8}_\d{6}\.json$/, '');
+                const fecha = f.createdTime ? new Date(f.createdTime).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : '';
+                return '<button onclick="App.mobile.loadDriveFile(\'' + f.id + '\')" ' +
+                    'style="display:block;width:100%;text-align:left;background:white;border:1px solid #e2e8f0;border-radius:10px;padding:11px 13px;margin-bottom:8px;cursor:pointer;">' +
+                    '<div style="font-size:0.88rem;font-weight:700;color:#1e293b;">' + nombre + '</div>' +
+                    '<div style="font-size:0.74rem;color:#94a3b8;margin-top:2px;">' + fecha + '</div>' +
+                '</button>';
+            }).join('');
+        });
+    },
+
+    loadDriveFile: function(fileId) {
+        const cont = document.getElementById('m-drive-files');
+        if (cont) cont.innerHTML = '<div style="color:#64748b;font-size:0.85rem;text-align:center;padding:24px 0;">Cargando…</div>';
+        App.drive.loadFile(fileId,
+            (data) => {
+                if (App.logic.saveSnapshot) App.logic.saveSnapshot('Antes de cargar desde Drive (móvil)');
+                App.data = { ...App.data, ...data };
+                App.data.fixedShifts = [
+                    { id: "fixed_L", code: "L", desc: "Libre", start: "", end: "", color: "#22c55e", fixed: true },
+                    { id: "fixed_F", code: "F", desc: "Festivo", start: "", end: "", color: "#22c55e", fixed: true },
+                    { id: "fixed_R", code: "R", desc: "Recuperación", start: "", end: "", color: "#22c55e", fixed: true },
+                    { id: "fixed_V", code: "V", desc: "Vacaciones", start: "", end: "", color: "#a855f7", fixed: true },
+                    { id: "fixed_B", code: "B", desc: "Baja médica", start: "", end: "", color: "#ef4444", fixed: true },
+                    { id: "fixed_P", code: "P", desc: "Permiso", start: "", end: "", color: "#ec4899", fixed: true }
+                ];
+                Safe.saveImmediate('v40_db', App.data);
+                const ov = document.getElementById('m-drive-overlay');
+                if (ov) ov.remove();
+                this.render();
+                this._toast('✅ Datos cargados desde Drive');
+            },
+            () => {
+                const c = document.getElementById('m-drive-files');
+                if (c) c.innerHTML = '<div style="color:#dc2626;font-size:0.85rem;text-align:center;padding:24px 0;">Error al cargar la copia.</div>';
+            }
+        );
+    },
+
+    _toast: function(msg) {
+        const t = document.createElement('div');
+        t.textContent = msg;
+        t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1e293b;color:#f8fafc;padding:10px 18px;border-radius:24px;font-size:0.82rem;font-weight:600;z-index:10000;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 2600);
+    }
+};

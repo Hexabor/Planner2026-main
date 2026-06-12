@@ -6,6 +6,15 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '12/06/2026', version: 'v1.0',
+                items: [
+                    '📱 Versión móvil: al abrir la app desde el móvil ahora carga una interfaz ligera de consulta (detección automática; se puede forzar con ?desktop=1 o ?mobile=1). El escritorio no cambia',
+                    '📱 Móvil → Horarios de un día: navegador de fecha + rejilla de barras por persona en el mismo orden que la vista principal. Responsables (Tag 3) sombreados en amarillo tenue, línea de referencia en el inicio/fin de la hora valle, y contadores de cobertura debajo (Tag 3 y Total) por franjas de 30′. Libranzas ocultas por defecto',
+                    '📱 Móvil → Llaves: réplica del panel de gestión (titular por llave, cobertura apertura/cierre, rejilla TAG3 con próximos días) y alta de traspasos desde el propio móvil',
+                    '📱 Móvil → datos: carga manual desde Drive (botón ☁︎ en la barra superior)',
+                ]
+            },
+            {
                 fecha: '11/06/2026', version: 'v1.0',
                 items: [
                     '🔧 Llaves — apertura/cierre por presencia: quien entra a la hora de apertura o antes (p.ej. adelantado para recibir un recurso) cuenta como que abre; quien sale al cierre o después cuenta como que cierra. Antes exigía coincidencia exacta y marcaba "nadie abre" en falso',

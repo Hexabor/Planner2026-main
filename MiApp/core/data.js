@@ -281,6 +281,13 @@ const App = {
         
         Safe.initTabGuard();
         App.drive.init();
+
+        // Versión móvil: monta su propia interfaz ligera y omite el router de escritorio
+        if (window.__PLANNER_MOBILE__ && App.mobile) {
+            App.mobile.init();
+            return;
+        }
+
         App.router.go('home');
         
         

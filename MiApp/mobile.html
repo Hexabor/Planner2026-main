@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1e293b">
+    <title>Planificador · Móvil</title>
+</head>
+<body>
+
+<!-- Marca esta sesión como móvil: core/data.js arranca App.mobile en vez del escritorio -->
+<script>window.__PLANNER_MOBILE__ = true;</script>
+
+<!-- Manejador global de errores (igual que el escritorio, en versión mínima) -->
+<script>
+window.onerror = function(msg, src, line, col, err) {
+    console.error('[mobile]', msg, src, line, col, err);
+};
+window.onunhandledrejection = function(e) { console.error('[mobile] promesa', e.reason); };
+</script>
+
+<!-- Núcleo + capa de lógica (SIN los módulos ui-*.js de escritorio) -->
+<script src="core/safe.js"></script>
+<script src="core/utils.js"></script>
+<script src="core/admin-config.js"></script>
+<script src="core/data.js"></script>
+<script src="modules/router.js"></script>
+<script src="modules/logic-history.js"></script>
+<script src="modules/logic-schedule.js"></script>
+<script src="modules/logic-shifts.js"></script>
+<script src="modules/logic-employees.js"></script>
+<script src="modules/logic-requests.js"></script>
+<script src="modules/logic-llaves.js"></script>
+<script src="modules/logic-store.js"></script>
+<script src="modules/logic-drive.js"></script>
+
+<!-- Interfaz móvil -->
+<script src="modules/ui-mobile.js"></script>
+
+<script>window.onload = App.init;</script>
+</body>
+</html>

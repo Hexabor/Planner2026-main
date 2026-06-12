@@ -504,7 +504,8 @@ Object.assign(App.logic, {
             Safe.save('v40_db', App.data);
             App.logic.checkAlerts();
             App.logic._refreshLlaves();
-            App.ui.renderTraspasoInspector(null, fecha);
+            if (App.ui && App.ui.renderTraspasoInspector) App.ui.renderTraspasoInspector(null, fecha);
+            return true;
         },
 
         traspasoUpdate: function(id, llaveId, fecha, receptorId) {
@@ -526,7 +527,8 @@ Object.assign(App.logic, {
             Safe.save('v40_db', App.data);
             App.logic.checkAlerts();
             App.logic._refreshLlaves();
-            App.ui.renderTraspasoInspector(null, fecha);
+            if (App.ui && App.ui.renderTraspasoInspector) App.ui.renderTraspasoInspector(null, fecha);
+            return true;
         },
 
         traspasoDel: function(id, isBroken) {

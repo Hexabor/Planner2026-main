@@ -4,6 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planificador v41.92 - Fix tabs Calendario + Home tile actualizado</title>
+
+    <!-- Detección de móvil: redirige a la versión ligera antes de cargar el escritorio.
+         Override manual: ?desktop=1 fuerza escritorio, ?mobile=1 fuerza móvil (se recuerda). -->
+    <script>
+    (function () {
+        try {
+            var qs = new URLSearchParams(location.search);
+            if (qs.has('desktop')) { localStorage.setItem('plannerForceView', 'desktop'); }
+            if (qs.has('mobile'))  { localStorage.setItem('plannerForceView', 'mobile'); }
+            var forced = localStorage.getItem('plannerForceView');
+            if (forced === 'desktop') return;
+            var isMobile = forced === 'mobile' ||
+                (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) <= 820);
+            if (isMobile) location.replace('mobile.html');
+        } catch (e) { /* ante la duda, escritorio */ }
+    })();
+    </script>
+
     <link rel="stylesheet" href="core/styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
