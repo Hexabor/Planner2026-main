@@ -188,13 +188,6 @@ App.mobile = {
         return out;
     },
 
-    _storeBadge: function(horario) {
-        const abierta = !!(horario && !horario.closed);
-        return abierta
-            ? '<div style="display:inline-flex;align-items:center;gap:6px;background:#dcfce7;color:#15803d;border-radius:8px;padding:6px 12px;font-size:0.82rem;font-weight:700;margin-bottom:14px;">🟢 Abierta ' + horario.open + '–' + horario.close + '</div>'
-            : '<div style="display:inline-flex;align-items:center;gap:6px;background:#fee2e2;color:#dc2626;border-radius:8px;padding:6px 12px;font-size:0.82rem;font-weight:700;margin-bottom:14px;">🔴 Cerrada</div>';
-    },
-
     // ─── PANTALLA: HORARIOS DE UN DÍA ─────────────────────────────────────────
     _renderHorarios: function() {
         const fecha = this._state.date;
@@ -412,18 +405,6 @@ App.mobile = {
             }
         }
 
-        // Titular por llave
-        const keysHtml = llaves.map((l, idx) => {
-            const tid = App.logic.getTitularLlave(l.id, fecha);
-            const esPersona = tid && tid !== '__TIENDA__';
-            const nombre = esPersona ? this._empNombre(tid) : '🏪 Tienda';
-            const color = esPersona ? '#059669' : '#f59e0b';
-            return '<div style="display:flex;align-items:center;gap:8px;font-size:0.84rem;padding:3px 0;">' +
-                '<span style="font-weight:800;color:#2563eb;width:24px;">L' + (idx + 1) + '</span>' +
-                '<span style="color:#94a3b8;flex:1 1 auto;">' + (l.alias || '') + '</span>' +
-                '<span style="color:' + color + ';font-weight:700;">' + nombre + '</span></div>';
-        }).join('');
-
         // Rejilla TAG3 + próximos 5 días
         const tag3 = App.data.empleados
             .filter(e => e.active !== false && ['MNG', 'AM', 'SPV'].includes(Utils.getRolEnFecha(e, fecha)))
@@ -530,11 +511,7 @@ App.mobile = {
                 '<button onclick="App.mobile.guardarTraspaso()" style="width:100%;padding:14px;border:none;border-radius:10px;background:#2563eb;color:white;font-size:0.95rem;font-weight:700;cursor:pointer;">💾 Guardar traspaso</button>' +
             '</div>';
 
-        return stepper + this._storeBadge(horario) + coverageHtml +
-            '<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:14px;">' +
-                '<div style="font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Llaves</div>' + keysHtml +
-            '</div>' +
-            gridSection + form;
+        return stepper + coverageHtml + gridSection + form;
     },
 
     setLlavesDate: function(iso) { if (iso) { this._state.llavesDate = iso; this.render(); } },

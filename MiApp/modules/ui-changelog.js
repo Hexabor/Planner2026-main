@@ -11,7 +11,7 @@ Object.assign(App.ui, {
                     '📱 Versión móvil: al abrir la app desde el móvil ahora carga una interfaz ligera de consulta (detección automática; se puede forzar con ?desktop=1 o ?mobile=1). El escritorio no cambia',
                     '📱 Móvil → Horarios de un día: rejilla de barras por persona en el mismo orden que la vista principal, con columna de llave a la izquierda. Responsables (Tag 3) sombreados en amarillo tenue, línea de referencia en el inicio/fin de la hora valle, y contadores de cobertura debajo (Tag 3 y Total) por franjas de 30′. Libranzas ocultas por defecto (cada ausente con su letra en un cuadradito de color)',
                     '📱 Móvil → navegador: avance por día (‹ ›) y por semana (« »), código de semana visible y desplegable para saltar directo a cualquier semana',
-                    '📱 Móvil → Llaves: réplica del panel de gestión (titular por llave, cobertura apertura/cierre, rejilla TAG3 con próximos días) y alta de traspasos desde el propio móvil',
+                    '📱 Móvil → Llaves: cobertura apertura/cierre, rejilla TAG3 con próximos días (el titular de cada llave ya se ve en la tabla) y alta de traspasos desde el propio móvil',
                     '📱 Móvil → datos: carga manual desde Drive (botón ☁︎ en la barra superior)',
                 ]
             },
