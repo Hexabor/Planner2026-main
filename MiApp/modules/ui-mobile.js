@@ -89,7 +89,10 @@ App.mobile = {
         app.innerHTML =
             '<header id="m-top" style="flex:0 0 auto;background:#1e293b;color:#f8fafc;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 6px rgba(0,0,0,0.15);">' +
                 '<span style="font-size:1.02rem;font-weight:700;letter-spacing:0.01em;">Planificador</span>' +
-                '<button id="m-drive-btn" onclick="App.mobile.driveTap()" style="display:inline-flex;align-items:center;gap:6px;background:#334155;color:#e2e8f0;border:none;border-radius:20px;padding:7px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;">☁︎ <span id="m-drive-label">Drive</span></button>' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                    '<button id="m-save-btn" onclick="App.mobile.driveSave()" style="display:inline-flex;align-items:center;gap:6px;background:#16a34a;color:#f0fdf4;border:none;border-radius:20px;padding:7px 14px;font-size:0.8rem;font-weight:700;cursor:pointer;">💾 Guardar</button>' +
+                    '<button id="m-drive-btn" onclick="App.mobile.driveTap()" style="display:inline-flex;align-items:center;gap:6px;background:#334155;color:#e2e8f0;border:none;border-radius:20px;padding:7px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;">☁︎ <span id="m-drive-label">Drive</span></button>' +
+                '</div>' +
             '</header>' +
             '<main id="m-content" style="flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 24px;box-sizing:border-box;"></main>' +
             '<nav id="m-tabs" style="flex:0 0 auto;display:flex;background:white;border-top:1px solid #e2e8f0;box-shadow:0 -1px 6px rgba(0,0,0,0.06);"></nav>';
@@ -657,6 +660,15 @@ App.mobile = {
         if (!App.drive) return;
         if (App.drive.isConnected()) this._showDriveList();
         else App.drive.connect();
+    },
+
+    // Sube el progreso actual a Drive (los cambios ya están guardados en local).
+    driveSave: function() {
+        if (!App.drive || !App.drive.isConnected()) {
+            this._toast('Conéctate a Drive primero (☁︎)');
+            return;
+        }
+        App.drive.save('Manual'); // muestra su propio aviso al terminar
     },
 
     _showDriveList: function() {

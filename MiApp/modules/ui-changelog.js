@@ -15,7 +15,7 @@ Object.assign(App.ui, {
                     '📱 Móvil → Llaves: cobertura apertura/cierre, rejilla TAG3 con próximos días (el titular de cada llave ya se ve en la tabla) y alta de traspasos desde el propio móvil',
                     '📱 Móvil → Llaves: tabla de movimientos previstos desde hoy y exportación a PDF (mismo formato que el escritorio) para pasársela a la tienda',
                     '📱 Móvil → Llaves: bajo las aspitas de apertura/cierre se muestra una llave por cada llave que cubre ese turno (como en el escritorio)',
-                    '📱 Móvil → datos: carga manual desde Drive (botón ☁︎ en la barra superior)',
+                    '📱 Móvil → datos: carga manual desde Drive (botón ☁︎) y botón 💾 Guardar en la barra superior para subir el progreso a Drive',
                 ]
             },
             {
