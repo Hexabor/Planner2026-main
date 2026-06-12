@@ -134,19 +134,58 @@ App.mobile = {
         this._updateDriveBtn();
     },
 
-    // Stepper de fecha reutilizable
-    _stepper: function(iso, prevFn, nextFn, todayFn) {
+    // Stepper de fecha — kind: 'h' (horarios) | 'l' (llaves)
+    // Navega por días (‹ ›) y semanas (« »), con desplegable para saltar a una semana.
+    _stepper: function(iso, kind) {
         const esHoy = iso === this._todayISO();
         const label = this.DIAS_LARGO[this._dow(iso)] + ', ' + Utils.formatDateES(iso);
-        return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
-                '<button onclick="' + prevFn + '" style="flex:0 0 auto;width:44px;height:44px;border-radius:12px;border:1px solid #e2e8f0;background:white;font-size:1.3rem;color:#334155;cursor:pointer;">‹</button>' +
-                '<div style="flex:1 1 auto;text-align:center;background:white;border:1px solid #e2e8f0;border-radius:12px;padding:8px 6px;">' +
-                    '<div style="font-size:0.95rem;font-weight:700;color:#1e293b;">' + label + '</div>' +
-                    (esHoy ? '<div style="font-size:0.68rem;font-weight:700;color:#2563eb;margin-top:1px;">HOY</div>'
-                           : '<button onclick="' + todayFn + '" style="font-size:0.68rem;font-weight:700;color:#94a3b8;background:none;border:none;cursor:pointer;padding:0;margin-top:1px;">ir a hoy</button>') +
+        const wk = Utils.getWeekCode(iso);
+        const btn = (txt, call, title) =>
+            '<button onclick="App.mobile.' + call + '" title="' + title + '" style="flex:0 0 auto;width:38px;height:44px;border-radius:10px;border:1px solid #e2e8f0;background:white;font-size:1.15rem;color:#334155;cursor:pointer;">' + txt + '</button>';
+        const navRow =
+            '<div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;">' +
+                btn('«', "navWeek('" + kind + "',-1)", 'Semana anterior') +
+                btn('‹', "navDay('" + kind + "',-1)", 'Día anterior') +
+                '<div style="flex:1 1 auto;min-width:0;text-align:center;background:white;border:1px solid #e2e8f0;border-radius:10px;padding:6px 4px;">' +
+                    '<div style="font-size:0.9rem;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + label + '</div>' +
+                    (esHoy ? '<div style="font-size:0.66rem;font-weight:700;color:#2563eb;">' + wk + ' · HOY</div>'
+                           : '<button onclick="App.mobile.navToday(\'' + kind + '\')" style="font-size:0.66rem;font-weight:700;color:#94a3b8;background:none;border:none;cursor:pointer;padding:0;">' + wk + ' · ir a hoy</button>') +
                 '</div>' +
-                '<button onclick="' + nextFn + '" style="flex:0 0 auto;width:44px;height:44px;border-radius:12px;border:1px solid #e2e8f0;background:white;font-size:1.3rem;color:#334155;cursor:pointer;">›</button>' +
+                btn('›', "navDay('" + kind + "',1)", 'Día siguiente') +
+                btn('»', "navWeek('" + kind + "',1)", 'Semana siguiente') +
             '</div>';
+        const sel =
+            '<select onchange="App.mobile.navJumpWeek(\'' + kind + '\',this.value)" ' +
+                'style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #e2e8f0;border-radius:10px;font-size:0.82rem;background:white;color:#334155;font-weight:600;-webkit-appearance:none;appearance:none;">' +
+                this._weekOptions(iso) +
+            '</select>';
+        return '<div style="margin-bottom:12px;">' + navRow + sel + '</div>';
+    },
+
+    // Opciones del desplegable de semanas: cubre el rango con datos (schedule +
+    // traspasos) y, como mínimo, una ventana alrededor de hoy.
+    _weekOptions: function(currentIso) {
+        const curMon = Utils.getMonday(currentIso + 'T12:00:00');
+        const today = this._todayISO();
+        let minD = today, maxD = today;
+        const consider = (d) => { if (d && d.length === 10) { if (d < minD) minD = d; if (d > maxD) maxD = d; } };
+        Object.keys(App.data.schedule || {}).forEach(consider);
+        (App.data.traspasoLlaves || []).forEach(t => consider(t.fecha));
+        consider(currentIso);
+        const back = this._shiftDate(today, -8 * 7); if (back < minD) minD = back;
+        const fwd = this._shiftDate(today, 16 * 7); if (fwd > maxD) maxD = fwd;
+        let mon = Utils.getMonday(minD + 'T12:00:00');
+        const lastMon = Utils.getMonday(maxD + 'T12:00:00');
+        const f = (iso) => { const p = iso.split('-'); return p[2] + '/' + p[1]; };
+        let out = '', guard = 0;
+        while (mon <= lastMon && guard < 500) {
+            const sun = this._shiftDate(mon, 6);
+            out += '<option value="' + mon + '"' + (mon === curMon ? ' selected' : '') + '>' +
+                Utils.getWeekCode(mon) + ' · ' + f(mon) + '–' + f(sun) + '</option>';
+            mon = this._shiftDate(mon, 7);
+            guard++;
+        }
+        return out;
     },
 
     _storeBadge: function(horario) {
@@ -164,7 +203,7 @@ App.mobile = {
         const llavesActivo = !!App.data.config.llavesActivo;
         const llaves = App.data.config.llaves || [];
 
-        const stepper = this._stepper(fecha, 'App.mobile.stepDate(-1)', 'App.mobile.stepDate(1)', 'App.mobile.goToday()');
+        const stepper = this._stepper(fecha, 'h');
 
         // Empleados en orden de la vista principal, clasificados
         const ordenada = this._empListOrdenada(fecha);
@@ -184,7 +223,7 @@ App.mobile = {
         };
 
         if (trabajan.length === 0) {
-            return stepper + this._storeBadge(horario) +
+            return stepper +
                 '<div style="color:#94a3b8;font-size:0.85rem;text-align:center;padding:24px 0;">Nadie con turno este día.</div>' +
                 this._libranBlock(libran);
         }
@@ -208,8 +247,10 @@ App.mobile = {
         const horas = spanTotal / 60;
         const pct = (min) => ((min - spanStart) / spanTotal) * 100;
 
+        const KEY_W = '22px';
         const NAME_W = '92px';
-        const TRACK_LEFT = '100px'; // NAME_W (92) + gap (8): origen de la zona de pista
+        const LEFT_LABEL = '122px'; // KEY_W (22) + gap (8) + NAME_W (92)
+        const TRACK_LEFT = '130px'; // LEFT_LABEL (122) + gap (8): origen de la zona de pista
 
         // Hora valle: línea de referencia más marcada en su inicio y fin
         const valleBolsa = parseFloat(App.data.config.valleBolsa) || 0;
@@ -248,9 +289,10 @@ App.mobile = {
             }
             const mk = keyMarkers(emp.id);
             return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;border-radius:6px;' + rowBg + '">' +
-                    '<div style="flex:0 0 ' + NAME_W + ';width:' + NAME_W + ';overflow:hidden;padding-left:4px;">' +
+                    '<div style="flex:0 0 ' + KEY_W + ';width:' + KEY_W + ';text-align:center;line-height:1;">' + mk + '</div>' +
+                    '<div style="flex:0 0 ' + NAME_W + ';width:' + NAME_W + ';overflow:hidden;">' +
                         '<div style="font-size:0.8rem;font-weight:700;color:#1e293b;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;">' + emp.nombre + '</div>' +
-                        '<div style="display:flex;align-items:center;gap:4px;"><span style="font-size:0.66rem;color:' + color + ';font-weight:700;font-variant-numeric:tabular-nums;">' + horasTxt + '</span>' + mk + '</div>' +
+                        '<span style="font-size:0.66rem;color:' + color + ';font-weight:700;font-variant-numeric:tabular-nums;">' + horasTxt + '</span>' +
                     '</div>' +
                     '<div style="position:relative;flex:1 1 auto;height:22px;border-radius:5px;border:1px solid #e2e8f0;' + gridBg + '">' +
                         '<div style="position:absolute;top:2px;bottom:2px;left:' + left + '%;width:' + width + '%;background:' + color + ';border-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,0.12);"></div>' +
@@ -288,7 +330,7 @@ App.mobile = {
         }
         const counterRow = (label, cells) =>
             '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;">' +
-                '<div style="flex:0 0 ' + NAME_W + ';width:' + NAME_W + ';font-size:0.62rem;font-weight:700;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px;">' + label + '</div>' +
+                '<div style="flex:0 0 ' + LEFT_LABEL + ';width:' + LEFT_LABEL + ';font-size:0.62rem;font-weight:700;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + label + '</div>' +
                 '<div style="display:flex;flex:1 1 auto;border-radius:4px;overflow:hidden;border:1px solid #e2e8f0;">' + cells + '</div>' +
             '</div>';
         const countersHtml =
@@ -300,13 +342,13 @@ App.mobile = {
         const barsSection =
             '<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:12px 12px 14px;margin-bottom:14px;">' +
                 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">' +
-                    '<div style="flex:0 0 ' + NAME_W + ';width:' + NAME_W + ';font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;">Trabajan (' + trabajan.length + ')</div>' +
+                    '<div style="flex:0 0 ' + LEFT_LABEL + ';width:' + LEFT_LABEL + ';font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;">Trabajan (' + trabajan.length + ')</div>' +
                     '<div style="position:relative;flex:1 1 auto;height:14px;">' + hourLabels + '</div>' +
                 '</div>' +
                 '<div style="position:relative;">' + valleOverlay + barRows + countersHtml + '</div>' +
             '</div>';
 
-        return stepper + this._storeBadge(horario) + barsSection + this._libranBlock(libran);
+        return stepper + barsSection + this._libranBlock(libran);
     },
 
     // Bloque de libranzas — oculto por defecto, con botón para mostrar
@@ -318,16 +360,29 @@ App.mobile = {
         const chips = libran.map(({ emp, shift }) => {
             const code = shift && shift.code ? shift.code : 'L';
             const color = shift && shift.color ? shift.color : '#94a3b8';
-            return '<span style="display:inline-flex;align-items:center;gap:5px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:4px 9px;font-size:0.78rem;color:#475569;">' +
-                '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + color + ';"></span>' +
-                emp.nombre + ' <strong style="color:#64748b;">' + code + '</strong></span>';
+            return '<span style="display:inline-flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:4px 9px 4px 5px;font-size:0.78rem;color:#475569;">' +
+                '<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;background:' + color + ';color:#fff;font-size:0.62rem;font-weight:800;">' + code + '</span>' +
+                emp.nombre + '</span>';
         }).join('');
         return btn + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">' + chips + '</div>';
     },
 
     toggleLibran: function() { this._state.showLibran = !this._state.showLibran; this.render(); },
-    stepDate: function(delta) { this._state.date = this._shiftDate(this._state.date, delta); this.render(); },
-    goToday: function() { this._state.date = this._todayISO(); this.render(); },
+
+    // ── Navegación genérica (kind: 'h' horarios | 'l' llaves) ────────────────
+    _navField: function(kind) { return kind === 'l' ? 'llavesDate' : 'date'; },
+    navDay: function(kind, delta) { const f = this._navField(kind); this._state[f] = this._shiftDate(this._state[f], delta); this.render(); },
+    navWeek: function(kind, delta) { const f = this._navField(kind); this._state[f] = this._shiftDate(this._state[f], delta * 7); this.render(); },
+    navToday: function(kind) { this._state[this._navField(kind)] = this._todayISO(); this.render(); },
+    navJumpWeek: function(kind, mondayIso) {
+        if (!mondayIso) return;
+        const f = this._navField(kind);
+        const cur = this._state[f];
+        const curMon = Utils.getMonday(cur + 'T12:00:00');
+        const offset = Math.round((new Date(cur + 'T12:00:00') - new Date(curMon + 'T12:00:00')) / 86400000);
+        this._state[f] = this._shiftDate(mondayIso, offset);
+        this.render();
+    },
 
     // ─── PANTALLA: LLAVES (réplica del panel lateral + alta de traspaso) ──────
     _renderLlaves: function() {
@@ -343,7 +398,7 @@ App.mobile = {
         const horario = App.logic._getHorarioDelDia(fecha);
         const abierta = !!(horario && !horario.closed);
 
-        const stepper = this._stepper(fecha, 'App.mobile.stepLlavesDate(-1)', 'App.mobile.stepLlavesDate(1)', 'App.mobile.goLlavesToday()');
+        const stepper = this._stepper(fecha, 'l');
 
         // Cobertura apertura/cierre
         let coverageHtml = '';
@@ -482,8 +537,6 @@ App.mobile = {
             gridSection + form;
     },
 
-    stepLlavesDate: function(delta) { this._state.llavesDate = this._shiftDate(this._state.llavesDate, delta); this.render(); },
-    goLlavesToday: function() { this._state.llavesDate = this._todayISO(); this.render(); },
     setLlavesDate: function(iso) { if (iso) { this._state.llavesDate = iso; this.render(); } },
 
     guardarTraspaso: function() {
