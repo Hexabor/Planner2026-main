@@ -15,7 +15,7 @@
 
 App.mobile = {
 
-    _state: { tab: 'horarios', date: null, llavesDate: null, showLibran: false, trLlaveId: null, trReceptorId: '__TIENDA__' },
+    _state: { tab: 'horarios', date: null, llavesDate: null, showLibran: false, trLlaveId: null, trReceptorId: '__TIENDA__', movPrevOpen: false },
 
     DIAS_LARGO: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
     DIAS_CORTO: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'],
@@ -511,7 +511,103 @@ App.mobile = {
                 '<button onclick="App.mobile.guardarTraspaso()" style="width:100%;padding:14px;border:none;border-radius:10px;background:#2563eb;color:white;font-size:0.95rem;font-weight:700;cursor:pointer;">💾 Guardar traspaso</button>' +
             '</div>';
 
-        return stepper + coverageHtml + gridSection + form;
+        // ── Movimientos previstos desde hoy (tabla + exportar PDF) ────────────
+        const movsAll = this._movimientosDesdeHoy();
+        const open = this._state.movPrevOpen;
+
+        let panel = '';
+        if (open) {
+            const empCell = (id) => (!id || id === '__TIENDA__')
+                ? '<span style="color:#f59e0b;font-weight:600;white-space:nowrap;">🏪 En tienda</span>'
+                : this._empNombre(id);
+            const th = 'padding:7px 8px;text-align:left;font-size:0.64rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid #e2e8f0;white-space:nowrap;';
+            const td = 'padding:8px;border-bottom:1px solid #f1f5f9;font-size:0.78rem;vertical-align:top;';
+            let rows = '';
+            movsAll.forEach(m => {
+                const l = llaves[m.llaveIdx];
+                const lbl = 'Llave ' + (m.llaveIdx + 1) + (l && l.alias ? ' · ' + l.alias : '');
+                rows += '<tr>' +
+                    '<td style="' + td + 'white-space:nowrap;color:#475569;">' + Utils.formatDateES(m.fecha) + '</td>' +
+                    '<td style="' + td + 'font-weight:600;color:#1e293b;">' + lbl + '</td>' +
+                    '<td style="' + td + 'color:#475569;">' + empCell(m.dadorId) + '</td>' +
+                    '<td style="' + td + 'font-weight:700;color:#1e293b;">' + empCell(m.receptorId) + '</td>' +
+                '</tr>';
+            });
+            const tableHtml = movsAll.length
+                ? '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>' +
+                    '<th style="' + th + '">Fecha</th><th style="' + th + '">Llave</th><th style="' + th + '">Entrega</th><th style="' + th + '">Recibe</th>' +
+                    '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+                : '<div style="color:#94a3b8;font-size:0.83rem;text-align:center;padding:16px 0;">Sin movimientos previstos.</div>';
+            panel = '<div style="background:white;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px 12px;margin-top:8px;">' + tableHtml + '</div>';
+        }
+
+        const movBlock =
+            '<div style="margin-top:14px;">' +
+                '<div style="display:flex;gap:8px;">' +
+                    '<button onclick="App.mobile.toggleMovPrev()" style="flex:1 1 auto;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:11px;font-size:0.8rem;font-weight:700;color:#64748b;cursor:pointer;">' +
+                        (open ? '▲ Ocultar movimientos previstos' : '▼ Movimientos previstos desde hoy (' + movsAll.length + ')') +
+                    '</button>' +
+                    '<button onclick="App.mobile.exportMovimientosPDF()" title="Exportar a PDF" style="flex:0 0 auto;background:#1e293b;color:#f8fafc;border:none;border-radius:10px;padding:11px 16px;font-size:0.8rem;font-weight:700;cursor:pointer;">📄 PDF</button>' +
+                '</div>' +
+                panel +
+            '</div>';
+
+        return stepper + coverageHtml + gridSection + form + movBlock;
+    },
+
+    // Traspasos reales (con dador) desde hoy en adelante, con índice de llave
+    _movimientosDesdeHoy: function() {
+        const hoy = this._todayISO();
+        const llaves = App.data.config.llaves || [];
+        const idx = {};
+        llaves.forEach((l, i) => { idx[l.id] = i; });
+        return (App.data.traspasoLlaves || [])
+            .filter(t => t.fecha >= hoy && t.dadorId != null)
+            .sort((a, b) => a.fecha.localeCompare(b.fecha) || ((idx[a.llaveId] || 0) - (idx[b.llaveId] || 0)))
+            .map(t => ({ ...t, llaveIdx: idx[t.llaveId] || 0 }));
+    },
+
+    toggleMovPrev: function() { this._state.movPrevOpen = !this._state.movPrevOpen; this.render(); },
+
+    // Abre una ventana imprimible reutilizando el generador de PDF de escritorio
+    // (App.ui._renderLlavesPresView). En el móvil: guardar como PDF / compartir.
+    exportMovimientosPDF: function() {
+        const html = this._buildMovPrintHTML();
+        const w = window.open('', '_blank');
+        if (!w) { alert('Permite las ventanas emergentes para exportar el PDF.'); return; }
+        w.document.open();
+        w.document.write(html);
+        w.document.close();
+    },
+
+    _buildMovPrintHTML: function() {
+        const hoy = this._todayISO();
+        const storeName = (App.data.storeConfig && App.data.storeConfig.nombre) ? App.data.storeConfig.nombre : '';
+        // Horizonte: cubrir todos los movimientos futuros (mínimo 15 días, como escritorio)
+        let maxDate = hoy;
+        (App.data.traspasoLlaves || []).forEach(t => { if (t.fecha >= hoy && t.fecha > maxDate) maxDate = t.fecha; });
+        const dias = Math.max(15, Math.round((new Date(maxDate + 'T12:00:00') - new Date(hoy + 'T12:00:00')) / 86400000) + 1);
+
+        let inner;
+        if (App.ui && App.ui._renderLlavesPresView) {
+            App.uiState.llavesPresDesde = hoy;
+            App.uiState.llavesPresDias = dias;
+            inner = App.ui._renderLlavesPresView(); // mismo formato que la versión de escritorio
+        } else {
+            inner = '<div style="color:#888;">Vista de movimientos no disponible.</div>';
+        }
+
+        return '<!doctype html><html lang="es"><head><meta charset="utf-8">' +
+            '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+            '<title>Cambios de llave</title>' +
+            '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1e293b;padding:14px;margin:0;}' +
+            '.no-print{display:none!important;}h1{font-size:18px;margin:0 0 2px;}.sub{color:#64748b;font-size:12px;margin-bottom:14px;}' +
+            '@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;}}@page{size:A4 landscape;margin:8mm;}</style>' +
+            '</head><body onload="window.print()">' +
+            '<h1>🔑 Cambios de llave programados</h1>' +
+            '<div class="sub">' + (storeName ? storeName + ' · ' : '') + 'desde ' + Utils.formatDateES(hoy) + '</div>' +
+            inner +
+            '</body></html>';
     },
 
     setLlavesDate: function(iso) { if (iso) { this._state.llavesDate = iso; this.render(); } },
