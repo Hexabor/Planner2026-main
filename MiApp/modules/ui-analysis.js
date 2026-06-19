@@ -473,9 +473,11 @@ Object.assign(App.ui, {
                     const pend = calcPendPrevYear(emp);
                     // Horas de los festivos del tramo anterior pendientes de compensar (1 día = contrato/5)
                     const pendPrevH = pend.list.reduce((s, p) => s + Utils.getContrato(emp, p.date) / 5, 0);
-                    // Saldo vs convenio: Teóricas − Trabajadas − ausencias justificadas no contempladas en el convenio (B, festivos del tramo anterior, P).
-                    // Positivo = horas que aún faltan por hacer · Negativo = horas de más.
-                    const saldoConv = f1(theoH - workedH - bajasH - permisosH - pendPrevH);
+                    const arrastre = emp.saldoInicial || 0; // horas arrastradas del periodo anterior
+                    // Horas por asignar: Teóricas − Trabajadas − ausencias justificadas no contempladas en el convenio
+                    // (B, festivos del tramo anterior, P) − arrastre del periodo anterior.
+                    // Positivo = horas que aún quedan por asignar · Negativo = horas asignadas de más.
+                    const saldoConv = f1(theoH - workedH - bajasH - permisosH - pendPrevH - arrastre);
                     return {
                         emp,
                         contratoActual: Utils.getContrato(emp, endISO),
@@ -485,7 +487,7 @@ Object.assign(App.ui, {
                         festRecA: countF + countR - pend.count,
                         countOtros, otrosCodes,
                         workedH: f1(workedH),
-                        bajasH: f1(bajasH), permisosH: f1(permisosH), pendPrevH: f1(pendPrevH), saldoConv,
+                        bajasH: f1(bajasH), permisosH: f1(permisosH), pendPrevH: f1(pendPrevH), arrastre: f1(arrastre), saldoConv,
                         customOrder: emp.customOrder ?? 0
                     };
                 });
@@ -505,7 +507,7 @@ Object.assign(App.ui, {
                 const totWorkedDays=T('workedDays'), totL=T('countL'), totV=T('countV'),
                       totB=T('countB'), totF=T('countF'), totR=T('countR'), totP=T('countP'),
                       totFestRecA=T('festRecA'), totTheo=f1(T('theoH')), totPendPrev=T('pendPrev'),
-                      totOtros=T('countOtros'), totWorkedH=f1(T('workedH')), totSaldo=f1(T('saldoConv'));
+                      totOtros=T('countOtros'), totWorkedH=f1(T('workedH')), totArr=f1(T('arrastre')), totSaldo=f1(T('saldoConv'));
 
                 // Estilos + helpers de orden
                 const thStyle  = `text-align:right;padding:8px 10px;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;`;
@@ -530,7 +532,8 @@ Object.assign(App.ui, {
                     ${th('F+R-A','festRecA','Festivos disfrutados + recuperaciones − festivos del tramo anterior sin compensar (A)')}
                     ${th('Perm.','countP','Días de permiso (P)')}
                     ${th('H. trab.','workedH','Horas trabajadas (turnos con horario, descontando descansos)')}
-                    ${th('H. por asignar','saldoConv','Horas por asignar = Teóricas (convenio) − H. trab. − ausencias justificadas no contempladas en el convenio (bajas, festivos del tramo anterior por compensar y permisos). Positivo = horas que aún quedan por asignar al empleado · Negativo = horas asignadas de más.')}
+                    ${th('Arrastre','arrastre','Horas arrastradas del periodo anterior (saldo de arranque del empleado, editable en su ficha → "Arrastres de etapas anteriores"). Positivo = trabajó de más · Negativo = debía horas. Se descuenta de "H. por asignar".')}
+                    ${th('H. por asignar','saldoConv','Horas por asignar = Teóricas (convenio) − H. trab. − ausencias justificadas no contempladas en el convenio (bajas, festivos del tramo anterior por compensar y permisos) − arrastre del periodo anterior. Positivo = horas que aún quedan por asignar al empleado · Negativo = horas asignadas de más.')}
                 `;
 
                 const renderRow = r => {
@@ -554,6 +557,7 @@ Object.assign(App.ui, {
                     <td style="${tdStyle}color:${r.festRecA<0?'#ef4444':'#0891b2'};font-weight:600;">${r.festRecA || '—'}</td>
                     <td style="${tdStyle}color:#ec4899;">${r.countP || '—'}</td>
                     <td style="${tdStyle}font-weight:700;color:#1e293b;">${r.workedH}h</td>
+                    <td style="${tdStyle}font-weight:600;color:${r.arrastre > 0.5 ? '#f59e0b' : r.arrastre < -0.5 ? '#3b82f6' : '#94a3b8'};">${r.arrastre ? (r.arrastre > 0 ? '+' : '') + r.arrastre + 'h' : '—'}</td>
                     <td style="${tdStyle}font-weight:700;color:${r.saldoConv > 0.5 ? '#f59e0b' : r.saldoConv < -0.5 ? '#3b82f6' : '#10b981'};">
                         <div class="diff-tooltip-wrap" style="cursor:help;">${r.saldoConv > 0 ? '+' : ''}${r.saldoConv}h<div class="diff-tooltip" style="min-width:240px;white-space:normal;line-height:1.55;text-align:left;font-weight:400;">
                             <div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Horas por asignar</div>
@@ -562,6 +566,7 @@ Object.assign(App.ui, {
                             <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Bajas</span><span style="font-family:monospace;">${r.bajasH}h</span></div>
                             <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Fest. tramo ant.</span><span style="font-family:monospace;">${r.pendPrevH}h</span></div>
                             <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Permisos</span><span style="font-family:monospace;">${r.permisosH}h</span></div>
+                            <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Arrastre periodo ant.</span><span style="font-family:monospace;">${r.arrastre > 0 ? '+' : ''}${r.arrastre}h</span></div>
                             <div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">= Por asignar</span><span style="font-weight:700;font-family:monospace;">${r.saldoConv > 0 ? '+' : ''}${r.saldoConv}h</span></div>
                             <div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Positivo = horas que aún quedan por asignar · Negativo = horas asignadas de más. Vacaciones y festivos disfrutados ya están descontados en las teóricas del convenio.</div>
                         </div></div>
@@ -613,6 +618,7 @@ Object.assign(App.ui, {
                                 <td style="${tdStyle}">${totFestRecA||'—'}</td>
                                 <td style="${tdStyle}">${totP||'—'}</td>
                                 <td style="${tdStyle}">${totWorkedH}h</td>
+                                <td style="${tdStyle}">${totArr ? (totArr > 0 ? '+' : '') + totArr + 'h' : '—'}</td>
                                 <td style="${tdStyle}color:${totSaldo > 0.5 ? '#f59e0b' : totSaldo < -0.5 ? '#3b82f6' : '#10b981'};">${totSaldo > 0 ? '+' : ''}${totSaldo}h</td>
                             </tr>
                         </tbody>

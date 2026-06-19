@@ -8,6 +8,13 @@ Object.assign(App.ui, {
             {
                 fecha: '19/06/2026', version: 'v1.0',
                 items: [
+                    '✨ Análisis → Horas por Staff: nueva columna "Arrastre" (horas arrastradas del periodo anterior, = saldo de arranque de la ficha del empleado). Se descuenta de "H. por asignar", que ahora también lo refleja en el Balance del planner y en la rejilla de Personal',
+                    '✨ Ficha de empleado → Festivos: nuevo bloque "Recuperaciones sin asignar" que lista las R del calendario aún no vinculadas a ningún festivo, con su fecha (semana + DD/MM/AAAA). Permite detectar de un vistazo si has puesto recuperaciones de más',
+                ]
+            },
+            {
+                fecha: '19/06/2026', version: 'v1.0',
+                items: [
                     '✨ Análisis → nueva pestaña "Bolsa de horas valle": dos gráficas de barras (excedente semanal y acumulado de 4 semanas móviles) con cuadrícula y la cifra visible sobre cada barra. Verde = sobró bolsa · Rojo = se superó',
                     '✨ Planner → panel VALLE dividido en dos: saldo de esta semana y saldo acumulado de las últimas 4 semanas (contando la presente)',
                     '✨ Configuración → Horas convenio: nuevo "Tramo a estudiar" (Desde/Hasta). El desvío acumulado solo cuenta las semanas cerradas 🔒 que caen dentro de ese tramo. Se guarda en los backups de Drive',

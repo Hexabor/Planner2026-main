@@ -98,7 +98,8 @@ Object.assign(App.ui, {
             return { count, list };
         },
 
-        // Horas por asignar = Teóricas (convenio prorrateado por día) − H.trab − bajas − permisos − festivos del tramo anterior por compensar.
+        // Horas por asignar = Teóricas (convenio prorrateado por día) − H.trab − bajas − permisos
+        //                     − festivos del tramo anterior por compensar − arrastre del periodo anterior (saldoInicial).
         // Positivo = horas que aún quedan por asignar · Negativo = horas asignadas de más.
         _calcHorasPorAsignar: function(emp, startISO, endISO) {
             if(!emp) return 0;
@@ -127,7 +128,8 @@ Object.assign(App.ui, {
             }
             const pend = App.ui._festivosPrevPend(emp, startISO);
             const pendPrevH = pend.list.reduce((s, p) => s + Utils.getContrato(emp, p.date) / 5, 0);
-            return Math.round((theoH - workedH - bajasH - permisosH - pendPrevH) * 10) / 10;
+            const arrastre = emp.saldoInicial || 0; // horas arrastradas del periodo anterior (+ = trabajó de más → resta a lo por asignar)
+            return Math.round((theoH - workedH - bajasH - permisosH - pendPrevH - arrastre) * 10) / 10;
         },
 
         // Helper: festivos pendientes en semanas cerradas
@@ -689,6 +691,9 @@ markDirty: function() {
     const assignedRDates = new Set(Object.values(tracking).map(t => t.rDate).filter(Boolean));
     const allRsSet = new Set(allRs);
 
+    // Recuperaciones (R) presentes en el calendario que aún NO están vinculadas a ningún festivo.
+    const rsLibres = allRs.filter(r => !assignedRDates.has(r)).slice().sort((a, b) => a.localeCompare(b));
+
     // --- Clasificación y Procesamiento ---
     let adeudadas = 0, dadas = 0;
     let pendientesData = [];
@@ -733,6 +738,24 @@ markDirty: function() {
             </div>
         </div>
     </div>`;
+
+    // --- Recuperaciones sin asignar (con fecha) ---
+    if (rsLibres.length > 0) {
+        html += `
+        <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:10px 12px; margin-bottom:14px;">
+            <div style="font-size:0.7rem; font-weight:800; color:#9a3412; text-transform:uppercase; margin-bottom:7px; display:flex; align-items:center; gap:5px;">
+                <span style="color:#f97316;">↩</span> Recuperaciones sin asignar (${rsLibres.length})
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                ${rsLibres.map(r => `<div style="display:flex; align-items:center; gap:6px; font-size:0.73rem; color:#7c2d12;">
+                    <span title="${locked[r] ? 'Semana cerrada' : 'Semana abierta'}">${locked[r] ? '🔒' : '🔓'}</span>
+                    <span style="font-weight:700;">${Utils.getWeekCode(r)}</span>
+                    <span style="color:#9a3412;">${r.split('-').reverse().join('/')}</span>
+                </div>`).join('')}
+            </div>
+            <div style="margin-top:7px; font-size:0.62rem; color:#b45309; line-height:1.5;">Días de R en el calendario que aún no has vinculado a ningún festivo. Si sobran respecto a la deuda, es que has puesto recuperaciones de más.</div>
+        </div>`;
+    }
 
     // Sección Pendientes (Orden Cronológico)
     html += `<div style="font-size:0.7rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:5px;">
