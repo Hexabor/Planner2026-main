@@ -69,6 +69,18 @@ Object.assign(App.ui, {
                         <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px;">Horas convenio (anuales)</label>
                         <input type="number" value="${App.data.config.stdHours}" onchange="App.data.config.stdHours=this.value; Safe.save('v40_db',App.data)"
                                style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; box-sizing:border-box; margin-bottom:16px;">
+                        <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px;">Tramo a estudiar (desvío acumulado)</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px;">
+                            <div>
+                                <span style="display:block; font-size:10px; color:#94a3b8; margin-bottom:4px;">Desde</span>
+                                ${Utils.getDateInputHTML('config-tramo-ini', App.data.config.tramoInicio || App.data.config.weekStart, "App.data.config.tramoInicio=this.dataset.isoValue; Safe.save('v40_db',App.data); App.router.go('config');")}
+                            </div>
+                            <div>
+                                <span style="display:block; font-size:10px; color:#94a3b8; margin-bottom:4px;">Hasta</span>
+                                ${Utils.getDateInputHTML('config-tramo-fin', App.data.config.tramoFin || '', "App.data.config.tramoFin=this.dataset.isoValue; Safe.save('v40_db',App.data); App.router.go('config');")}
+                            </div>
+                        </div>
+                        <p style="margin:0 0 16px; font-size:0.78rem; color:#94a3b8; line-height:1.5;">Periodo sobre el que se calcula el desvío acumulado. Solo se contabilizan las semanas cerradas 🔒 que caen dentro de este rango. Por defecto: el año fiscal completo.</p>
                         <label style="display:block; font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:6px;">Opciones de contrato (h/semana)</label>
                         <input type="text"
                                value="${App.data.config.opcionesContrato ? App.data.config.opcionesContrato.join(', ') : '40, 37.5, 30, 20, 12'}"

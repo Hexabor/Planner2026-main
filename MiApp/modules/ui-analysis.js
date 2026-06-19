@@ -11,7 +11,7 @@ Object.assign(App.ui, {
 
             const tabBar = `
                 <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content;margin-bottom:20px;">
-                    ${[['horas','Horas Semanales'],['staffv2','Horas por Staff'],['staff','Horas por Staff (legacy)'],['equilibrio','Equilibrio de Turnos'],['ranking','Turnos Más Usados'],['semanas','Vista de Semanas']].map(([id,label])=>`
+                    ${[['horas','Horas Semanales'],['staffv2','Horas por Staff'],['equilibrio','Equilibrio de Turnos'],['ranking','Turnos Más Usados'],['semanas','Vista de Semanas'],['valle','Bolsa de horas valle']].map(([id,label])=>`
                     <button onclick="${setTab(id)}" style="padding:8px 18px;border:none;cursor:pointer;font-size:0.8rem;font-weight:600;
                         background:${tab===id?'#1e293b':'white'};color:${tab===id?'white':'#64748b'};border-right:1px solid var(--border);">${label}</button>`).join('')}
                 </div>`;
@@ -382,11 +382,9 @@ Object.assign(App.ui, {
                 const startISO = App.uiState.analisisHorasStaffStart;
                 const endISO   = App.uiState.analisisHorasStaffEnd;
 
-                // Lista de lunes en el rango
-                const weeksList = [];
-                let curMon = new Date(Utils.getMonday(startISO)+'T12:00:00');
-                const endMon = new Date(Utils.getMonday(endISO)+'T12:00:00');
-                while(curMon <= endMon) { weeksList.push(curMon.toISOString().slice(0,10)); curMon.setDate(curMon.getDate()+7); }
+                // Rango por día (inclusive). Nº de días para el pie de tabla.
+                const _msDay = 24*3600*1000;
+                const daysCount = Math.max(0, Math.floor((new Date(endISO+'T12:00:00') - new Date(startISO+'T12:00:00')) / _msDay) + 1);
 
                 const f1 = n => Math.round(n*10)/10;
                 const REF_CONTRATO = 37.5;                                  // contrato de referencia de las horas teóricas
@@ -435,48 +433,59 @@ Object.assign(App.ui, {
                 const rows = emps.map(emp => {
                     let workedH=0, workedDays=0;
                     let countL=0, countV=0, countB=0, countF=0, countR=0, countP=0, countOtros=0;
+                    let bajasH=0, permisosH=0; // horas justificadas no contempladas en el convenio (B y P)
                     const otrosCodes = {};
-                    let theoH=0, weeksVig=0; const theoTramos = {};
-                    weeksList.forEach(monday => {
-                        if(!Utils.empleadoVigenteEnFecha(emp, monday)) return;
-                        // Horas teóricas: parte proporcional del convenio para la semana, según el contrato vigente
-                        weeksVig++;
-                        const cW = Utils.getContrato(emp, monday);
-                        theoH += stdH * (cW / REF_CONTRATO) / 52;
-                        theoTramos[cW] = (theoTramos[cW] || 0) + 1;
-                        const wdays = Utils.getWeekDays(monday);
-                        // Libranzas (L) de la semana — para decidir si un festivo se disfrutó (≥2 L sin contar el festivo)
-                        let weekL = 0;
-                        wdays.forEach(d => { const s = App.data.schedule[d]?.[emp.id]; const sh = s ? Utils.getShift(s) : null; if(sh && sh.fixed && sh.code==='L') weekL++; });
-                        wdays.forEach(d => {
-                            const sid = App.data.schedule[d]?.[emp.id];
-                            if(!sid) return;
-                            const sh = Utils.getShift(sid);
-                            if(!sh) return;
-                            if(sh.fixed) {
-                                if(sh.code==='L') countL++;
-                                else if(sh.code==='V') countV++;
-                                else if(sh.code==='B') countB++;
-                                else if(sh.code==='F') { if(weekL >= 2) countF++; } // solo festivos disfrutados; "coincide" (<2 L) no cuenta
-                                else if(sh.code==='R') countR++;
-                                else if(sh.code==='P') countP++;
-                                else { countOtros++; otrosCodes[sh.code]=(otrosCodes[sh.code]||0)+1; }
-                            } else if(sh.start && sh.end) {
-                                workedDays++;
-                                workedH += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
+                    let theoH=0, daysVig=0; const theoTramos = {};
+                    let _cur = new Date(startISO+'T12:00:00');
+                    const _end = new Date(endISO+'T12:00:00');
+                    while(_cur <= _end) {
+                        const d = _cur.toISOString().slice(0,10);
+                        _cur.setDate(_cur.getDate()+1);
+                        if(!Utils.empleadoVigenteEnFecha(emp, d)) continue;
+                        // Horas teóricas: parte proporcional diaria del convenio (semana/7), según el contrato vigente ese día
+                        daysVig++;
+                        const cW = Utils.getContrato(emp, d);
+                        theoH += stdH * (cW / REF_CONTRATO) / 52 / 7;
+                        theoTramos[cW] = (theoTramos[cW] || 0) + 1; // días con ese contrato
+                        const sid = App.data.schedule[d]?.[emp.id];
+                        if(!sid) continue;
+                        const sh = Utils.getShift(sid);
+                        if(!sh) continue;
+                        if(sh.fixed) {
+                            if(sh.code==='L') countL++;
+                            else if(sh.code==='V') countV++;
+                            else if(sh.code==='B') { countB++; bajasH += cW / 5; }
+                            else if(sh.code==='F') {
+                                // Festivo disfrutado solo si la semana tuvo ≥2 L (los "coincide" no cuentan)
+                                const wdays = Utils.getWeekDays(Utils.getMonday(d));
+                                let weekL = 0;
+                                wdays.forEach(wd => { const s = App.data.schedule[wd]?.[emp.id]; const s2 = s ? Utils.getShift(s) : null; if(s2 && s2.fixed && s2.code==='L') weekL++; });
+                                if(weekL >= 2) countF++;
                             }
-                        });
-                    });
+                            else if(sh.code==='R') countR++;
+                            else if(sh.code==='P') { countP++; permisosH += cW / 5; }
+                            else { countOtros++; otrosCodes[sh.code]=(otrosCodes[sh.code]||0)+1; }
+                        } else if(sh.start && sh.end) {
+                            workedDays++;
+                            workedH += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
+                        }
+                    }
                     const pend = calcPendPrevYear(emp);
+                    // Horas de los festivos del tramo anterior pendientes de compensar (1 día = contrato/5)
+                    const pendPrevH = pend.list.reduce((s, p) => s + Utils.getContrato(emp, p.date) / 5, 0);
+                    // Saldo vs convenio: Teóricas − Trabajadas − ausencias justificadas no contempladas en el convenio (B, festivos del tramo anterior, P).
+                    // Positivo = horas que aún faltan por hacer · Negativo = horas de más.
+                    const saldoConv = f1(theoH - workedH - bajasH - permisosH - pendPrevH);
                     return {
                         emp,
                         contratoActual: Utils.getContrato(emp, endISO),
-                        theoH: f1(theoH), theoTramos, weeksVig,
+                        theoH: f1(theoH), theoTramos, daysVig,
                         workedDays, countL, countV, countB, countF, countR, countP,
                         pendPrev: pend.count, pendPrevList: pend.list,
                         festRecA: countF + countR - pend.count,
                         countOtros, otrosCodes,
                         workedH: f1(workedH),
+                        bajasH: f1(bajasH), permisosH: f1(permisosH), pendPrevH: f1(pendPrevH), saldoConv,
                         customOrder: emp.customOrder ?? 0
                     };
                 });
@@ -496,7 +505,7 @@ Object.assign(App.ui, {
                 const totWorkedDays=T('workedDays'), totL=T('countL'), totV=T('countV'),
                       totB=T('countB'), totF=T('countF'), totR=T('countR'), totP=T('countP'),
                       totFestRecA=T('festRecA'), totTheo=f1(T('theoH')), totPendPrev=T('pendPrev'),
-                      totOtros=T('countOtros'), totWorkedH=f1(T('workedH'));
+                      totOtros=T('countOtros'), totWorkedH=f1(T('workedH')), totSaldo=f1(T('saldoConv'));
 
                 // Estilos + helpers de orden
                 const thStyle  = `text-align:right;padding:8px 10px;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;`;
@@ -521,11 +530,12 @@ Object.assign(App.ui, {
                     ${th('F+R-A','festRecA','Festivos disfrutados + recuperaciones − festivos del tramo anterior sin compensar (A)')}
                     ${th('Perm.','countP','Días de permiso (P)')}
                     ${th('H. trab.','workedH','Horas trabajadas (turnos con horario, descontando descansos)')}
+                    ${th('H. por asignar','saldoConv','Horas por asignar = Teóricas (convenio) − H. trab. − ausencias justificadas no contempladas en el convenio (bajas, festivos del tramo anterior por compensar y permisos). Positivo = horas que aún quedan por asignar al empleado · Negativo = horas asignadas de más.')}
                 `;
 
                 const renderRow = r => {
                     const theoTip = r.theoH > 0
-                        ? `<div class="diff-tooltip-wrap" style="cursor:help;">${r.theoH}h<div class="diff-tooltip" style="min-width:260px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Horas teóricas (${r.weeksVig} sem vigente)</div>${Object.entries(r.theoTramos).sort((a,b)=>parseFloat(b[0])-parseFloat(a[0])).map(([c,wk])=>{const cN=parseFloat(c);const sub=f1(stdH*(cN/REF_CONTRATO)/52*wk);return `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">${cN}h/sem × ${wk} sem</span><span style="font-weight:600;font-family:monospace;">${sub}h</span></div>`;}).join('')}<div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">= Total teóricas</span><span style="font-weight:700;">${r.theoH}h</span></div><div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Base convenio <strong>${stdH}h/año</strong> para 37,5h/sem · proporcional al contrato y a las semanas con contrato vigente (año = 52 sem). Cada tramo cuenta con sus propias horas.</div></div></div>`
+                        ? `<div class="diff-tooltip-wrap" style="cursor:help;">${r.theoH}h<div class="diff-tooltip" style="min-width:260px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Horas teóricas (${r.daysVig} días vigente)</div>${Object.entries(r.theoTramos).sort((a,b)=>parseFloat(b[0])-parseFloat(a[0])).map(([c,dias])=>{const cN=parseFloat(c);const sub=f1(stdH*(cN/REF_CONTRATO)/52/7*dias);return `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">${cN}h/sem × ${dias} día${dias!==1?'s':''}</span><span style="font-weight:600;font-family:monospace;">${sub}h</span></div>`;}).join('')}<div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">= Total teóricas</span><span style="font-weight:700;">${r.theoH}h</span></div><div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Base convenio <strong>${stdH}h/año</strong> para 37,5h/sem · proporcional al contrato y a los días con contrato vigente (año = 52 sem × 7 días). Cada tramo cuenta con sus propias horas.</div></div></div>`
                         : '—';
                     const pendPrevCell = r.pendPrev > 0
                         ? `<div class="diff-tooltip-wrap" style="cursor:help;font-weight:700;color:#ef4444;">${r.pendPrev}<div class="diff-tooltip" style="min-width:230px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:4px;">Festivos del tramo anterior sin compensar</div>${r.pendPrevList.map(p=>`<div style="color:#fca5a5;font-size:0.72rem;line-height:1.7;">${fmtFestDateV2(p.date)} <span style="color:#94a3b8;">— ${p.reason}</span></div>`).join('')}<div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Festivos de los 12 meses previos al inicio del rango (semanas cerradas) cuya recuperación no se hizo dentro de ese tramo: su R cae en el rango actual o aún no existe.</div></div></div>`
@@ -544,6 +554,18 @@ Object.assign(App.ui, {
                     <td style="${tdStyle}color:${r.festRecA<0?'#ef4444':'#0891b2'};font-weight:600;">${r.festRecA || '—'}</td>
                     <td style="${tdStyle}color:#ec4899;">${r.countP || '—'}</td>
                     <td style="${tdStyle}font-weight:700;color:#1e293b;">${r.workedH}h</td>
+                    <td style="${tdStyle}font-weight:700;color:${r.saldoConv > 0.5 ? '#f59e0b' : r.saldoConv < -0.5 ? '#3b82f6' : '#10b981'};">
+                        <div class="diff-tooltip-wrap" style="cursor:help;">${r.saldoConv > 0 ? '+' : ''}${r.saldoConv}h<div class="diff-tooltip" style="min-width:240px;white-space:normal;line-height:1.55;text-align:left;font-weight:400;">
+                            <div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Horas por asignar</div>
+                            <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">Teóricas</span><span style="font-family:monospace;">${r.theoH}h</span></div>
+                            <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− H. trab.</span><span style="font-family:monospace;">${r.workedH}h</span></div>
+                            <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Bajas</span><span style="font-family:monospace;">${r.bajasH}h</span></div>
+                            <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Fest. tramo ant.</span><span style="font-family:monospace;">${r.pendPrevH}h</span></div>
+                            <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Permisos</span><span style="font-family:monospace;">${r.permisosH}h</span></div>
+                            <div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">= Por asignar</span><span style="font-weight:700;font-family:monospace;">${r.saldoConv > 0 ? '+' : ''}${r.saldoConv}h</span></div>
+                            <div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Positivo = horas que aún quedan por asignar · Negativo = horas asignadas de más. Vacaciones y festivos disfrutados ya están descontados en las teóricas del convenio.</div>
+                        </div></div>
+                    </td>
                 </tr>`;
                 };
 
@@ -560,16 +582,17 @@ Object.assign(App.ui, {
                     (customActive ? 'border:1px solid #1e293b;background:#1e293b;color:white;' : 'border:1px solid var(--border);background:white;color:#475569;');
                 const customBtn = `<button onclick="App.uiState.analisisStaffV2SortKey='custom';App.uiState.analisisStaffV2SortDir='asc';App.ui.renderAnalisis(document.querySelector('.main-scroll'));" title="Ordena por el orden establecido del equipo (configurable arrastrando empleados en Plantilla)." style="${customBtnStyle}">☰ Mi orden${customActive?' ▾':''}</button>`;
 
-                const rangeOnchange = field => `App.uiState.analisisHorasStaff${field}=this.value;localStorage.setItem('v40_analisisHorasStaff',JSON.stringify({start:App.uiState.analisisHorasStaffStart,end:App.uiState.analisisHorasStaffEnd}));App.ui.renderAnalisis(document.querySelector('.main-scroll'));`;
+                // Rango por DÍA concreto (no por semana): inputs de fecha que guardan el ISO exacto.
+                const dateOnchange = field => `App.uiState.analisisHorasStaff${field}=this.dataset.isoValue;localStorage.setItem('v40_analisisHorasStaff',JSON.stringify({start:App.uiState.analisisHorasStaffStart,end:App.uiState.analisisHorasStaffEnd}));App.ui.renderAnalisis(document.querySelector('.main-scroll'));`;
 
                 body = `
                 <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Desde</div>
-                        <select style="${wkSelectStyle}" onchange="${rangeOnchange('Start')}">${buildAllWeekOpts(startISO)}</select></div>
+                        ${Utils.getDateInputHTML('analisis-staff-desde', startISO, dateOnchange('Start'))}</div>
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Hasta</div>
-                        <select style="${wkSelectStyle}" onchange="${rangeOnchange('End')}">${buildAllWeekOpts(endISO)}</select></div>
+                        ${Utils.getDateInputHTML('analisis-staff-hasta', endISO, dateOnchange('End'))}</div>
                     <div style="align-self:flex-end;">${customBtn}</div>
-                    <div style="margin-left:auto;font-size:0.78rem;color:#64748b;align-self:center;">${weeksList.length} semana${weeksList.length!==1?'s':''} · ${emps.length} empleado${emps.length!==1?'s':''} activo${emps.length!==1?'s':''}</div>
+                    <div style="margin-left:auto;font-size:0.78rem;color:#64748b;align-self:center;">${daysCount} día${daysCount!==1?'s':''} · ${emps.length} empleado${emps.length!==1?'s':''} activo${emps.length!==1?'s':''}</div>
                 </div>
 
                 <div style="background:white;border:1px solid var(--border);border-radius:10px;">
@@ -590,572 +613,14 @@ Object.assign(App.ui, {
                                 <td style="${tdStyle}">${totFestRecA||'—'}</td>
                                 <td style="${tdStyle}">${totP||'—'}</td>
                                 <td style="${tdStyle}">${totWorkedH}h</td>
+                                <td style="${tdStyle}color:${totSaldo > 0.5 ? '#f59e0b' : totSaldo < -0.5 ? '#3b82f6' : '#10b981'};">${totSaldo > 0 ? '+' : ''}${totSaldo}h</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
                 ${otrosNote}
                 <div style="margin-top:10px;font-size:0.75rem;color:#94a3b8;line-height:1.5;">
-                    💡 Versión nueva, en construcción. Recuento de días por tipo dentro del rango (semanas con contrato vigente) y horas reales de trabajo. Clic en cualquier columna para ordenar; “☰ Mi orden” vuelve al orden del equipo.
-                </div>`;
-
-            } else if(tab === 'staff') {
-                if(!App.uiState.analisisHorasStaffStart) {
-                    try { const saved = JSON.parse(localStorage.getItem('v40_analisisHorasStaff')); if(saved) { App.uiState.analisisHorasStaffStart = saved.start; App.uiState.analisisHorasStaffEnd = saved.end; } } catch(e){}
-                }
-                if(!App.uiState.analisisHorasStaffStart) {
-                    App.uiState.analisisHorasStaffStart = fyStart;
-                    App.uiState.analisisHorasStaffEnd   = fyEnd;
-                }
-                if(App.uiState.analisisHorasStaffStart > App.uiState.analisisHorasStaffEnd) {
-                    const temp = App.uiState.analisisHorasStaffStart;
-                    App.uiState.analisisHorasStaffStart = App.uiState.analisisHorasStaffEnd;
-                    App.uiState.analisisHorasStaffEnd = temp;
-                }
-                const startISO = App.uiState.analisisHorasStaffStart;
-                const endISO   = App.uiState.analisisHorasStaffEnd;
-
-                // Generar lista de lunes en el rango
-                const weeksList = [];
-                let curMon = new Date(Utils.getMonday(startISO)+'T12:00:00');
-                const endMon = new Date(Utils.getMonday(endISO)+'T12:00:00');
-                while(curMon <= endMon) { weeksList.push(curMon.toISOString().slice(0,10)); curMon.setDate(curMon.getDate()+7); }
-
-                const f1 = n => Math.round(n*10)/10;
-                const lastDayOfRange = endISO; // referencia para el contrato actual
-
-                // Festivos del rango — un set para lookup rápido
-                const holidayDates = new Set((App.data.storeConfig.holidays || []).map(h => h.date));
-
-                // Helper: obtiene los contratos distintos del empleado dentro del rango
-                const getContractsInRange = (emp) => {
-                    const trams = (emp.contratos && emp.contratos.length > 0) ? [...emp.contratos] : null;
-                    if(!trams) return [{ horas: emp.contrato || 0, desde: startISO, hasta: endISO }];
-                    trams.sort((a,b) => (a.desde || '').localeCompare(b.desde || ''));
-                    const out = [];
-                    trams.forEach((t, idx) => {
-                        const tStart = t.desde || '0000-01-01';
-                        const next = trams[idx+1];
-                        const tEnd = (t.hasta && t.hasta !== '') ? t.hasta : (next ? Utils.addWeeks(next.desde, 0) : '9999-12-31');
-                        // Ajustar por extremos del rango
-                        if(tStart > endISO) return;
-                        if(tEnd < startISO) return;
-                        out.push({
-                            horas: t.horas,
-                            desde: tStart > startISO ? tStart : startISO,
-                            hasta: tEnd < endISO ? tEnd : endISO
-                        });
-                    });
-                    return out.length ? out : [{ horas: emp.contrato || 0, desde: startISO, hasta: endISO }];
-                };
-
-                const fmtDateShort = iso => { if(!iso || iso==='9999-12-31') return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y.slice(2)}`; };
-
-                // Helpers: festivos pendientes y Rs sobrantes en el rango (solo semanas cerradas)
-                // Misma lógica que Balance Semanal pero acotada al rango analizado.
-                const calcFestivosPendInRange = (emp) => {
-                    const locked = App.data.lockedDays || {};
-                    const tracking = emp.festivoTracking || {};
-                    const realRs = new Set();
-                    Object.keys(App.data.schedule || {}).forEach(iso => {
-                        const sid = App.data.schedule[iso]?.[emp.id];
-                        const sh = sid ? Utils.getShift(sid) : null;
-                        if(sh && sh.fixed && sh.code === 'R') realRs.add(iso);
-                    });
-                    const holidays = (App.data.storeConfig.holidays || [])
-                        .filter(h => h.date >= startISO && h.date <= endISO)
-                        .filter(h => locked[h.date] && Utils.empleadoVigenteEnFecha(emp, h.date));
-                    let pendientes = 0;
-                    const pendList = [];
-                    holidays.forEach(h => {
-                        const tr = tracking[h.date] || {};
-                        if(tr.rDate && realRs.has(tr.rDate)) return; // ya tiene R válida
-                        const sid = App.data.schedule[h.date]?.[emp.id];
-                        const shift = sid ? Utils.getShift(sid) : null;
-                        if(!shift) return;
-                        let reason = null;
-                        if(shift.fixed && shift.code === 'V') {
-                            reason = 'V (vacaciones no absorben)';
-                        } else if(shift.fixed && shift.code === 'F') {
-                            const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
-                            let countL = 0;
-                            wdays.forEach(d => {
-                                const s2 = App.data.schedule[d]?.[emp.id];
-                                const sh2 = s2 ? Utils.getShift(s2) : null;
-                                if(sh2 && sh2.fixed && sh2.code === 'L') countL++;
-                            });
-                            if(countL < 2) reason = `F (solo ${countL} L en la semana)`;
-                        } else if(shift.start && shift.end) {
-                            reason = 'trabajado';
-                        }
-                        if(reason) {
-                            pendientes++;
-                            pendList.push({ date: h.date, name: h.name || h.note || 'Festivo', reason });
-                        }
-                    });
-                    return { pendientes, pendList };
-                };
-
-                const calcRsSobrantesInRange = (emp) => {
-                    const locked = App.data.lockedDays || {};
-                    const tracking = emp.festivoTracking || {};
-                    const assignedRDates = new Set(Object.values(tracking).map(t => t.rDate).filter(Boolean));
-                    let sobrantes = 0;
-                    const sobrantesList = [];
-                    Object.keys(App.data.schedule || {}).forEach(iso => {
-                        if(iso < startISO || iso > endISO) return;
-                        if(!locked[iso]) return;
-                        const sid = App.data.schedule[iso]?.[emp.id];
-                        const sh = sid ? Utils.getShift(sid) : null;
-                        if(sh && sh.fixed && sh.code === 'R' && !assignedRDates.has(iso)) {
-                            sobrantes++;
-                            sobrantesList.push(iso);
-                        }
-                    });
-                    return { sobrantes, sobrantesList };
-                };
-
-                // Calcular fila por empleado
-                const rows = emps.map(emp => {
-                    let workedH = 0;
-                    let workedDays = 0;
-                    let countL=0, countF=0, countR=0, countV=0, countB=0, countP=0;
-                    let contractWeeklyH = 0; // suma del contrato semanal nominal (totalContrato) en semanas vigentes
-                    let festivosCount = 0;   // días que descuentan en columna festivos (F'd festivos + R)
-                    let festivosCalCount = 0; // festivos del calendario en el rango con emp vigente (todos)
-                    let festivosTrabCount = 0; // festivos del calendario que el emp trabajó (no descuenta directo, su R lo hará)
-                    let festivosVCount = 0;  // festivos del calendario que cayeron en V (no descuenta directo, V+R lo cubren)
-                    let festivosH = 0;       // horas equivalentes de los festivos+R que descuentan
-                    let vacacionesH = 0;     // horas equivalentes de vacaciones REALES (no prorrateadas)
-                    let weeksVigentes = 0;
-                    let weeksVacaciones = 0;
-                    // Desglose por tramo de contrato: { '37.5': { brutoH, vacH, festH, vCount, festCount } }
-                    const tramoMap = {};
-                    const tramoStats = (cd) => {
-                        if(!tramoMap[cd]) tramoMap[cd] = { brutoH: 0, vacH: 0, festH: 0, vCount: 0, festCount: 0 };
-                        return tramoMap[cd];
-                    };
-                    // Horas justificadas por tipo (solo B y P) usando contrato/5 del día.
-                    // R no entra: la R compensa trabajo en festivo, los dos se cancelan
-                    // (trabajó un día que estaba descontado en festivos + libró otro que sí estaba esperado).
-                    let bH=0, pH=0;
-
-                    let cappedTotalRaw = 0; // total raw B+P antes del cap (para tooltip)
-                    let cappedTotalH = 0;   // total B+P después del cap (para tooltip)
-
-                    weeksList.forEach(monday => {
-                        const wdays = Utils.getWeekDays(monday);
-                        if(!Utils.empleadoVigenteEnFecha(emp, monday)) return;
-                        weeksVigentes++;
-                        const calc = Utils.calcEsperadas(emp, wdays, emp.id);
-                        contractWeeklyH += (calc.totalContrato || 0);
-
-                        let vW=0;
-                        let workedThisWeek = 0;
-                        let bWeekRaw = 0; // horas raw de B esta semana
-                        let pWeekRaw = 0; // horas raw de P esta semana
-                        let festivosThisWeekH = 0;
-                        let vacWeekRaw = 0; // horas raw de V esta semana (sin contar overlaps con festivo)
-
-                        wdays.forEach(d => {
-                            // Contrato vigente en este día (puede variar dentro del rango)
-                            const cd = Utils.getContrato(emp, d);
-                            const dailyRate = cd / 5;
-                            // Cada día contribuye contrato_día/7 al bruto semanal del tramo
-                            tramoStats(cd).brutoH += cd / 7;
-
-                            const isFestivo = holidayDates.has(d) && Utils.empleadoVigenteEnFecha(emp, d);
-                            const sid = App.data.schedule[d]?.[emp.id];
-                            const sh = sid ? Utils.getShift(sid) : null;
-                            const code = sh && sh.fixed ? sh.code : null;
-                            const isWorkedShift = sh && !sh.fixed && sh.start && sh.end;
-
-                            // Festivo del calendario: contar para info (todos)
-                            if(isFestivo) {
-                                festivosCalCount++;
-                                if(code === 'V') festivosVCount++;
-                                else if(isWorkedShift) festivosTrabCount++;
-                            }
-
-                            // Festivo descuenta SOLO si el día tiene F (o no hay turno = se trata como F).
-                            // Si el día tiene V → V descuenta y la recuperación posterior aparece como R.
-                            // Si el día tiene shift trabajado → festivo trabajado, la R posterior descontará.
-                            // Si el día tiene B/P → la justificada se ocupa.
-                            // Si el día tiene R → ese R descontará por su lado (caso raro: R encima de festivo).
-                            // Esto evita doble-descuento (festivo + R) en festivos trabajados/V'd.
-                            const festCuenta = isFestivo && (code === 'F' || (!sh));
-                            if(festCuenta) {
-                                festivosCount++;
-                                festivosH += dailyRate;
-                                festivosThisWeekH += dailyRate;
-                                tramoStats(cd).festH += dailyRate;
-                                tramoStats(cd).festCount++;
-                            }
-
-                            if(!sh) return;
-                            if(sh.fixed) {
-                                if(sh.code==='L') countL++;
-                                else if(sh.code==='F') countF++;
-                                else if(sh.code==='V') {
-                                    // V SIEMPRE cuenta como V (no la absorbe el festivo).
-                                    // Si el día era festivo, la "recuperación" pendiente se reflejará
-                                    // como un día R en otra fecha que también descuenta como festivo.
-                                    countV++; vW++;
-                                    vacWeekRaw += dailyRate;
-                                    tramoStats(cd).vacH += dailyRate;
-                                    tramoStats(cd).vCount++;
-                                }
-                                else if(sh.code==='R') {
-                                    // R = recuperación de festivo. Cuenta en festivos para que
-                                    // el total festivos+R = nº de festivos del calendario.
-                                    countR++;
-                                    festivosH += dailyRate;
-                                    festivosThisWeekH += dailyRate;
-                                    tramoStats(cd).festH += dailyRate;
-                                    tramoStats(cd).festCount++;
-                                }
-                                else if(sh.code==='B') { countB++; bWeekRaw += dailyRate; }
-                                else if(sh.code==='P') { countP++; pWeekRaw += dailyRate; }
-                            } else if(sh.start && sh.end) {
-                                const h = Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
-                                workedH += h;
-                                workedThisWeek += h;
-                                workedDays++;
-                            }
-                        });
-
-                        // Cap semanal de vacaciones: V+festivos no puede exceder el contrato semanal
-                        // (evita over-descuento si V está marcada en días de descanso)
-                        const weekContract = calc.totalContrato || 0;
-                        const vFestRaw = vacWeekRaw + festivosThisWeekH;
-                        let vacWeekCapped, festivosWeekCapped;
-                        if(vFestRaw > weekContract && vFestRaw > 0) {
-                            const scale = weekContract / vFestRaw;
-                            vacWeekCapped = vacWeekRaw * scale;
-                            festivosWeekCapped = festivosThisWeekH * scale;
-                            // Reajustar el running festivosH (ya añadimos antes el raw)
-                            festivosH -= festivosThisWeekH - festivosWeekCapped;
-                        } else {
-                            vacWeekCapped = vacWeekRaw;
-                            festivosWeekCapped = festivosThisWeekH;
-                        }
-                        vacacionesH += vacWeekCapped;
-
-                        // Cap semanal: B+P NO puede exceder el contrato semanal − festivos − V de la semana.
-                        const weekCap = Math.max(0, weekContract - festivosWeekCapped - vacWeekCapped);
-                        const totalWeekRaw = bWeekRaw + pWeekRaw;
-                        cappedTotalRaw += totalWeekRaw;
-                        if(totalWeekRaw > weekCap && totalWeekRaw > 0) {
-                            const scale = weekCap / totalWeekRaw;
-                            bH += bWeekRaw * scale;
-                            pH += pWeekRaw * scale;
-                            cappedTotalH += weekCap;
-                        } else {
-                            bH += bWeekRaw;
-                            pH += pWeekRaw;
-                            cappedTotalH += totalWeekRaw;
-                        }
-
-                        // Semana de vacaciones = semana sin trabajo y con al menos 1 día V
-                        if(workedThisWeek === 0 && vW > 0) weeksVacaciones++;
-                    });
-
-                    // Esperadas = contrato − vacaciones REALES (V marcadas en schedule) − festivos
-                    // V y F NO entran en Justificadas porque ya están descontadas aquí
-                    const esperadasH = Math.max(0, contractWeeklyH - vacacionesH - festivosH);
-
-                    // Justificadas = solo B + P (cada día = contrato/5 de ese día)
-                    const justifiedH = bH + pH;
-
-                    // Δ = trabajadas + justificadas − esperadas
-                    const dif = workedH + justifiedH - esperadasH;
-                    const contratoActual = Utils.getContrato(emp, lastDayOfRange);
-                    // Festivos pendientes y Rs sobrantes (solo semanas cerradas del rango)
-                    const { pendientes: pdtesCount, pendList: pdtesList } = calcFestivosPendInRange(emp);
-                    const { sobrantes: sobrantesCount, sobrantesList } = calcRsSobrantesInRange(emp);
-                    const contractsInRange = getContractsInRange(emp);
-                    const tieneVariosContratos = contractsInRange.length > 1
-                        || (contractsInRange.length === 1 && Math.abs((contractsInRange[0].horas||0) - contratoActual) > 0.01);
-                    // Media efectiva: workedH × 5 / workedDays
-                    // (rate medio por turno extrapolado a 5 días = se acerca al contrato cuando la persona
-                    //  trabaja sus turnos típicos. No se ve afectada por festivos/vacaciones porque solo
-                    //  divide por días con turno real.)
-                    const promedio = workedDays > 0 ? (workedH * 5) / workedDays : 0;
-                    return {
-                        emp,
-                        workedH: f1(workedH),
-                        justifiedH: f1(justifiedH),
-                        esperadasH: f1(esperadasH),
-                        contractWeeklyH: f1(contractWeeklyH),
-                        vacacionesH: f1(vacacionesH),
-                        festivosH: f1(festivosH),
-                        festivosCount,
-                        festivosCalCount,
-                        festivosTrabCount,
-                        festivosVCount,
-                        dif: f1(dif),
-                        workedDays,
-                        countL, countF, countR, countV, countB, countP,
-                        bH: f1(bH), pH: f1(pH),
-                        cappedTotalRaw: f1(cappedTotalRaw),
-                        cappedTotalH: f1(cappedTotalH),
-                        wasCapped: cappedTotalRaw > cappedTotalH + 0.05,
-                        contratoActual,
-                        contractsInRange,
-                        tieneVariosContratos,
-                        tramoMap,
-                        pdtesCount,
-                        pdtesList,
-                        sobrantesCount,
-                        sobrantesList,
-                        weeksVigentes,
-                        weeksVacaciones,
-                        promedio: f1(promedio),
-                        customOrder: emp.customOrder ?? 0
-                    };
-                });
-
-                // Ordenación
-                const sortKey = App.uiState.analisisHorasStaffSortKey || 'custom';
-                const sortDir = App.uiState.analisisHorasStaffSortDir || 'asc';
-                const dirMul = sortDir === 'asc' ? 1 : -1;
-                rows.sort((a,b) => {
-                    if(sortKey === 'custom')  return ((a.customOrder ?? 0) - (b.customOrder ?? 0)) * dirMul;
-                    if(sortKey === 'nombre')  return a.emp.nombre.localeCompare(b.emp.nombre) * dirMul;
-                    return ((a[sortKey] || 0) - (b[sortKey] || 0)) * dirMul;
-                });
-
-                // Totales
-                const totalWorked       = f1(rows.reduce((s,r)=>s+r.workedH,0));
-                const totalJustified    = f1(rows.reduce((s,r)=>s+r.justifiedH,0));
-                const totalEsperadas    = f1(rows.reduce((s,r)=>s+r.esperadasH,0));
-                const totalContractWeek = f1(rows.reduce((s,r)=>s+r.contractWeeklyH,0));
-                const totalVacaciones   = f1(rows.reduce((s,r)=>s+r.vacacionesH,0));
-                const totalFestivos     = f1(rows.reduce((s,r)=>s+r.festivosH,0));
-                const totalPdtes        = rows.reduce((s,r)=>s+r.pdtesCount,0);
-                const totalSobrantes    = rows.reduce((s,r)=>s+r.sobrantesCount,0);
-                const totalDif          = f1(rows.reduce((s,r)=>s+r.dif,0));
-                const totalDays         = rows.reduce((s,r)=>s+r.workedDays,0);
-
-                const sortClick = key => `App.uiState.analisisHorasStaffSortDir=(App.uiState.analisisHorasStaffSortKey==='${key}'&&App.uiState.analisisHorasStaffSortDir==='desc')?'asc':'desc';App.uiState.analisisHorasStaffSortKey='${key}';App.ui.renderAnalisis(document.querySelector('.main-scroll'));`;
-                const sortArrow = key => sortKey === key ? (sortDir === 'desc' ? ' ▼' : ' ▲') : '';
-                const thStyle = `text-align:right;padding:8px 10px;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;`;
-                const thStyleL = thStyle.replace('text-align:right','text-align:left');
-                const tdStyle = `text-align:right;padding:7px 10px;font-family:monospace;font-size:0.82rem;`;
-                const tdStyleL = `text-align:left;padding:7px 10px;font-size:0.85rem;`;
-
-                // Tooltip helper para cabeceras y celdas
-                const tipHeader = (label, key, body) => `<th style="${key==='nombre'?thStyleL:thStyle}" onclick="${sortClick(key)}">
-                    <span class="diff-tooltip-wrap" style="cursor:help;">${label}${sortArrow(key)}<div class="diff-tooltip" style="min-width:230px;white-space:normal;line-height:1.55;text-align:left;font-weight:400;text-transform:none;">${body}</div></span>
-                </th>`;
-
-                // Cabeceras con tooltip — orden: nombre · cntr · días · bruto · -vac · -fest · esperadas · trab · just · Δ · media
-                const headerHTML = `
-                    ${tipHeader('Empleado', 'nombre', '<strong>Empleado</strong> — clic ordena por nombre. Botón "☰ Mi orden" reordena por el orden personalizado del equipo.')}
-                    ${tipHeader('Cntr', 'contratoActual', '<strong>Contrato semanal</strong> vigente al final del rango. Si la persona ha tenido cambios de contrato durante el rango, aparece un asterisco — pasa el cursor sobre la celda para ver el historial. Los cálculos respetan cada tramo del contrato día a día.')}
-                    ${tipHeader('Días', 'workedDays', '<strong>Días con turno real</strong> — días con un turno con horario asignado (no L/F/V/B/P/R). Pasa el cursor sobre la celda para ver el desglose por tipo.')}
-                    ${tipHeader('Bruto', 'contractWeeklyH', '<strong>Horas brutas</strong> = contrato semanal × semanas vigente. Es el total que cobra antes de descontar vacaciones y festivos. Para contratos cambiantes se calcula día a día.')}
-                    ${tipHeader('−Vac', 'vacacionesH', '<strong>Horas descontadas por vacaciones reales</strong> — días V marcados en el calendario × (contrato/5) del día. V siempre cuenta como V, incluso si el día era festivo (la recuperación posterior aparecerá como R).')}
-                    ${tipHeader('−Fest', 'festivosH', '<strong>Horas descontadas por festivos + recuperaciones</strong> — (festivos del calendario que NO caen en V) + (días R marcados) × (contrato/5). Total festivos+R debería igualar el nº de festivos del calendario en el rango. Cuando un festivo cae en V, no cuenta aquí: V lo descuenta y la R posterior lo recoge.')}
-                    ${tipHeader('Pdtes', 'pdtesCount', '<strong>Festivos pendientes de recuperar</strong> en semanas cerradas del rango. Misma lógica que Balance Semanal: festivos que el empleado ha trabajado, ha tenido en V (vacaciones no absorben), o tiene F sin las 2 L de la semana, y aún no tienen una R asignada. <span style="color:#ef4444;">Rojo</span>: pendientes. <span style="color:#3b82f6;">Azul</span>: Rs sobrantes (sin festivo asociado). <span style="color:#10b981;">Verde ✓</span>: cuadrado.')}
-                    ${tipHeader('Esperadas', 'esperadasH', '<strong>Horas esperadas netas</strong> = Bruto − Vacaciones − Festivos. Es lo que la persona "debería trabajar realmente" en el rango.')}
-                    ${tipHeader('Trabajadas', 'workedH', '<strong>Horas trabajadas</strong> — suma de horas reales asignadas (turnos con horario, descontando descansos). No incluye horas justificadas.')}
-                    ${tipHeader('Justif.', 'justifiedH', '<strong>Horas justificadas</strong> — solo <strong>B (baja médica)</strong> y <strong>P (permiso)</strong>. Cada día = contrato/5. <strong>Cap por semana</strong>: el total B+P no puede superar el contrato semanal menos festivos − vacaciones de esa semana — así, días B/P marcados en libranzas no inflan las justificadas. V, F y R no aparecen aquí: V y F ya están en Esperadas; R cancela un festivo trabajado.')}
-                    ${tipHeader('Δ', 'dif', '<strong>Desviación</strong> = Trabajadas + Justif. (B/P) − Esperadas. <span style="color:#10b981;">Verde</span>: dentro de ±0,5h. <span style="color:#f59e0b;">Ámbar</span>: horas de más. <span style="color:#3b82f6;">Azul</span>: horas de menos.')}
-                    ${tipHeader('Media', 'promedio', '<strong>Media de horas por semana equivalente</strong> = Trabajadas × 5 ÷ Días con turno. Extrapola el ritmo real de los turnos a una semana de 5 días. <strong>No se ve afectada por festivos ni vacaciones</strong> porque solo divide por días realmente trabajados. Si la persona trabaja a su ritmo de contrato, la media se acercará al contrato semanal.')}
-                `;
-
-                const renderRow = r => {
-                    const difColor = r.dif > 0.5 ? '#f59e0b' : r.dif < -0.5 ? '#3b82f6' : '#10b981';
-                    const difSign = r.dif > 0 ? '+' : '';
-                    const breakdown = `${r.countL} L · ${r.countF} F · ${r.countR} R · ${r.countV} V · ${r.countB} B · ${r.countP} P`;
-                    const breakdownTip = `<div class="diff-tooltip-wrap" style="cursor:help;">${r.workedDays}<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Desglose</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">Días con turno</span><span style="font-weight:600;">${r.workedDays}</span></div><div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">Días tipo</span><span style="font-weight:600;font-size:0.7rem;">${breakdown}</span></div><div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">Semanas vigente</span><span style="font-weight:600;">${r.weeksVigentes}</span></div></div></div>`;
-
-                    // Tooltip de Justificadas: solo B+P, cada día = contrato/5, con cap semanal
-                    let justifTip;
-                    if(r.justifiedH > 0 || r.countB > 0 || r.countP > 0) {
-                        const fmt = (count, hours, label, color) => `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:${color};">${label}</span><span style="font-weight:600;font-family:monospace;">${count} día${count!==1?'s':''} = ${hours}h</span></div>`;
-                        const lines = [];
-                        if(r.countB > 0) lines.push(fmt(r.countB, r.bH, '🔴 Baja médica (B)', '#fca5a5'));
-                        if(r.countP > 0) lines.push(fmt(r.countP, r.pH, '🟪 Permiso (P)', '#f9a8d4'));
-                        const sumLines = `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">Total justificadas</span><span style="font-weight:700;">${r.justifiedH}h</span></div>`;
-                        const capLine = r.wasCapped
-                            ? `<div style="margin-top:5px;padding:5px 8px;background:rgba(245,158,11,0.18);border-radius:4px;font-size:10px;color:#fde68a;line-height:1.45;">⚠️ Cap aplicado: el raw era ${r.cappedTotalRaw}h pero se ha limitado a ${r.cappedTotalH}h (contrato semanal − festivos por semana). Se evita contar B/P marcados en libranzas (sábado/domingo).</div>`
-                            : '';
-                        const note = `<div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Cada día = contrato/5 de ese día. <strong>V y F</strong> ya están descontadas de Esperadas. <strong>R</strong> tampoco se cuenta: cancela un festivo trabajado.</div>`;
-                        const display = r.justifiedH > 0 ? `+${r.justifiedH}h` : '—';
-                        justifTip = `<div class="diff-tooltip-wrap" style="cursor:help;">${display}<div class="diff-tooltip" style="min-width:300px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Horas justificadas (B/P)</div>${lines.join('')}${sumLines}${capLine}${note}</div></div>`;
-                    } else {
-                        justifTip = '—';
-                    }
-
-                    // Tooltip de Esperadas: contrato − vacaciones reales (V del schedule) − festivos
-                    // Si hay varios tramos de contrato, desglosamos por tramo
-                    const tramoKeys = Object.keys(r.tramoMap || {})
-                        .map(k => parseFloat(k))
-                        .filter(k => !isNaN(k) && (r.tramoMap[k]?.brutoH || 0) > 0.05)
-                        .sort((a,b) => b - a); // de mayor a menor contrato
-                    const espLines = [];
-
-                    if(tramoKeys.length > 1) {
-                        // Múltiples tramos: desglose
-                        espLines.push(`<div style="font-size:10px;color:#94a3b8;margin-bottom:4px;">Por tramo de contrato:</div>`);
-                        tramoKeys.forEach(k => {
-                            const t = r.tramoMap[k];
-                            const tramoNeto = (t.brutoH || 0) - (t.vacH || 0) - (t.festH || 0);
-                            espLines.push(`<div style="margin-top:5px;padding:5px 7px;background:rgba(255,255,255,0.04);border-radius:4px;"><div style="display:flex;justify-content:space-between;gap:16px;font-weight:700;color:#e2e8f0;font-size:10.5px;"><span>Tramo ${k}h/sem</span><span>= ${f1(tramoNeto)}h</span></div><div style="display:flex;justify-content:space-between;gap:14px;margin-top:2px;font-size:10px;"><span style="color:#94a3b8;">Bruto</span><span style="font-family:monospace;">${f1(t.brutoH)}h</span></div>${t.vCount > 0 ? `<div style="display:flex;justify-content:space-between;gap:14px;margin-top:1px;font-size:10px;"><span style="color:#c084fc;">− Vac (${t.vCount}d)</span><span style="font-family:monospace;">−${f1(t.vacH)}h</span></div>` : ''}${t.festCount > 0 ? `<div style="display:flex;justify-content:space-between;gap:14px;margin-top:1px;font-size:10px;"><span style="color:#fde68a;">− Fest (${t.festCount}d)</span><span style="font-family:monospace;">−${f1(t.festH)}h</span></div>` : ''}</div>`);
-                        });
-                    } else {
-                        // Un solo tramo: formato simple
-                        espLines.push(`<div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">Contrato semanal × ${r.weeksVigentes} sem vigente</span><span style="font-weight:700;">${r.contractWeeklyH}h</span></div>`);
-                        if(r.countV > 0) {
-                            espLines.push(`<div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#c084fc;">− Vacaciones (${r.countV} día${r.countV!==1?'s':''} V × contrato/5)</span><span style="font-weight:600;font-family:monospace;">−${r.vacacionesH}h</span></div>`);
-                        } else {
-                            espLines.push(`<div style="margin-top:3px;font-size:10px;color:#94a3b8;">Sin días V marcados — no se descuentan vacaciones.</div>`);
-                        }
-                        if(r.festivosCount > 0) {
-                            espLines.push(`<div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#fde68a;">− Festivos (${r.festivosCount} día${r.festivosCount!==1?'s':''} × contrato/5)</span><span style="font-weight:600;font-family:monospace;">−${r.festivosH}h</span></div>`);
-                        } else {
-                            espLines.push(`<div style="margin-top:4px;font-size:10px;color:#94a3b8;">Sin festivos en el rango.</div>`);
-                        }
-                    }
-                    const espTotal = `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">= Esperadas</span><span style="font-weight:700;">${r.esperadasH}h</span></div>`;
-                    const espNote = `<div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Vacaciones reales del calendario y festivos ya están descontados aquí; por eso <strong>no</strong> aparecen en Justif. Si una persona no marca V (p.ej. baja larga), no se descuentan vacaciones — su esperada será mayor.</div>`;
-                    const espTip = `<div class="diff-tooltip-wrap" style="cursor:help;">${r.esperadasH}h<div class="diff-tooltip" style="min-width:300px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Cálculo de horas esperadas</div>${espLines.join('')}${espTotal}${espNote}</div></div>`;
-
-                    // Tooltip Media: workedH × 5 ÷ workedDays
-                    const mediaTip = r.workedDays > 0
-                        ? `<div class="diff-tooltip-wrap" style="cursor:help;">${r.promedio}h<div class="diff-tooltip" style="min-width:240px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Media por semana equivalente</div><div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">Trabajadas</span><span style="font-weight:700;">${r.workedH}h</span></div><div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">÷ Días con turno</span><span style="font-weight:600;">${r.workedDays}</span></div><div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">× 5 días/semana</span><span style="font-weight:600;">${f1(r.workedH/r.workedDays)}h × 5</span></div><div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">= Media equivalente</span><span style="font-weight:700;">${r.promedio}h</span></div><div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Extrapolación a semana de 5 días al ritmo real de los turnos. No baja por festivos ni vacaciones.</div></div></div>`
-                        : '—';
-
-                    // Tooltip Contrato: si tiene varios tramos en el rango, mostrarlos
-                    let contratoCell;
-                    if(r.tieneVariosContratos && r.contractsInRange.length > 0) {
-                        const lines = r.contractsInRange.map(c => {
-                            const desde = fmtDateShort(c.desde);
-                            const hasta = fmtDateShort(c.hasta);
-                            const rangoStr = (desde === '' && hasta === '') ? '' : `${desde} → ${hasta || 'fin'}`;
-                            return `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">${rangoStr}</span><span style="font-weight:700;font-family:monospace;">${c.horas}h</span></div>`;
-                        }).join('');
-                        contratoCell = `<div class="diff-tooltip-wrap" style="cursor:help;">${r.contratoActual}h<sup style="color:#f59e0b;font-size:0.6rem;margin-left:1px;">⚡</sup><div class="diff-tooltip" style="min-width:240px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Contratos en el rango</div>${lines}<div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Los cálculos respetan cada tramo día a día. La columna muestra el contrato vigente al final del rango.</div></div></div>`;
-                    } else {
-                        contratoCell = `${r.contratoActual}h`;
-                    }
-
-                    // Tooltip celda −Vac: cuenta días V y desglose por tramo
-                    let vacCellTip;
-                    if(r.vacacionesH > 0) {
-                        const vacTramoLines = tramoKeys
-                            .filter(k => (r.tramoMap[k]?.vCount || 0) > 0)
-                            .map(k => {
-                                const t = r.tramoMap[k];
-                                return `<div style="display:flex;justify-content:space-between;gap:14px;margin-top:2px;"><span style="color:#94a3b8;">Tramo ${k}h/sem</span><span style="font-family:monospace;font-weight:600;">${t.vCount}d × ${f1(k/5)}h = ${f1(t.vacH)}h</span></div>`;
-                            }).join('');
-                        const vacNote = `<div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Cuenta los días V realmente marcados en el calendario. Si una persona tiene "31 días de vacaciones" pero solo marca los días laborables (no fines de semana), countV ≈ 22-23 días. Si un día V coincide con un festivo, cuenta como festivo (no doble-descuento).</div>`;
-                        vacCellTip = `<div class="diff-tooltip-wrap" style="cursor:help;">−${r.vacacionesH}h<div class="diff-tooltip" style="min-width:240px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Vacaciones reales (${r.countV} día${r.countV!==1?'s':''} V)</div>${vacTramoLines || `<div style="color:#94a3b8;font-size:10px;">Sin desglose por tramo.</div>`}<div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">Total descontado</span><span style="font-weight:700;">−${r.vacacionesH}h</span></div>${vacNote}</div></div>`;
-                    } else {
-                        vacCellTip = '—';
-                    }
-
-                    // Tooltip celda −Fest: composición clara entre festivos del calendario y R
-                    let festCellTip;
-                    if(r.festivosH > 0) {
-                        const festTramoLines = tramoKeys
-                            .filter(k => (r.tramoMap[k]?.festCount || 0) > 0)
-                            .map(k => {
-                                const t = r.tramoMap[k];
-                                return `<div style="display:flex;justify-content:space-between;gap:14px;margin-top:2px;"><span style="color:#94a3b8;">Tramo ${k}h/sem</span><span style="font-family:monospace;font-weight:600;">${t.festCount}d × ${f1(k/5)}h = ${f1(t.festH)}h</span></div>`;
-                            }).join('');
-                        const festFCount = r.festivosCount - r.countR; // festivos con F que descontaron directo
-                        const calLine = r.festivosCalCount > 0
-                            ? `<div style="margin-top:5px;font-size:10px;color:#94a3b8;line-height:1.5;">Festivos del calendario (rango vigente): <strong>${r.festivosCalCount}</strong>${r.festivosTrabCount > 0 ? ` · trabajados: ${r.festivosTrabCount}` : ''}${r.festivosVCount > 0 ? ` · cayeron en V: ${r.festivosVCount}` : ''}</div>`
-                            : '';
-                        const composicionLine = `<div style="margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.1);font-size:10px;"><div style="color:#94a3b8;margin-bottom:3px;">Días que descuentan aquí:</div><div style="display:flex;justify-content:space-between;gap:14px;"><span style="color:#fde68a;">  • Festivos con F</span><span style="font-weight:600;">${festFCount}</span></div><div style="display:flex;justify-content:space-between;gap:14px;margin-top:1px;"><span style="color:#86efac;">  • Recuperaciones (R)</span><span style="font-weight:600;">${r.countR}</span></div></div>`;
-                        const festNote = `<div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Solo descuenta el festivo si el día está marcado <strong>F</strong> (sin turno). Si el festivo se trabajó o cayó en V, descuenta la <strong>R</strong> posterior. Las R del año anterior también descuentan aquí (representan días libres tomados este año).</div>`;
-                        festCellTip = `<div class="diff-tooltip-wrap" style="cursor:help;">−${r.festivosH}h<div class="diff-tooltip" style="min-width:280px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Festivos descontados (${r.festivosCount} día${r.festivosCount!==1?'s':''})</div>${festTramoLines || `<div style="color:#94a3b8;font-size:10px;">Sin desglose por tramo.</div>`}${composicionLine}${calLine}<div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">Total descontado</span><span style="font-weight:700;">−${r.festivosH}h</span></div>${festNote}</div></div>`;
-                    } else {
-                        festCellTip = '—';
-                    }
-
-                    // Celda Pdtes: mismo código de color que Balance Semanal
-                    const monthShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-                    const fmtFestDate = iso => { const dt = new Date(iso+'T12:00:00'); return `${dt.getDate()} ${monthShort[dt.getMonth()]}`; };
-                    let pdtesCell;
-                    if(r.pdtesCount > 0) {
-                        const pdLines = r.pdtesList.map(p => `<div style="color:#fca5a5;font-size:0.72rem;line-height:1.7;">${fmtFestDate(p.date)} <span style="color:#94a3b8;">— ${p.reason}</span></div>`).join('');
-                        const pdTip = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:4px;">Festivos pendientes de recuperar</div>${pdLines}<div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Equivalente: ${f1(r.pdtesCount * 7.5)}h aprox. de exceso esperable en Δ.</div>`;
-                        pdtesCell = `<span class="diff-tooltip-wrap" style="cursor:help;font-weight:700;color:#ef4444;">${r.pdtesCount}<div class="diff-tooltip" style="min-width:230px;white-space:normal;line-height:1.55;text-align:left;">${pdTip}</div></span>`;
-                    } else if(r.sobrantesCount > 0) {
-                        const sbLines = r.sobrantesList.map(iso => `<div style="color:#93c5fd;font-size:0.72rem;line-height:1.7;">${fmtFestDate(iso)}</div>`).join('');
-                        const sbTip = `<div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:4px;">Recuperaciones sobrantes</div>${sbLines}<div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Días R sin festivo asociado en el tracking.</div>`;
-                        pdtesCell = `<span class="diff-tooltip-wrap" style="cursor:help;font-weight:700;color:#3b82f6;">${r.sobrantesCount}<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.55;text-align:left;">${sbTip}</div></span>`;
-                    } else {
-                        pdtesCell = `<span style="color:#10b981;font-weight:700;">✓</span>`;
-                    }
-
-                    return `<tr style="border-bottom:1px solid #f1f5f9;">
-                        <td style="${tdStyleL}font-weight:600;">${r.emp.nombre}</td>
-                        <td style="${tdStyle}color:#64748b;">${contratoCell}</td>
-                        <td style="${tdStyle}">${breakdownTip}</td>
-                        <td style="${tdStyle}color:#475569;">${r.contractWeeklyH}h</td>
-                        <td style="${tdStyle}color:#c084fc;">${vacCellTip}</td>
-                        <td style="${tdStyle}color:#fbbf24;">${festCellTip}</td>
-                        <td style="${tdStyle}">${pdtesCell}</td>
-                        <td style="${tdStyle}color:#64748b;font-weight:600;">${espTip}</td>
-                        <td style="${tdStyle}font-weight:700;color:#1e293b;">${r.workedH}h</td>
-                        <td style="${tdStyle}color:#a78bfa;">${justifTip}</td>
-                        <td style="${tdStyle}font-weight:700;color:${difColor};">${difSign}${r.dif}h</td>
-                        <td style="${tdStyle}color:#3b82f6;">${mediaTip}</td>
-                    </tr>`;
-                };
-
-                // Botón "Mi orden"
-                const customActive = sortKey === 'custom';
-                const customBtnStyle = `padding:7px 14px;border-radius:6px;font-size:0.8rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;` +
-                    (customActive
-                        ? 'border:1px solid #1e293b;background:#1e293b;color:white;'
-                        : 'border:1px solid var(--border);background:white;color:#475569;');
-                const customBtnTip = customActive
-                    ? 'Ordenado por el orden establecido del equipo. Clic en cualquier columna para reordenar por ese campo.'
-                    : 'Restablece la ordenación al orden establecido del equipo (configurable arrastrando empleados en Plantilla).';
-                const customBtn = `<button onclick="App.uiState.analisisHorasStaffSortKey='custom';App.uiState.analisisHorasStaffSortDir='asc';App.ui.renderAnalisis(document.querySelector('.main-scroll'));"
-                    title="${customBtnTip}" style="${customBtnStyle}">☰ Mi orden${customActive ? ' ▾' : ''}</button>`;
-
-                body = `
-                <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
-                    <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Desde</div>
-                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisHorasStaffStart=this.value;localStorage.setItem('v40_analisisHorasStaff',JSON.stringify({start:App.uiState.analisisHorasStaffStart,end:App.uiState.analisisHorasStaffEnd}));App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(startISO)}</select></div>
-                    <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Hasta</div>
-                        <select style="${wkSelectStyle}" onchange="App.uiState.analisisHorasStaffEnd=this.value;localStorage.setItem('v40_analisisHorasStaff',JSON.stringify({start:App.uiState.analisisHorasStaffStart,end:App.uiState.analisisHorasStaffEnd}));App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(endISO)}</select></div>
-                    <div style="align-self:flex-end;">${customBtn}</div>
-                    <div style="margin-left:auto;font-size:0.78rem;color:#64748b;align-self:center;">${weeksList.length} semana${weeksList.length!==1?'s':''} · ${emps.length} empleado${emps.length!==1?'s':''} activo${emps.length!==1?'s':''}</div>
-                </div>
-
-                <div style="background:white;border:1px solid var(--border);border-radius:10px;">
-                    <table style="width:100%;border-collapse:collapse;">
-                        <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
-                            ${headerHTML}
-                        </tr></thead>
-                        <tbody>${rows.map(renderRow).join('')}
-                            <tr style="background:#f1f5f9;border-top:2px solid #cbd5e1;font-weight:800;">
-                                <td style="${tdStyleL}font-weight:800;">TOTAL</td>
-                                <td style="${tdStyle}">—</td>
-                                <td style="${tdStyle}">${totalDays}</td>
-                                <td style="${tdStyle}">${totalContractWeek}h</td>
-                                <td style="${tdStyle}color:#c084fc;">${totalVacaciones > 0 ? '−'+totalVacaciones+'h' : '—'}</td>
-                                <td style="${tdStyle}color:#fbbf24;">${totalFestivos > 0 ? '−'+totalFestivos+'h' : '—'}</td>
-                                <td style="${tdStyle}">${totalPdtes > 0 ? `<span style="color:#ef4444;">${totalPdtes}</span>` : (totalSobrantes > 0 ? `<span style="color:#3b82f6;">${totalSobrantes}</span>` : '<span style="color:#10b981;">✓</span>')}</td>
-                                <td style="${tdStyle}">${totalEsperadas}h</td>
-                                <td style="${tdStyle}">${totalWorked}h</td>
-                                <td style="${tdStyle}">${totalJustified > 0 ? '+'+totalJustified+'h' : '—'}</td>
-                                <td style="${tdStyle}color:${totalDif > 0.5 ? '#f59e0b' : totalDif < -0.5 ? '#3b82f6' : '#10b981'};">${totalDif > 0 ? '+' : ''}${totalDif}h</td>
-                                <td style="${tdStyle}">—</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div style="margin-top:10px;font-size:0.75rem;color:#94a3b8;line-height:1.5;">
-                    💡 <strong>Bruto</strong> = contrato × semanas vigente. <strong>Esperadas</strong> = Bruto − Vacaciones (días V reales, sin absorber festivos) − Festivos (festivos no en V + recuperaciones R). <strong>Justif.</strong> = B + P (capadas por semana, V/F/R no entran). <strong>Δ</strong> = Trabajadas + Justif. − Esperadas. <strong>Media</strong> = Trabajadas × 5 ÷ Días con turno. Para contratos cambiantes se usa el contrato vigente día a día — el tooltip de Cntr (con ⚡) muestra el historial. Pasa el cursor sobre cualquier título o celda con valor para ver el desglose.
+                    💡 Versión nueva, en construcción. Rango por día concreto (Desde/Hasta). Recuento de días por tipo y horas reales de trabajo sobre los días con contrato vigente dentro del rango. Clic en cualquier columna para ordenar; “☰ Mi orden” vuelve al orden del equipo.
                 </div>`;
 
             // ─── TAB 3: TURNOS MÁS USADOS ────────────────────────────────────
@@ -1367,6 +832,100 @@ Object.assign(App.ui, {
                         <tbody>${rows}</tbody>
                     </table>
                     </div>`;
+                }
+            }
+
+            // ─── TAB: BOLSA DE HORAS VALLE ───────────────────────────────────
+            if(tab === 'valle') {
+                const valleBolsa = parseFloat(App.data.config.valleBolsa) || 0;
+                if(!App.uiState.analisisValleStart) { App.uiState.analisisValleStart = fyStart; App.uiState.analisisValleEnd = fyEnd; }
+                if(App.uiState.analisisValleStart > App.uiState.analisisValleEnd) {
+                    const _t = App.uiState.analisisValleStart;
+                    App.uiState.analisisValleStart = App.uiState.analisisValleEnd;
+                    App.uiState.analisisValleEnd = _t;
+                }
+                const startISO = App.uiState.analisisValleStart;
+                const endISO   = App.uiState.analisisValleEnd;
+
+                if(valleBolsa <= 0) {
+                    body = `<div style="background:white;border:1px solid var(--border);border-radius:10px;padding:40px;text-align:center;color:#94a3b8;font-size:0.85rem;">
+                        Configura la <strong>bolsa de horas valle</strong> en Configuración → Valle para ver este análisis.</div>`;
+                } else {
+                    // Lista de lunes en el rango
+                    const weeks = [];
+                    let cur = Utils.getMonday(startISO);
+                    const endMon = Utils.getMonday(endISO);
+                    while(cur <= endMon) { weeks.push(cur); cur = Utils.addWeeks(cur, 1); }
+
+                    // Excedente semanal = bolsa − consumidas; acumulado = bolsa×4 − consumidas de la semana y las 3 anteriores
+                    const dataWeekly = weeks.map(mon => {
+                        const consumed = Utils.valleConsumido(Utils.getWeekDays(mon));
+                        return { mon, consumed, surplus: Math.round((valleBolsa - consumed) * 10) / 10 };
+                    });
+                    const data4 = weeks.map(mon => {
+                        let dias = [];
+                        for(let w = 0; w < 4; w++) dias = dias.concat(Utils.getWeekDays(Utils.addWeeks(mon, -w)));
+                        const consumed = Utils.valleConsumido(dias);
+                        return { mon, consumed, surplus: Math.round((valleBolsa * 4 - consumed) * 10) / 10 };
+                    });
+
+                    // Gráfica de barras divergente (positivo arriba en verde, negativo abajo en rojo) con cuadrícula
+                    const barChart = (rows, bolsaRef, titulo, subtitulo) => {
+                        const maxAbs = Math.max(1, ...rows.map(r => Math.abs(r.surplus)));
+                        const H = 110; // semialtura en px
+                        // Cuadrícula: 4 niveles por lado + línea de cero, con etiqueta de horas en el eje
+                        const fracs = [1, 0.75, 0.5, 0.25];
+                        let grid = '';
+                        fracs.forEach(f => {
+                            const val = Math.round(maxAbs * f * 10) / 10;
+                            const topUp = Math.round(H * (1 - f));
+                            const topDn = Math.round(H * (1 + f));
+                            grid += `<div style="position:absolute;left:0;right:0;top:${topUp}px;border-top:1px dashed #eef2f7;"></div>`
+                                  +  `<div style="position:absolute;left:0;top:${topUp}px;transform:translateY(-50%);font-size:0.5rem;color:#cbd5e1;background:white;padding:0 2px;">+${val}</div>`
+                                  +  `<div style="position:absolute;left:0;right:0;top:${topDn}px;border-top:1px dashed #eef2f7;"></div>`
+                                  +  `<div style="position:absolute;left:0;top:${topDn}px;transform:translateY(-50%);font-size:0.5rem;color:#cbd5e1;background:white;padding:0 2px;">−${val}</div>`;
+                        });
+                        grid += `<div style="position:absolute;left:0;right:0;top:${H}px;border-top:1.5px solid #94a3b8;"></div>`;
+
+                        const cols = rows.map(r => {
+                            const h = Math.round(Math.abs(r.surplus) / maxAbs * H);
+                            const pos = r.surplus >= 0;
+                            const color = r.surplus > 0.01 ? '#10b981' : r.surplus < -0.01 ? '#ef4444' : '#94a3b8';
+                            const lbl = `${r.surplus > 0 ? '+' : ''}${r.surplus}`;
+                            const wdays = Utils.getWeekDays(r.mon);
+                            const title = `${Utils.getWeekCode(r.mon)} · ${_shortDate(wdays[0])}–${_shortDate(wdays[6])}&#10;${r.surplus > 0 ? '+' : ''}${r.surplus}h de ${bolsaRef}h (consumidas ${r.consumed}h)`;
+                            return `<div title="${title}" style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;cursor:default;">
+                                <div style="height:${H}px;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">
+                                    ${pos ? `<span style="font-size:0.46rem;font-weight:700;color:${color};line-height:1;margin-bottom:1px;white-space:nowrap;">${lbl}</span><div style="width:72%;height:${h}px;background:${color};border-radius:2px 2px 0 0;"></div>` : ''}
+                                </div>
+                                <div style="height:${H}px;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;">
+                                    ${!pos ? `<div style="width:72%;height:${h}px;background:${color};border-radius:0 0 2px 2px;"></div><span style="font-size:0.46rem;font-weight:700;color:${color};line-height:1;margin-top:1px;white-space:nowrap;">${lbl}</span>` : ''}
+                                </div>
+                                <div style="font-size:0.5rem;color:#94a3b8;margin-top:3px;white-space:nowrap;">${Utils.getWeekCode(r.mon).slice(-2)}</div>
+                            </div>`;
+                        }).join('');
+
+                        return `<div style="background:white;border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:18px;">
+                            <div style="font-size:0.85rem;font-weight:700;color:#1e293b;margin-bottom:2px;">${titulo}</div>
+                            <div style="font-size:0.72rem;color:#94a3b8;margin-bottom:14px;">${subtitulo}</div>
+                            <div style="position:relative;padding-left:26px;">
+                                <div style="position:absolute;left:0;top:0;right:0;height:${2 * H}px;pointer-events:none;">${grid}</div>
+                                <div style="display:flex;align-items:stretch;gap:2px;">${cols}</div>
+                            </div>
+                        </div>`;
+                    };
+
+                    body = `
+                    <div style="display:flex;gap:14px;align-items:flex-end;margin-bottom:18px;flex-wrap:wrap;">
+                        <div><div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Desde</div>
+                            <select style="${wkSelectStyle}" onchange="App.uiState.analisisValleStart=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(startISO)}</select></div>
+                        <div><div style="font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px;">Hasta</div>
+                            <select style="${wkSelectStyle}" onchange="App.uiState.analisisValleEnd=this.value;App.ui.renderAnalisis(document.querySelector('.main-scroll'));">${buildAllWeekOpts(endISO)}</select></div>
+                        <div style="margin-left:auto;font-size:0.72rem;color:#64748b;">Bolsa semanal: <strong>${valleBolsa}h</strong> · Tramo valle ${App.data.config.valleStart || '14:00'}–${App.data.config.valleEnd || '17:00'}</div>
+                    </div>
+                    ${barChart(dataWeekly, valleBolsa, 'Excedente semanal', 'Bolsa semanal − horas valle consumidas cada semana. 🟢 Sobró bolsa · 🔴 Se superó.')}
+                    ${barChart(data4, Math.round(valleBolsa * 4 * 10) / 10, 'Excedente acumulado (4 semanas móviles)', 'Cada barra: bolsa×4 − horas valle de esa semana y las 3 anteriores.')}
+                    `;
                 }
             }
 

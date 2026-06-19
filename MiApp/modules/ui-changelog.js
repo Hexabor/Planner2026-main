@@ -6,6 +6,18 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '19/06/2026', version: 'v1.0',
+                items: [
+                    '✨ Análisis → nueva pestaña "Bolsa de horas valle": dos gráficas de barras (excedente semanal y acumulado de 4 semanas móviles) con cuadrícula y la cifra visible sobre cada barra. Verde = sobró bolsa · Rojo = se superó',
+                    '✨ Planner → panel VALLE dividido en dos: saldo de esta semana y saldo acumulado de las últimas 4 semanas (contando la presente)',
+                    '✨ Configuración → Horas convenio: nuevo "Tramo a estudiar" (Desde/Hasta). El desvío acumulado solo cuenta las semanas cerradas 🔒 que caen dentro de ese tramo. Se guarda en los backups de Drive',
+                    '✨ Análisis → Horas por Staff: el rango Desde/Hasta ahora es por día concreto (antes por semana), para acotar con precisión (p.ej. el corte de festivos del tramo anterior cae justo en la fecha elegida)',
+                    '✨ Análisis → Horas por Staff: nueva columna "H. por asignar" = horas de convenio − trabajadas − bajas − festivos del tramo anterior por compensar − permisos. Positivo = horas que faltan por asignar · Negativo = asignadas de más',
+                    '✨ Planner → Balance (columna DES) y Personal (columna "Por asignar") muestran ahora ese mismo valor de "horas por asignar", idéntico al de Análisis',
+                    '🗑 Análisis → eliminada la pestaña "Horas por Staff (legacy)"',
+                ]
+            },
+            {
                 fecha: '12/06/2026', version: 'v1.0',
                 items: [
                     '🔧 Gestor de llaves (escritorio y móvil): los turnos externos ya no cuentan como apertura/cierre — quien tiene turno externo no puede abrir/cerrar la tienda. Se trata como ausencia y se marca con una "E" en rosa',

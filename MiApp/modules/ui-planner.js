@@ -724,16 +724,7 @@ Object.assign(App.ui, {
                 // DES y FES
                 let _acum = 0, _acumColor = '#10b981', _acumSign = '', _autoRec = 0;
                 if(_emp) {
-                    const _lw = App.ui._getLockedWeeks(_emp);
-                    _acum = _emp.saldoInicial || 0;
-                    _lw.forEach(isoWeek => {
-                        const wdays = Utils.getWeekDays(isoWeek);
-                        let worked = 0;
-                        wdays.forEach(d => { const sid = App.data.schedule[d]?.[_emp.id]; const sh = sid ? Utils.getShift(sid) : null; if(sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break); });
-                        const { esperadas } = Utils.calcEsperadas(_emp, wdays, _emp.id);
-                        _acum += worked - esperadas;
-                    });
-                    _acum = Math.round((_acum + (_emp.ajustes||[]).reduce((s,a)=>s+a.signo*a.horas,0)) * 10) / 10;
+                    _acum = App.ui._calcDesvioAcum(_emp);
                     _acumColor = _acum > 0.5 ? '#f59e0b' : _acum < -0.5 ? '#3b82f6' : '#10b981';
                     _acumSign  = _acum > 0 ? '+' : '';
                     _autoRec   = App.ui._calcFestivosPend(_emp);
@@ -834,7 +825,7 @@ Object.assign(App.ui, {
                     <th style=""><span class="diff-tooltip-wrap" style="cursor:help;">Cntr<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Horas de contrato semanales del empleado.</div></span></th>
                     <th style=""><span class="diff-tooltip-wrap" style="cursor:help;">Asig<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Horas de trabajo asignadas esta semana (turnos con horario real). No incluye L ni festivos.</div></span></th>
                     <th style=""><span class="diff-tooltip-wrap" style="cursor:help;">Dif<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Diferencia entre horas asignadas (+ ausencias justificadas) y horas de contrato. Verde = cubierto, azul = falta trabajo, naranja = exceso.</div></span></th>
-                    <th style="border-left:2px solid #cbd5e1;"><span class="diff-tooltip-wrap" style="cursor:help;">Des<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Desvío acumulado sobre semanas cerradas 🔒. Positivo = trabajó de más · Negativo = debe horas.</div></span></th>
+                    <th style="border-left:2px solid #cbd5e1;"><span class="diff-tooltip-wrap" style="cursor:help;">Des<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Horas por asignar (mismo valor que Análisis → Horas por Staff): horas de convenio − trabajadas − bajas − festivos del tramo anterior por compensar − permisos. Positivo = horas que aún quedan por asignar · Negativo = horas asignadas de más.</div></span></th>
                     <th style=""><span class="diff-tooltip-wrap" style="cursor:help;">Fes<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Festivos trabajados pendientes de compensar 🔒 (solo semanas cerradas).</div></span></th>
                     <th style="border-left:2px solid #cbd5e1;"><span class="diff-tooltip-wrap" style="cursor:help;">SEG<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Días consecutivos trabajando incluyendo esta semana. Verde ≤3 · Naranja 4–5 · Rojo ≥6.</div></span></th>
                     <th style=""><span class="diff-tooltip-wrap" style="cursor:help;">LIB<div class="diff-tooltip" style="min-width:200px;white-space:normal;line-height:1.6;font-weight:400;text-transform:none;">Libranzas completas esta semana. Verde ✓ = 2 libranzas L. Naranja ⚠ = 1L+1F.</div></span></th>
@@ -919,27 +910,11 @@ Object.assign(App.ui, {
                 
                 dotsHtml += `</div>`;
                 
-                // --- Calcular desvío y festivos para este empleado ---
+                // --- Horas por asignar (mismo valor que Análisis → Horas por Staff) y festivos ---
                 const _emp = App.data.empleados.find(e => e.id === st.empId);
                 let _acum = 0, _acumColor = '#10b981', _acumSign = '', _autoRec = 0;
-                let _rangeStart = Utils.getMonday(App.uiState.currentDate), _rangeEnd = _rangeStart;
                 if(_emp) {
-                    const _lw = App.ui._getLockedWeeks(_emp);
-                    _rangeStart = _lw.length > 0 ? _lw[0] : _rangeStart;
-                    _rangeEnd   = _lw.length > 0 ? _lw[_lw.length-1] : _rangeEnd;
-                    _acum = _emp.saldoInicial || 0;
-                    _lw.forEach(isoWeek => {
-                        const wdays = Utils.getWeekDays(isoWeek);
-                        let worked = 0;
-                        wdays.forEach(d => {
-                            const sid = App.data.schedule[d]?.[_emp.id];
-                            const sh = sid ? Utils.getShift(sid) : null;
-                            if(sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
-                        });
-                        const { esperadas } = Utils.calcEsperadas(_emp, wdays, _emp.id);
-                        _acum += worked - esperadas;
-                    });
-                    _acum = Math.round((_acum + (_emp.ajustes||[]).reduce((s,a)=>s+a.signo*a.horas,0)) * 10) / 10;
+                    _acum = App.ui._calcHorasPorAsignar(_emp);
                     _acumColor = _acum > 0.5 ? '#f59e0b' : _acum < -0.5 ? '#3b82f6' : '#10b981';
                     _acumSign  = _acum > 0 ? '+' : '';
                     _autoRec   = App.ui._calcFestivosPend(_emp);
@@ -1512,11 +1487,12 @@ Object.assign(App.ui, {
                         <th style="padding:3px 2px;">L–D</th>
                     </tr></thead><tbody>`;
 
-            // Calcular desvío acumulado hasta la semana anterior al rango visible
+            // Desvío acumulado hasta la semana anterior al rango visible (solo semanas cerradas dentro del tramo)
+            const { ini: _tramoIni, fin: _tramoFin } = App.ui._tramoRango();
             let acum = emp.saldoInicial || 0;
             const lockedWeeks = App.ui._getLockedWeeks(emp);
             lockedWeeks.forEach(lw => {
-                if (lw >= startMonday) return;
+                if (lw >= startMonday || lw < _tramoIni || lw > _tramoFin) return;
                 const wdays = Utils.getWeekDays(lw);
                 let worked = 0;
                 wdays.forEach(d => { const sid = App.data.schedule[d]?.[emp.id]; const sh = sid ? Utils.getShift(sid) : null; if (sh && sh.start && sh.end) worked += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break); });
@@ -1556,9 +1532,10 @@ Object.assign(App.ui, {
 
                 const { justifiedH, totalContrato: contrato } = Utils.calcEsperadas(emp, days, emp.id);
                 const dif = f1(asig + justifiedH - contrato);
+                const withinTramo = mon >= _tramoIni && mon <= _tramoFin;
 
-                // Acumular desvío si semana cerrada
-                if (isLocked) acum += asig + justifiedH - contrato;
+                // Acumular desvío si la semana está cerrada y dentro del tramo
+                if (isLocked && withinTramo) acum += asig + justifiedH - contrato;
                 const acumR = f1(acum);
                 const acumColor = acumR > 0.5 ? '#f59e0b' : acumR < -0.5 ? '#3b82f6' : '#10b981';
 

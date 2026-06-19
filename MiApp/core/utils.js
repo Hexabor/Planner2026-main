@@ -362,6 +362,34 @@ const Utils = {
         d.setDate(d.getDate() + n * 7);
         return d.toISOString().slice(0, 10);
     },
+    // Horas consumidas dentro del tramo valle en un conjunto de días.
+    // Excluye domingos y turnos externos; descuenta las pausas que solapan con el tramo.
+    valleConsumido: function(days) {
+        const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+        const vS = toMin(App.data.config.valleStart || '14:00');
+        const vE = toMin(App.data.config.valleEnd   || '17:00');
+        let total = 0;
+        days.forEach(d => {
+            if(new Date(d).getDay() === 0) return; // Domingos excluidos del cómputo valle
+            Object.keys(App.data.schedule[d] || {}).forEach(empId => {
+                const shift = Utils.getShift(App.data.schedule[d][empId]);
+                if(shift && shift.start && shift.end && !shift.external) {
+                    const sS = toMin(shift.start), sE = toMin(shift.end);
+                    const overlapStart = Math.max(sS, vS);
+                    const overlapEnd   = Math.min(sE, vE);
+                    let pauseMins = 0;
+                    if(shift.breakStart && shift.breakEnd) {
+                        const bS = toMin(shift.breakStart), bE = toMin(shift.breakEnd);
+                        const pStart = Math.max(bS, overlapStart);
+                        const pEnd   = Math.min(bE, overlapEnd);
+                        if(pEnd > pStart) pauseMins = pEnd - pStart;
+                    }
+                    if(overlapEnd > overlapStart) total += (overlapEnd - overlapStart - pauseMins) / 60;
+                }
+            });
+        });
+        return Math.round(total * 10) / 10;
+    },
 
     getWeekLabel: function(iso) {
         const weekCode = this.getWeekCode(iso);

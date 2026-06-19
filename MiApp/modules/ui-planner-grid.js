@@ -57,57 +57,46 @@ Object.assign(App.ui, {
             const valleEnd   = App.data.config.valleEnd   || '17:00';
             const valleBolsa = parseFloat(App.data.config.valleBolsa) || 0;
             const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
-            const vS = toMin(valleStart), vE = toMin(valleEnd);
-            let valleConsumed = 0;
-            weekDays.forEach(d => {
-                if(new Date(d).getDay() === 0) return; // Domingos excluidos del cómputo valle
-                Object.keys(App.data.schedule[d] || {}).forEach(empId => {
-                    const shift = Utils.getShift(App.data.schedule[d][empId]);
-                    if(shift && shift.start && shift.end && !shift.external) {
-                        const sS = toMin(shift.start), sE = toMin(shift.end);
-                        const overlapStart = Math.max(sS, vS);
-                        const overlapEnd   = Math.min(sE, vE);
-                        // Restar pausa si solapa con el tramo valle
-                        let pauseMins = 0;
-                        if(shift.breakStart && shift.breakEnd) {
-                            const bS = toMin(shift.breakStart), bE = toMin(shift.breakEnd);
-                            const pStart = Math.max(bS, overlapStart);
-                            const pEnd   = Math.min(bE, overlapEnd);
-                            if(pEnd > pStart) pauseMins = pEnd - pStart;
-                        }
-                        if(overlapEnd > overlapStart) valleConsumed += (overlapEnd - overlapStart - pauseMins) / 60;
-                    }
-                });
-            });
-            valleConsumed = Math.round(valleConsumed * 10) / 10;
+            const valleConsumed = Utils.valleConsumido(weekDays);
+            // Acumulado de las últimas 4 semanas (contando la presente)
+            let _valle4Dias = [];
+            for(let _w = 0; _w < 4; _w++) { _valle4Dias = _valle4Dias.concat(Utils.getWeekDays(Utils.addWeeks(monday, -_w))); }
+            const valleConsumed4 = Utils.valleConsumido(_valle4Dias);
 
             // Declarar antes de usarlos en los módulos HTML
             const isIndividual = App.uiState.plannerViewMode === 'individual';
 
-            // Módulo VALLE — número grande + barra fina
+            // Módulo VALLE — dos mitades: saldo de esta semana y saldo acumulado de 4 semanas
             let _valleCircle = '';
             if(valleBolsa > 0) {
-                const _res  = Math.round((valleBolsa - valleConsumed) * 10) / 10;
-                const _pct  = Math.min(valleConsumed / valleBolsa, 1);
-                const _rc       = _res > 0 ? '#10b981' : _res < 0 ? '#ef4444' : '#94a3b8';
-                const _rs       = _res > 0 ? '+' : '';
-                const _barScale = 10;
-                const _barGreen = _res >= 0 ? Math.round(Math.min(_res / _barScale, 1) * 100) : 0;
-                const _barRed   = _res <  0 ? Math.round(Math.min(-_res / _barScale, 1) * 100) : 0;
+                // Mini-bloque de saldo (bolsa − consumidas) con número + barra
+                const _valleHalf = (consumed, bolsa, label) => {
+                    const _res      = Math.round((bolsa - consumed) * 10) / 10;
+                    const _rc       = _res > 0 ? '#10b981' : _res < 0 ? '#ef4444' : '#94a3b8';
+                    const _rs       = _res > 0 ? '+' : '';
+                    const _barScale = bolsa > 0 ? bolsa : 10;
+                    const _barGreen = _res >= 0 ? Math.round(Math.min(_res / _barScale, 1) * 100) : 0;
+                    const _barRed   = _res <  0 ? Math.round(Math.min(-_res / _barScale, 1) * 100) : 0;
+                    return `<div style="flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px;">
+                            <span style="font-size:0.42rem; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.04em; line-height:1;">${label}</span>
+                            <span style="font-size:0.92rem; font-weight:800; color:${_rc}; font-family:monospace; letter-spacing:-0.03em; line-height:1;">${_rs}${_res}h</span>
+                            <div style="width:100%; height:5px; background:#e2e8f0; border-radius:3px; overflow:hidden;">
+                                <div style="width:${_barGreen > 0 ? _barGreen : _barRed}%; height:100%; background:${_res >= 0 ? '#10b981' : '#ef4444'}; border-radius:3px;"></div>
+                            </div>
+                        </div>`;
+                };
                 _valleCircle = `
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:3px; width:100%; padding:2px 6px; box-sizing:border-box; cursor:default;"
+                    <div style="display:flex; align-items:flex-start; gap:6px; width:100%; padding:2px 6px; box-sizing:border-box; cursor:default;"
                          onmouseenter="const t=document.getElementById('valle-tip');const r=this.getBoundingClientRect();t.style.left=(r.left+r.width/2)+'px';t.style.top=(r.top-8)+'px';t.style.display='block';"
                          onmouseleave="document.getElementById('valle-tip').style.display='none';">
-                        <div style="line-height:1; margin-top:2px;">
-                            <span style="font-size:1.09rem; font-weight:800; color:${_rc}; font-family:monospace; letter-spacing:-0.03em;">${_rs}${_res}h</span>
-                        </div>
-                        <div style="width:100%; height:5px; background:#e2e8f0; border-radius:3px; overflow:hidden; margin-top:1px;">
-                            <div style="width:${_barGreen > 0 ? _barGreen : _barRed}%; height:100%; background:${_res >= 0 ? '#10b981' : '#ef4444'}; border-radius:3px;"></div>
-                        </div>
+                        ${_valleHalf(valleConsumed, valleBolsa, 'Esta sem.')}
+                        <div style="width:1px; align-self:stretch; background:#e2e8f0;"></div>
+                        ${_valleHalf(valleConsumed4, valleBolsa * 4, '4 sem.')}
                     </div>
                     <div id="valle-tip" style="display:none; position:fixed; transform:translate(-50%,-100%); background:#1e293b; color:white; border-radius:8px; padding:8px 10px; font-size:0.68rem; line-height:1.5; white-space:nowrap; z-index:9999; pointer-events:none; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
-                        <div style="font-weight:700; margin-bottom:4px; color:#94a3b8; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.05em;">Tramo valle</div>
-                        <div>${valleStart}–${valleEnd} &nbsp;·&nbsp; ${valleConsumed}h consumidas de ${valleBolsa}h</div>
+                        <div style="font-weight:700; margin-bottom:4px; color:#94a3b8; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.05em;">Tramo valle · ${valleStart}–${valleEnd}</div>
+                        <div>Esta semana: ${valleConsumed}h de ${valleBolsa}h</div>
+                        <div>Últimas 4 sem: ${valleConsumed4}h de ${Math.round(valleBolsa * 4 * 10) / 10}h</div>
                         <div style="margin-top:4px; color:#94a3b8; font-size:0.65rem;">Horas de baja actividad. En verde mientras<br>queda bolsa; en rojo si se supera.</div>
                     </div>`;
             }

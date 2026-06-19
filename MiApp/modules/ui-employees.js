@@ -13,10 +13,29 @@ Object.assign(App.ui, {
             });
         },
 
-        // Helper: desvío acumulado sobre semanas cerradas
+        // Helper: rango del tramo a estudiar (Configuración → Horas convenio). Acota qué semanas cerradas
+        // entran en el desvío. Por defecto: WK01 del año fiscal → +1 año.
+        _tramoRango: function() {
+            const iniRaw = App.data.config.tramoInicio || App.data.config.weekStart || '2025-12-29';
+            let finRaw = App.data.config.tramoFin;
+            if(!finRaw) {
+                const d = new Date(iniRaw + 'T12:00:00');
+                d.setDate(d.getDate() + 364);
+                finRaw = d.toISOString().slice(0,10);
+            }
+            return { iniRaw, finRaw, ini: Utils.getMonday(iniRaw), fin: Utils.getMonday(finRaw) };
+        },
+
+        // Helper: semanas cerradas del empleado acotadas al tramo configurado.
+        _getLockedWeeksTramo: function(emp) {
+            const { ini, fin } = App.ui._tramoRango();
+            return App.ui._getLockedWeeks(emp).filter(m => m >= ini && m <= fin);
+        },
+
+        // Helper: desvío acumulado sobre semanas cerradas dentro del tramo (reglas de calcEsperadas)
         _calcDesvioAcum: function(emp) {
             if(!emp) return 0;
-            const weeks = App.ui._getLockedWeeks(emp);
+            const weeks = App.ui._getLockedWeeksTramo(emp);
             let acum = emp.saldoInicial || 0;
             weeks.forEach(monday => {
                 const wdays = Utils.getWeekDays(monday);
@@ -32,6 +51,83 @@ Object.assign(App.ui, {
             // Ajustes manuales: cuentan siempre independientemente de semana cerrada
             const ajusteTotal = (emp.ajustes || []).reduce((sum, a) => sum + a.signo * a.horas, 0);
             return Math.round((acum + ajusteTotal) * 10) / 10;
+        },
+
+        // ── HORAS POR ASIGNAR ───────────────────────────────────────────────
+        // Réplica exacta del cálculo de la columna "H. por asignar" de Análisis → Horas por Staff,
+        // para poder mostrar el MISMO valor en otras columnas (Balance, rejilla de Personal).
+        // Rango: el mismo selector por día (Desde/Hasta) de esa pestaña.
+        _horasPorAsignarRango: function() {
+            let start = App.uiState.analisisHorasStaffStart;
+            let end   = App.uiState.analisisHorasStaffEnd;
+            if(!start) { try { const s = JSON.parse(localStorage.getItem('v40_analisisHorasStaff')); if(s){ start = s.start; end = s.end; } } catch(e){} }
+            const fyStart = App.data.config.weekStart || '2025-12-29';
+            if(!start) { start = fyStart; const d = new Date(fyStart + 'T00:00:00'); d.setDate(d.getDate() + 51*7); end = d.toISOString().slice(0,10); }
+            if(start > end) { const t = start; start = end; end = t; }
+            return { start, end };
+        },
+
+        // Festivos del tramo anterior (12 meses previos a startISO) sin compensar dentro de ese tramo. {count, list}.
+        // Mismo criterio que la columna "Ant." de Análisis.
+        _festivosPrevPend: function(emp, startISO) {
+            const locked = App.data.lockedDays || {};
+            const tracking = emp.festivoTracking || {};
+            const prevStart = (() => { const d = new Date(startISO + 'T12:00:00'); d.setFullYear(d.getFullYear()-1); return d.toISOString().slice(0,10); })();
+            const realRs = new Set();
+            Object.keys(App.data.schedule || {}).forEach(iso => { const sid = App.data.schedule[iso]?.[emp.id]; const sh = sid ? Utils.getShift(sid) : null; if(sh && sh.fixed && sh.code === 'R') realRs.add(iso); });
+            const holidays = (App.data.storeConfig.holidays || [])
+                .filter(h => h.date >= prevStart && h.date < startISO)
+                .filter(h => locked[h.date] && Utils.empleadoVigenteEnFecha(emp, h.date));
+            let count = 0; const list = [];
+            holidays.forEach(h => {
+                const tr = tracking[h.date] || {};
+                if(tr.rDate && realRs.has(tr.rDate) && tr.rDate >= prevStart && tr.rDate < startISO) return;
+                const sid = App.data.schedule[h.date]?.[emp.id];
+                const shift = sid ? Utils.getShift(sid) : null;
+                if(!shift) return;
+                let pend = false;
+                if(shift.fixed && shift.code === 'V') pend = true;
+                else if(shift.fixed && shift.code === 'F') {
+                    const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
+                    let cL = 0;
+                    wdays.forEach(d => { const s = App.data.schedule[d]?.[emp.id]; const s2 = s ? Utils.getShift(s) : null; if(s2 && s2.fixed && s2.code === 'L') cL++; });
+                    if(cL < 2) pend = true;
+                } else if(shift.start && shift.end) pend = true;
+                if(pend) { count++; list.push({ date: h.date }); }
+            });
+            return { count, list };
+        },
+
+        // Horas por asignar = Teóricas (convenio prorrateado por día) − H.trab − bajas − permisos − festivos del tramo anterior por compensar.
+        // Positivo = horas que aún quedan por asignar · Negativo = horas asignadas de más.
+        _calcHorasPorAsignar: function(emp, startISO, endISO) {
+            if(!emp) return 0;
+            if(!startISO || !endISO) { const r = App.ui._horasPorAsignarRango(); startISO = startISO || r.start; endISO = endISO || r.end; }
+            const stdH = parseFloat(App.data.config.stdHours) || 1711;
+            const REF = 37.5;
+            let theoH = 0, workedH = 0, bajasH = 0, permisosH = 0;
+            let cur = new Date(startISO + 'T12:00:00');
+            const end = new Date(endISO + 'T12:00:00');
+            while(cur <= end) {
+                const d = cur.toISOString().slice(0,10);
+                cur.setDate(cur.getDate() + 1);
+                if(!Utils.empleadoVigenteEnFecha(emp, d)) continue;
+                const cW = Utils.getContrato(emp, d);
+                theoH += stdH * (cW / REF) / 52 / 7;
+                const sid = App.data.schedule[d]?.[emp.id];
+                if(!sid) continue;
+                const sh = Utils.getShift(sid);
+                if(!sh) continue;
+                if(sh.fixed) {
+                    if(sh.code === 'B') bajasH += cW / 5;
+                    else if(sh.code === 'P') permisosH += cW / 5;
+                } else if(sh.start && sh.end) {
+                    workedH += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
+                }
+            }
+            const pend = App.ui._festivosPrevPend(emp, startISO);
+            const pendPrevH = pend.list.reduce((s, p) => s + Utils.getContrato(emp, p.date) / 5, 0);
+            return Math.round((theoH - workedH - bajasH - permisosH - pendPrevH) * 10) / 10;
         },
 
         // Helper: festivos pendientes en semanas cerradas
@@ -115,9 +211,11 @@ Object.assign(App.ui, {
                     const align = key === 'nombre' ? 'left' : 'center';
                     return `<th class="${arrow}" style="width:${width}; text-align:${align};" onclick="App.logic.sortEmp('${key}')">${label}</th>`;
                 };
+                const _hpa = App.ui._horasPorAsignarRango();
+                const _tramoTxt = `${Utils.formatDateES(_hpa.start)} → ${Utils.formatDateES(_hpa.end)}`;
                 html+=`<table class="data-table" style="table-layout:auto; width:100%;"><thead><tr><th style="width:30px" onclick="App.logic.sortEmp('custom')">☰</th>`;
                 html+= getSortHeader('nombre', 'Nombre', '200px');
-                if(!isPrefs) { html+= getSortHeader('rol', 'Puesto', '') + getSortHeader('tag', 'Tag', '') + getSortHeader('contrato', 'Horas', '') + `<th style="text-align:center; white-space:nowrap;">Desvío 🔒<span style="cursor:help;font-size:9px;vertical-align:super;margin-left:2px;" onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById('desvio-info-tip');t.style.left=r.left+'px';t.style.top=(r.bottom+4)+'px';t.style.display='block';" onmouseleave="document.getElementById('desvio-info-tip').style.display='none';">ℹ️</span></th><th style="text-align:center; white-space:nowrap;">Festivos 🔒<span style="cursor:help;font-size:9px;vertical-align:super;margin-left:2px;" onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById('festivos-info-tip');t.style.left=r.left+'px';t.style.top=(r.bottom+4)+'px';t.style.display='block';" onmouseleave="document.getElementById('festivos-info-tip').style.display='none';">ℹ️</span></th>`; } 
+                if(!isPrefs) { html+= getSortHeader('rol', 'Puesto', '') + getSortHeader('tag', 'Tag', '') + getSortHeader('contrato', 'Horas', '') + `<th style="text-align:center; white-space:nowrap;">Por asignar<span style="cursor:help;font-size:9px;vertical-align:super;margin-left:2px;" onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById('desvio-info-tip');t.style.left=r.left+'px';t.style.top=(r.bottom+4)+'px';t.style.display='block';const dt=document.getElementById('desvio-info-tramo');if(dt)dt.textContent='${_tramoTxt}';" onmouseleave="document.getElementById('desvio-info-tip').style.display='none';">ℹ️</span></th><th style="text-align:center; white-space:nowrap;">Festivos 🔒<span style="cursor:help;font-size:9px;vertical-align:super;margin-left:2px;" onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById('festivos-info-tip');t.style.left=r.left+'px';t.style.top=(r.bottom+4)+'px';t.style.display='block';" onmouseleave="document.getElementById('festivos-info-tip').style.display='none';">ℹ️</span></th>`; } 
                 else { html+=`<th>Domingos</th><th>Libranza 1</th><th>Libranza 2</th><th>Turno</th><th>Partidos</th>`; }
                 html+=`</tr></thead><tbody>`;
                 const showInactive = App.uiState.showInactive || false;
@@ -145,7 +243,7 @@ Object.assign(App.ui, {
                         const contratoActual = Utils.getContrato(e, _hoy);
                         const pct = Math.min(100, (contratoActual / 40) * 100); const color = contratoActual>=40?'#22c55e':'#f97316'; const bg=`conic-gradient(${color} ${pct}%, #f1f5f9 0)`;
                         const tieneHistorial = e.contratos && e.contratos.length > 0;
-                        const desvioAcum = App.ui._calcDesvioAcum(e);
+                        const desvioAcum = App.ui._calcHorasPorAsignar(e);
                         const dColor = desvioAcum > 0.5 ? '#f59e0b' : desvioAcum < -0.5 ? '#3b82f6' : '#10b981';
                         const dSign = desvioAcum > 0 ? '+' : '';
                         const festivosPend = App.ui._calcFestivosPend(e);
@@ -426,8 +524,8 @@ markDirty: function() {
 
             const shortDate = iso => { const [y,m,d] = iso.split('-'); return `${d}.${m}.${y.slice(2)}`; };
 
-            // Semanas cerradas donde el empleado tiene contrato vigente
-            const weeks = App.ui._getLockedWeeks(emp);
+            // Semanas cerradas dentro del tramo configurado donde el empleado tiene contrato vigente
+            const weeks = App.ui._getLockedWeeksTramo(emp);
 
             // Calcular filas
             let acum = emp.saldoInicial || 0;
@@ -466,7 +564,7 @@ markDirty: function() {
                     <div>
                         <div style="font-size:0.65rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:2px;">
                             🔒 Semanas cerradas
-                            <span class="diff-tooltip-wrap" style="cursor:help; font-size:10px; vertical-align:middle; margin-left:3px;">ℹ️<div class="diff-tooltip" style="min-width:220px; white-space:normal; line-height:1.6; font-weight:400; text-transform:none;"><strong>¿Qué son las semanas cerradas?</strong><br>El desvío se calcula solo sobre semanas cerradas (🔒). Una semana se cierra con el switch del planificador.<br><br>Las semanas abiertas no cuentan aún en el acumulado.</div></span>
+                            <span class="diff-tooltip-wrap" style="cursor:help; font-size:10px; vertical-align:middle; margin-left:3px;">ℹ️<div class="diff-tooltip" style="min-width:220px; white-space:normal; line-height:1.6; font-weight:400; text-transform:none;"><strong>¿Qué semanas cuentan?</strong><br>El desvío se calcula sobre las semanas cerradas (🔒) que caen dentro del tramo configurado en Configuración → Horas convenio.<br><br>Las semanas abiertas o fuera del tramo no cuentan en el acumulado.</div></span>
                         </div>
                         <div style="font-size:0.72rem; color:var(--text-main); font-family:monospace;">${rangeLabel} · ${weeks.length} sem.</div>
                     </div>
@@ -487,7 +585,7 @@ markDirty: function() {
             </div>`;
 
             if(rows.length === 0) {
-                return html + `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.8rem;">Sin semanas cerradas con contrato vigente.</div>`;
+                return html + `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.8rem;">Sin semanas cerradas dentro del tramo configurado.</div>`;
             }
 
             // Tabla compacta

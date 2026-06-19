@@ -806,9 +806,11 @@ window.addEventListener('beforeunload', function(){ try { Safe.flush('v40_db'); 
 </div>
 <!-- Tooltip fijo para columna Desvío en tabla de empleados -->
 <div id="desvio-info-tip" style="display:none; position:fixed; z-index:9999; background:#1e293b; color:#e2e8f0; padding:10px 14px; border-radius:8px; font-size:0.75rem; line-height:1.6; max-width:240px; box-shadow:0 4px 20px rgba(0,0,0,0.3); pointer-events:none;">
-    <strong>Desvío acumulado</strong><br>
-    Solo se calculan las semanas cerradas 🔒.<br>
-    Las semanas abiertas no cuentan aún en el acumulado.
+    <strong>Horas por asignar</strong><br>
+    Mismo valor que <strong>Análisis → Horas por Staff</strong>: horas de convenio − trabajadas − bajas − festivos del tramo anterior por compensar − permisos.<br><br>
+    🟡 Positivo = horas que aún quedan por asignar · 🔵 Negativo = horas asignadas de más.<br><br>
+    📍 El rango (por día) se ajusta en <strong>Análisis → Horas por Staff (Desde/Hasta)</strong>.<br>
+    🗓 Rango actual: <span id="desvio-info-tramo" style="color:#fbbf24; font-weight:700;">—</span>
 </div>
 <!-- Tooltip fijo para columna Festivos en tabla de empleados -->
 <div id="festivos-info-tip" style="display:none; position:fixed; z-index:9999; background:#1e293b; color:#e2e8f0; padding:10px 14px; border-radius:8px; font-size:0.75rem; line-height:1.7; max-width:270px; box-shadow:0 4px 20px rgba(0,0,0,0.3); pointer-events:none;">
