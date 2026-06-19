@@ -250,7 +250,8 @@ Object.assign(App.ui, {
                         const dSign = desvioAcum > 0 ? '+' : '';
                         const festivosPend = App.ui._calcFestivosPend(e);
                         const fColor = festivosPend > 0 ? '#ef4444' : '#10b981';
-                        const rsDisp = festivosPend > 0 ? App.ui._calcRsDisponibles(e) : 0;
+                        const rsDisp = App.ui._calcRsDisponibles(e);
+                        const sobrantesR = Math.max(0, rsDisp - festivosPend); // recuperaciones que sobran tras cubrir todos los festivos pendientes
                         // Compensados pero sin pedir en Factorial:
                         // solo festivos reales del calendario que tengan rDate válida pero no factorialDate
                         const tracking = e.festivoTracking || {};
@@ -268,12 +269,9 @@ Object.assign(App.ui, {
                             const sh = sid ? Utils.getShift(sid) : null;
                             return sh && sh.start && sh.end;
                         }).length;
-                        const dots = sinFactorial > 0 ? ' ' + Array.from({length: sinFactorial}).map(() =>
-                            `<span title="Compensado pero sin pedir en Factorial" style="color:#ef4444; font-size:0.6rem; cursor:help;">●</span>`
-                        ).join('') : '';
-                        const festivosCell = festivosPend > 0
-                            ? `${festivosPend} ⚠${rsDisp > 0 ? ` <span title="Hay ${rsDisp} recuperación${rsDisp>1?'es':''} disponible${rsDisp>1?'s':''} sin asignar" style="color:#f59e0b; font-size:0.7rem; cursor:help;">↩</span>` : ''}${dots}`
-                            : `✓${dots}`;
+                        const rojoNum = sinFactorial > 0 ? ` <span title="${sinFactorial} festivo${sinFactorial>1?'s':''} compensado${sinFactorial>1?'s':''} pero sin pedir en Factorial" style="color:#ef4444; font-weight:700; cursor:help;">(${sinFactorial})</span>` : '';
+                        const azulNum = sobrantesR > 0 ? ` <span title="${sobrantesR} recuperación${sobrantesR>1?'es':''} sobrante${sobrantesR>1?'s':''} tras cubrir los festivos pendientes" style="color:#3b82f6; font-weight:700; cursor:help;">(${sobrantesR})</span>` : '';
+                        const festivosCell = `${festivosPend > 0 ? `${festivosPend} ⚠` : '✓'}${rojoNum}${azulNum}`;
                         html+=`<td style="text-align:center;"><span class="badge badge-role">${rolHoy}</span></td><td style="text-align:center;"><span class="badge badge-tag">T${tag}</span></td><td style="text-align:center;"><div class="contract-chart" style="background:${bg}; display:inline-block;"></div>${contratoActual}h${tieneHistorial?'<sup style="font-size:0.55rem;color:#94a3b8;margin-left:2px;">📋</sup>':''}</td><td style="text-align:center; font-family:monospace; font-weight:700; color:${dColor};">${dSign}${desvioAcum}h</td><td style="text-align:center; font-weight:700; color:${fColor};">${festivosCell}</td>`;
                     } else { html+=`<td>${App.ui.getPrefSelect(e.id, 'sunday', e.prefs?.sunday, {'indif':'Indif.','like':'Sí','hate':'No'})}</td><td>${App.ui.getPrefSelect(e.id, 'off1', e.prefs?.off1, {'any':'Indif.','L':'Lun','M':'Mar','X':'Mié','J':'Jue','V':'Vie','S':'Sáb'})}</td><td>${App.ui.getPrefSelect(e.id, 'off2', e.prefs?.off2, {'any':'Indif.','L':'Lun','M':'Mar','X':'Mié','J':'Jue','V':'Vie','S':'Sáb'})}</td><td>${App.ui.getPrefShiftSelect(e.id, e.prefs?.shift)}</td><td>${App.ui.getPrefSelect(e.id, 'split', e.prefs?.split, {'ok':'OK','no':'No','help':'Ayuda'})}</td>`; }
                     html+=`</tr>`;
@@ -781,9 +779,16 @@ markDirty: function() {
         </details>`;
     }
 
-    // Botón reset recuperaciones
+    // Botones: adjudicar automáticamente / resetear recuperaciones
     html += `
-    <div style="margin-top:20px; padding-top:16px; border-top:1px dashed #fca5a5;">
+    <div style="margin-top:20px; padding-top:16px; border-top:1px dashed #e2e8f0;">
+        <button onclick="App.logic.festivoAdjudicarRecuperaciones('${emp.id}')"
+            style="width:100%; padding:9px 12px; background:#ecfdf5; color:#15803d; border:1px solid #86efac; border-radius:7px; font-size:0.75rem; font-weight:700; cursor:pointer; text-align:left;">
+            ✓ Adjudicar recuperaciones de festivos
+        </button>
+        <div style="margin-top:5px; margin-bottom:14px; font-size:0.65rem; color:#94a3b8; line-height:1.5; padding:0 2px;">
+            Asigna a cada festivo pendiente una recuperación libre, emparejando el festivo más antiguo con la recuperación más antigua.
+        </div>
         <button onclick="App.logic.festivoResetRecuperaciones('${emp.id}')"
             style="width:100%; padding:9px 12px; background:white; color:#ef4444; border:1px solid #fca5a5; border-radius:7px; font-size:0.75rem; font-weight:700; cursor:pointer; text-align:left;">
             ↺ Resetear recuperaciones de festivos

@@ -10,6 +10,8 @@ Object.assign(App.ui, {
                 items: [
                     '✨ Análisis → Horas por Staff: nueva columna "Arrastre" (horas arrastradas del periodo anterior, = saldo de arranque de la ficha del empleado). Se descuenta de "H. por asignar", que ahora también lo refleja en el Balance del planner y en la rejilla de Personal',
                     '✨ Ficha de empleado → Festivos: nuevo bloque "Recuperaciones sin asignar" que lista las R del calendario aún no vinculadas a ningún festivo, con su fecha (semana + DD/MM/AAAA). Permite detectar de un vistazo si has puesto recuperaciones de más',
+                    '✨ Ficha de empleado → Festivos: nuevo botón "Adjudicar recuperaciones de festivos" — con un clic empareja cada festivo pendiente con una recuperación libre (el festivo más antiguo con la R más antigua) y avisa de los sobrantes',
+                    '🔧 Personal → columna Festivos: los puntitos rojos pasan a un número (N) en rojo (festivos compensados sin pedir en Factorial) y se añade (M) en azul con las recuperaciones sobrantes tras cubrir todos los festivos pendientes',
                 ]
             },
             {

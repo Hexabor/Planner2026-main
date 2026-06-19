@@ -267,6 +267,75 @@ Object.assign(App.logic, {
             App.ui.renderEmp(document.querySelector('.main-scroll'));
         },
 
+        // Adjudica automáticamente recuperaciones a los festivos pendientes.
+        // Empareja el festivo pendiente MÁS ANTIGUO con la recuperación libre MÁS ANTIGUA.
+        festivoAdjudicarRecuperaciones: function(empId) {
+            const i = App.data.empleados.findIndex(e => e.id === empId);
+            if(i < 0) return;
+            const emp = App.data.empleados[i];
+            const tracking = emp.festivoTracking || {};
+
+            // Estado de un festivo (mismo criterio que el panel)
+            const getEstado = (hDate) => {
+                const sid = App.data.schedule[hDate]?.[emp.id];
+                const shift = sid ? Utils.getShift(sid) : null;
+                if(!shift) return 'sin_definir';
+                if(shift.fixed && shift.code === 'V') return 'vacaciones';
+                if(shift.fixed && shift.code === 'F') {
+                    const wdays = Utils.getWeekDays(Utils.getMonday(hDate));
+                    let countL = 0;
+                    wdays.forEach(d => { const s2 = App.data.schedule[d]?.[emp.id]; const sh2 = s2 ? Utils.getShift(s2) : null; if(sh2 && sh2.fixed && sh2.code === 'L') countL++; });
+                    return countL >= 2 ? 'disfrutado' : 'coincide';
+                }
+                if(shift.start && shift.end) return 'trabaja';
+                return 'sin_definir';
+            };
+
+            // Recuperaciones (R) en el calendario, libres (sin vincular) y más antiguas primero
+            const allRs = [];
+            Object.keys(App.data.schedule).forEach(iso => {
+                const sid = App.data.schedule[iso]?.[emp.id];
+                const sh = sid ? Utils.getShift(sid) : null;
+                if(sh && sh.fixed && sh.code === 'R') allRs.push(iso);
+            });
+            const allRsSet = new Set(allRs);
+            const assignedRDates = new Set(Object.values(tracking).map(t => t.rDate).filter(Boolean));
+            const rsLibres = allRs.filter(r => !assignedRDates.has(r)).sort((a, b) => a.localeCompare(b));
+
+            // Festivos pendientes de disfrute (trabajado, coincide o en vacaciones) sin R válida, más antiguos primero
+            const pendientes = (App.data.storeConfig.holidays || [])
+                .filter(h => Utils.empleadoVigenteEnFecha(emp, h.date))
+                .filter(h => {
+                    const estado = getEstado(h.date);
+                    if(!(estado === 'coincide' || estado === 'trabaja' || estado === 'vacaciones')) return false;
+                    const tr = tracking[h.date] || {};
+                    return !(tr.rDate && allRsSet.has(tr.rDate));
+                })
+                .map(h => h.date)
+                .sort((a, b) => a.localeCompare(b));
+
+            if(pendientes.length === 0) { alert('No hay festivos pendientes de asignar.'); return; }
+            if(rsLibres.length === 0) { alert('No hay recuperaciones libres para adjudicar.'); return; }
+
+            // Emparejar oldest ↔ oldest
+            const pares = Math.min(pendientes.length, rsLibres.length);
+            for(let k = 0; k < pares; k++) {
+                if(!tracking[pendientes[k]]) tracking[pendientes[k]] = {};
+                tracking[pendientes[k]].rDate = rsLibres[k];
+            }
+            emp.festivoTracking = tracking;
+            Safe.save('v40_db', App.data);
+            App.ui.renderEmpInspector(empId);
+            App.ui.renderEmp(document.querySelector('.main-scroll'));
+
+            const sobranFest = pendientes.length - pares;
+            const sobranR    = rsLibres.length - pares;
+            let msg = `✅ ${pares} recuperación${pares !== 1 ? 'es' : ''} adjudicada${pares !== 1 ? 's' : ''} (festivo más antiguo ↔ R más antigua).`;
+            if(sobranFest > 0) msg += `\n\n⚠️ Quedan ${sobranFest} festivo(s) pendiente(s) sin R disponible.`;
+            if(sobranR > 0)    msg += `\n\n↩ Sobran ${sobranR} recuperación(es) sin festivo al que asignar.`;
+            alert(msg);
+        },
+
         festivoTrackUpd: function(empId, hDate, field, value) {
             const i = App.data.empleados.findIndex(x => x.id === empId);
             if(i < 0) return;
