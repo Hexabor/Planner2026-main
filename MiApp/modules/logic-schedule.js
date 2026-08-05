@@ -185,6 +185,40 @@ Object.assign(App.logic, {
             return true;
         },
 
+        // ── Notas de turno ──
+        // Anotación libre por empleado+día (p.ej. "por qué está blindado" o "por qué este turno").
+        // No requiere quitar el blindaje: es metadato, no toca el turno en sí.
+        getNota: function(empId, date) {
+            return (App.data.notas && App.data.notas[date] && App.data.notas[date][empId]) || '';
+        },
+        setNota: function(empId, date) {
+            if(!App.data.notas) App.data.notas = {};
+            if(!App.data.notas[date]) App.data.notas[date] = {};
+            const actual = App.data.notas[date][empId] || '';
+            const emp = App.data.empleados.find(e => e.id === empId);
+            const empName = emp ? emp.nombre : 'este empleado';
+            const fechaTxt = Utils.formatDateES ? Utils.formatDateES(date) : date;
+            const nueva = prompt(`📝 Nota para ${empName} — ${fechaTxt}\n\nDéjala en blanco para borrarla.`, actual);
+            if(nueva === null) return; // cancelado
+            const texto = nueva.trim();
+            if(texto) {
+                App.data.notas[date][empId] = texto;
+            } else {
+                delete App.data.notas[date][empId];
+            }
+            Safe.save('v40_db', App.data);
+            App.ui.renderPlanner(document.getElementById('main-view'));
+            const insp = document.getElementById('inspector-content');
+            if(insp) App.ui.renderPlannerInspector(insp);
+        },
+        _deleteNota: function(empId, date) {
+            if(App.data.notas && App.data.notas[date] && App.data.notas[date][empId]) {
+                delete App.data.notas[date][empId];
+                Safe.save('v40_db', App.data);
+                App.ui.renderPlanner(document.getElementById('main-view'));
+            }
+        },
+
         erase: function(empId) {
             const date = App.uiState.currentDate;
             if(App.logic.isDayLocked(date)) {
@@ -256,6 +290,12 @@ Object.assign(App.logic, {
             // Modo blindaje activo: el clic bloquea/desbloquea el turno, no lo modifica
             if(sid === 'blindaje') {
                 App.logic.toggleBlindaje(empId, date);
+                return;
+            }
+
+            // Modo nota activo: el clic abre un cuadro para escribir/editar la nota, no toca el turno
+            if(sid === 'nota') {
+                App.logic.setNota(empId, date);
                 return;
             }
 

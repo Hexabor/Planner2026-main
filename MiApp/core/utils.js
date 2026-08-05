@@ -715,6 +715,12 @@ const Utils = {
         if(empId && date && App.logic.isBlindado(empId, date)) {
             html+=`<div title="Turno blindado — clic para pedir confirmación antes de cambiarlo" style="position:absolute; top:1px; right:2px; font-size:0.7rem; z-index:20; pointer-events:none; filter:drop-shadow(0 0 1px white);">🔒</div>`;
         }
+        if(empId && date) {
+            const _nota = App.logic.getNota(empId, date);
+            if(_nota) {
+                html+=`<div title="📝 ${_nota.replace(/"/g,'&quot;')}" style="position:absolute; bottom:1px; right:2px; font-size:0.7rem; z-index:20; cursor:help; filter:drop-shadow(0 0 1px white);">📝</div>`;
+            }
+        }
         html+=`</div>`; return html;
     },
     renderMiniTimeline: function(s) { return this.renderPlannerTimeline(s, {open:'00:00', close:'24:00', closed:false}); },

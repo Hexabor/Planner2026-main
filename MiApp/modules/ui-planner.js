@@ -1215,6 +1215,33 @@ Object.assign(App.ui, {
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
         },
 
+        // ── Notas del día (postit) ──
+        _renderNotasPostit: function() {
+            const date = App.uiState.currentDate;
+            const notasHoy = (App.data.notas && App.data.notas[date]) || {};
+            const empIds = Object.keys(notasHoy);
+            const rows = empIds.map(empId => {
+                const emp = App.data.empleados.find(e => e.id === empId);
+                const nombre = emp ? emp.nombre : empId;
+                const texto = notasHoy[empId];
+                return `<div style="display:flex; align-items:flex-start; gap:3px; padding:3px 0; border-bottom:1px dashed #fde68a;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:0.56rem; font-weight:800; color:#78350f;">${nombre}</div>
+                        <div style="font-size:0.6rem; color:#92400e; word-break:break-word; white-space:pre-wrap;">${texto}</div>
+                    </div>
+                    <button type="button" onclick="App.logic.setNota('${empId}', '${date}')" title="Editar nota" style="border:none; background:none; cursor:pointer; font-size:0.6rem; padding:1px 2px; color:#b45309; flex-shrink:0;">✎</button>
+                    <button type="button" onclick="App.logic._deleteNota('${empId}', '${date}')" title="Borrar nota" style="border:none; background:none; cursor:pointer; font-size:0.68rem; padding:1px 2px; color:#b45309; flex-shrink:0;">×</button>
+                </div>`;
+            }).join('');
+
+            return `<div class="planner-module" style="width:150px; background:#fffbeb; border:1px solid #fde68a;">
+                <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em; color:#92400e;">📝 NOTAS DEL DÍA</div>
+                <div class="planner-module-content" style="padding:5px 7px; max-height:110px; overflow-y:auto; display:block;">
+                    ${rows || `<div style="font-size:0.56rem; color:#b45309; opacity:0.7; text-align:center; padding:8px 2px;">Sin notas este día.<br>Activa 📝 Nota y haz clic en un turno.</div>`}
+                </div>
+            </div>`;
+        },
+
         // ── Workspace Presets ──
         _renderWorkspacePresetsModule: function() {
             const presets = App.data.config.workspacePresets || [];

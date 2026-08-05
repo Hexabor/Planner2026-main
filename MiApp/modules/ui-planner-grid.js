@@ -265,6 +265,8 @@ Object.assign(App.ui, {
                         <div style="padding:4px 4px 0; display:flex; align-items:center; gap:4px;">
                             <button type="button" class="tool-btn-unified ${App.uiState.paintShiftId==='blindaje'?'selected':''}" onclick="App.logic.setPaint('blindaje')" style="padding:2px 7px; font-size:0.58rem; font-weight:700; border-radius:5px; cursor:pointer; display:flex; align-items:center; gap:3px; border:1px solid ${App.uiState.paintShiftId==='blindaje'?'#f59e0b':'#e2e8f0'}; background:${App.uiState.paintShiftId==='blindaje'?'#fef3c7':'white'}; color:${App.uiState.paintShiftId==='blindaje'?'#b45309':'#64748b'};">🔒 Blindar</button>
                             <span title="Blindar un turno impide que se toque por accidente. Actívalo y haz clic sobre un turno (en la rejilla o en el balance) para blindarlo o desblindarlo — vuelve a hacer lo mismo para quitarlo. Si intentas pintar, borrar, arrastrar o intercambiar un turno blindado sin este modo activo, se pedirá confirmación antes de permitirlo. Las acciones masivas (vaciar/rellenar día o semana, pegar patrón, limpiar turnos) respetan los turnos blindados." style="width:13px; height:13px; border-radius:50%; border:1px solid #cbd5e1; color:#94a3b8; font-size:0.52rem; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:help; flex-shrink:0; background:white;">i</span>
+                            <button type="button" class="tool-btn-unified ${App.uiState.paintShiftId==='nota'?'selected':''}" onclick="App.logic.setPaint('nota')" style="padding:2px 7px; font-size:0.58rem; font-weight:700; border-radius:5px; cursor:pointer; display:flex; align-items:center; gap:3px; border:1px solid ${App.uiState.paintShiftId==='nota'?'#f59e0b':'#e2e8f0'}; background:${App.uiState.paintShiftId==='nota'?'#fef3c7':'white'}; color:${App.uiState.paintShiftId==='nota'?'#b45309':'#64748b'};">📝 Nota</button>
+                            <span title="Añade una anotación libre a un turno (p.ej. por qué está blindado, o por qué se ha asignado así). Actívalo y haz clic sobre un turno (rejilla o balance) para escribir/editar su nota; déjala en blanco para borrarla. Las notas del día se ven también en el panel 'NOTAS DEL DÍA'." style="width:13px; height:13px; border-radius:50%; border:1px solid #cbd5e1; color:#94a3b8; font-size:0.52rem; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:help; flex-shrink:0; background:white;">i</span>
                         </div>
                     </div>
                 </div>
@@ -299,6 +301,7 @@ Object.assign(App.ui, {
                 <div style="display:flex; flex-direction:row; gap:8px; flex:0 0 auto; width:auto; align-items:flex-start;">
                     ${vistaModuleHtml}
                     ${App.ui._renderWorkspacePresetsModule()}
+                    ${App.ui._renderNotasPostit()}
                 </div>
             </div>
             </div>

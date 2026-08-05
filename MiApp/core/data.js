@@ -22,7 +22,8 @@ const App = {
         ],
         schedule: {},
         lockedDays: {},  // { "YYYY-MM-DD": true } — días bloqueados individualmente
-        blindados: {}    // { "YYYY-MM-DD": { empId: true } } — turnos blindados (no tocar sin confirmar)
+        blindados: {},   // { "YYYY-MM-DD": { empId: true } } — turnos blindados (no tocar sin confirmar)
+        notas: {}        // { "YYYY-MM-DD": { empId: "texto" } } — notas libres por turno
     },
     uiState: { 
         selectedId: null, 
