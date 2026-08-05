@@ -262,8 +262,9 @@ Object.assign(App.ui, {
             });
             html += `</div>
                         </div>
-                        <div style="padding:4px 4px 0;">
-                            <button type="button" class="tool-btn-unified ${App.uiState.paintShiftId==='blindaje'?'selected':''}" onclick="App.logic.setPaint('blindaje')" title="Modo blindaje: clic en un turno para bloquearlo o desbloquearlo. Un turno blindado no se puede cambiar sin confirmar antes." style="width:100%; padding:4px 6px; font-size:0.62rem; font-weight:700; border-radius:5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; border:1px solid ${App.uiState.paintShiftId==='blindaje'?'#f59e0b':'#e2e8f0'}; background:${App.uiState.paintShiftId==='blindaje'?'#fef3c7':'white'}; color:${App.uiState.paintShiftId==='blindaje'?'#b45309':'#64748b'};">🔒 Blindar</button>
+                        <div style="padding:4px 4px 0; display:flex; align-items:center; gap:4px;">
+                            <button type="button" class="tool-btn-unified ${App.uiState.paintShiftId==='blindaje'?'selected':''}" onclick="App.logic.setPaint('blindaje')" style="padding:2px 7px; font-size:0.58rem; font-weight:700; border-radius:5px; cursor:pointer; display:flex; align-items:center; gap:3px; border:1px solid ${App.uiState.paintShiftId==='blindaje'?'#f59e0b':'#e2e8f0'}; background:${App.uiState.paintShiftId==='blindaje'?'#fef3c7':'white'}; color:${App.uiState.paintShiftId==='blindaje'?'#b45309':'#64748b'};">🔒 Blindar</button>
+                            <span title="Blindar un turno impide que se toque por accidente. Actívalo y haz clic sobre un turno (en la rejilla o en el balance) para blindarlo o desblindarlo — vuelve a hacer lo mismo para quitarlo. Si intentas pintar, borrar, arrastrar o intercambiar un turno blindado sin este modo activo, se pedirá confirmación antes de permitirlo. Las acciones masivas (vaciar/rellenar día o semana, pegar patrón, limpiar turnos) respetan los turnos blindados." style="width:13px; height:13px; border-radius:50%; border:1px solid #cbd5e1; color:#94a3b8; font-size:0.52rem; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:help; flex-shrink:0; background:white;">i</span>
                         </div>
                     </div>
                 </div>
