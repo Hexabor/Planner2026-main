@@ -21,7 +21,8 @@ const App = {
             { id: "s3", code: "P8", desc: "Partido 8h", start: "10:00", end: "20:00", breakStart: "14:00", breakEnd: "16:00", color: "#ec4899", customOrder: 2 }
         ],
         schedule: {},
-        lockedDays: {}  // { "YYYY-MM-DD": true } — días bloqueados individualmente
+        lockedDays: {},  // { "YYYY-MM-DD": true } — días bloqueados individualmente
+        blindados: {}    // { "YYYY-MM-DD": { empId: true } } — turnos blindados (no tocar sin confirmar)
     },
     uiState: { 
         selectedId: null, 

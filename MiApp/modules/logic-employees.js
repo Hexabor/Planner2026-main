@@ -194,7 +194,8 @@ Object.assign(App.logic, {
     // 1. EL WARNING DE SEGURIDAD
     const confirmacion = confirm(
         `⚠️ ADVERTENCIA DE SEGURIDAD\n\n` +
-        `Vas a borrar todos los turnos de ${emp.nombre} que no coincidan con las fechas de sus contratos.\n\n` +
+        `Vas a borrar todos los turnos de ${emp.nombre} que no coincidan con las fechas de sus contratos ` +
+        `(por ejemplo, los que queden después de la fecha "hasta" de su último tramo).\n\n` +
         `• ¿Has revisado que el Historial de Contratos es correcto?\n` +
         `• Si falta algún tramo de contrato, borrarás turnos válidos por error.\n\n` +
         `¿Deseas PROCEDER con el borrado masivo?`
@@ -203,38 +204,42 @@ Object.assign(App.logic, {
     // OPCIÓN 1: El usuario cancela para revisar (No se hace nada)
     if (!confirmacion) {
         console.log("Acción cancelada: El usuario prefiere revisar los contratos.");
-        return; 
+        return;
     }
 
     // OPCIÓN 2: El usuario procede
     let turnosBorrados = 0;
-    const totalAntes = App.data.assignments.length;
+    let turnosBlindados = 0;
 
-    // Filtramos las asignaciones
-    App.data.assignments = App.data.assignments.filter(asig => {
-        // Si el turno no es de este empleado, lo mantenemos (true)
-        if (asig.empId !== empId) return true;
+    // Los turnos reales viven en App.data.schedule[fecha][empId] = shiftId
+    Object.keys(App.data.schedule || {}).forEach(date => {
+        const dayObj = App.data.schedule[date];
+        if (!dayObj || !(empId in dayObj)) return;
 
         // Comprobamos si el empleado tiene contrato en la fecha del turno
-        const tieneContrato = App.logic.isEmpleadoActivo(emp, asig.date);
-        
+        const tieneContrato = App.logic.isEmpleadoActivo(emp, date);
+
         if (!tieneContrato) {
+            if (App.logic.isBlindado(empId, date)) { turnosBlindados++; return; }
+            delete dayObj[empId];
             turnosBorrados++;
-            return false; // Se elimina de la lista
         }
-        return true; // Se mantiene
     });
 
     // 3. RESULTADO Y GUARDADO
     if (turnosBorrados > 0) {
         Safe.save('v40_db', App.data);
-        
+
         // Refrescamos el planner si estamos en esa vista para ver los huecos
         if (App.uiState.currentView === 'planner') {
-            App.ui.renderPlanner();
+            App.ui.renderPlanner(document.getElementById('main-view'));
         }
-        
-        alert(`✅ Limpieza completada con éxito.\n\nSe han eliminado ${turnosBorrados} turnos que estaban fuera de contrato.`);
+
+        let msg = `✅ Limpieza completada con éxito.\n\nSe han eliminado ${turnosBorrados} turnos que estaban fuera de contrato.`;
+        if (turnosBlindados > 0) msg += `\n\n🔒 ${turnosBlindados} turno${turnosBlindados!==1?'s':''} blindado${turnosBlindados!==1?'s':''} fuera de contrato se ${turnosBlindados!==1?'han':'ha'} respetado sin borrar.`;
+        alert(msg);
+    } else if (turnosBlindados > 0) {
+        alert(`Información: No se ha borrado nada.\n\n🔒 Había ${turnosBlindados} turno${turnosBlindados!==1?'s':''} blindado${turnosBlindados!==1?'s':''} fuera de contrato, pero se ${turnosBlindados!==1?'han':'ha'} respetado.`);
     } else {
         alert(`Información: No se ha borrado nada. Todos los turnos de ${emp.nombre} están dentro de sus periodos de contrato.`);
     }

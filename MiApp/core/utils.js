@@ -712,9 +712,12 @@ const Utils = {
                 html+=`<div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:${s.color}; font-weight:bold; font-size:1.1rem; opacity:0.8; z-index:10; background:rgba(255,255,255,0.6); pointer-events:none;">${s.code}</div>`;
             }
         }
+        if(empId && date && App.logic.isBlindado(empId, date)) {
+            html+=`<div title="Turno blindado — clic para pedir confirmación antes de cambiarlo" style="position:absolute; top:1px; right:2px; font-size:0.7rem; z-index:20; pointer-events:none; filter:drop-shadow(0 0 1px white);">🔒</div>`;
+        }
         html+=`</div>`; return html;
     },
-    renderMiniTimeline: function(s) { return this.renderPlannerTimeline(s, {open:'00:00', close:'24:00', closed:false}); }, 
+    renderMiniTimeline: function(s) { return this.renderPlannerTimeline(s, {open:'00:00', close:'24:00', closed:false}); },
     getDatePickerHTML: function(val, onChange) { const disp=Utils.formatDateES(val); return `<div class="date-picker-wrapper"><div class="date-display">${disp}</div><div style="position:relative;width:30px;height:30px;"><input type="date" value="${val}" onchange="${onChange}; this.parentElement.previousElementSibling.innerText=Utils.formatDateES(this.value)" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:10;"><button class="date-btn" style="pointer-events:none;position:absolute;left:0;top:0;width:100%;height:100%;">📅</button></div></div>`; },
     
     getPrefColor: function(val) {

@@ -1422,6 +1422,8 @@ Object.assign(App.ui, {
             const shB = (App.data.schedule[date] || {})[empB] || null;
 
             if (!shA && !shB) { App.uiState._balSwap = {}; return; }
+            if (!App.logic._blindajeGate(empA, date)) return;
+            if (!App.logic._blindajeGate(empB, date)) return;
 
             if (!App.data.schedule[date]) App.data.schedule[date] = {};
             if (shA && shB) {

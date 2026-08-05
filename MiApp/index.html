@@ -731,6 +731,13 @@ App.logic.addContrato = function(empId) {
             let d = new Date(ultimo.hasta);
             d.setDate(d.getDate() + 1);
             nuevaFecha = d.toISOString().slice(0,10);
+        } else {
+            // El tramo anterior estaba abierto (sin "hasta"): hay que cerrarlo el día antes
+            // del nuevo, si no se queda vigente para siempre y "engulle" también al nuevo tramo
+            // (isEmpleadoActivo mira si CUALQUIER tramo cubre la fecha, no solo el último)
+            let d = new Date(nuevaFecha);
+            d.setDate(d.getDate() - 1);
+            ultimo.hasta = d.toISOString().slice(0,10);
         }
     }
 

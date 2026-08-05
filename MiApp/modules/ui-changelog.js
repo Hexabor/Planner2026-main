@@ -6,6 +6,14 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '05/08/2026', version: 'v1.0',
+                items: [
+                    '🔒 Planner → nuevo botón "Blindar" bajo la paleta de turnos: actívalo y haz clic en un turno (rejilla o balance) para blindarlo. Un turno blindado muestra un candado y, si alguien intenta pintarlo, borrarlo, arrastrarlo o intercambiarlo, pide confirmación antes de quitar el blindaje — reversible en cualquier momento con el mismo clic. Las acciones masivas (vaciar día/semana, rellenar, pegar patrón, limpiar turnos fuera de contrato) respetan los turnos blindados y los saltan',
+                    '🔧 Ficha de empleado → botón "🧹 Limpiar turnos": arreglado. Borraba sobre una estructura de datos que no existía (`App.data.assignments`) y no hacía nada; ahora limpia de verdad los turnos fuera de los tramos de contrato (App.data.schedule), útil al dar de baja a alguien poniéndole fecha "hasta" en su último contrato',
+                    '🔧 Ficha de empleado → Historial Contratos → "+ AÑADIR": si el tramo anterior no tenía fecha "hasta", ahora se cierra automáticamente el día antes del nuevo tramo. Antes se quedaba abierto para siempre y "engullía" también al tramo nuevo (el empleado salía como vigente en cualquier fecha, aunque hubieras puesto fin de contrato en el tramo siguiente)',
+                ]
+            },
+            {
                 fecha: '19/06/2026', version: 'v1.0',
                 items: [
                     '✨ Análisis → Horas por Staff: nueva columna "Arrastre" (horas arrastradas del periodo anterior, = saldo de arranque de la ficha del empleado). Se descuenta de "H. por asignar", que ahora también lo refleja en el Balance del planner y en la rejilla de Personal',

@@ -262,9 +262,12 @@ Object.assign(App.ui, {
             });
             html += `</div>
                         </div>
+                        <div style="padding:4px 4px 0;">
+                            <button type="button" class="tool-btn-unified ${App.uiState.paintShiftId==='blindaje'?'selected':''}" onclick="App.logic.setPaint('blindaje')" title="Modo blindaje: clic en un turno para bloquearlo o desbloquearlo. Un turno blindado no se puede cambiar sin confirmar antes." style="width:100%; padding:4px 6px; font-size:0.62rem; font-weight:700; border-radius:5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; border:1px solid ${App.uiState.paintShiftId==='blindaje'?'#f59e0b':'#e2e8f0'}; background:${App.uiState.paintShiftId==='blindaje'?'#fef3c7':'white'}; color:${App.uiState.paintShiftId==='blindaje'?'#b45309':'#64748b'};">🔒 Blindar</button>
+                        </div>
                     </div>
                 </div>
-                
+
                 <!-- MÓDULO 3: CONTROLES DERECHOS (subdividido 70/30) -->
                 <div style="display:flex; flex-direction:column; gap:8px; align-self:flex-start; width:fit-content;">
                 <div class="planner-module planner-tools-box" style="flex:0 0 auto; height:auto; width:fit-content;">
@@ -908,9 +911,12 @@ App.logic.pasteWeekPattern = function() {
     if(!confirm(`¿Pegar patrón de ${pattern.sourceEmpName} (${pattern.sourceWeek}) sobre la semana actual de ${emp.nombre}?\n\nEsto sobreescribirá los turnos existentes.`)) return;
 
     let skipped = 0;
+    let skippedBlindados = 0;
     weekDays.forEach((d, i) => {
         // Respetar días bloqueados
         if(App.data.lockedDays && App.data.lockedDays[d]) { skipped++; return; }
+        // Respetar turnos blindados
+        if(App.logic.isBlindado(empId, d)) { skippedBlindados++; return; }
 
         const sourceDay = sourceWeekDays[i];
         const sourceShift = pattern.shifts[sourceDay];
@@ -930,6 +936,7 @@ App.logic.pasteWeekPattern = function() {
 
     let msg = `✅ Patrón aplicado a ${emp.nombre}`;
     if(skipped > 0) msg += `\n\n⚠️ ${skipped} día(s) bloqueado(s) se han saltado.`;
+    if(skippedBlindados > 0) msg += `\n\n🔒 ${skippedBlindados} día(s) blindado(s) se han respetado.`;
     alert(msg);
 
     App.ui.renderPlanner(document.getElementById('main-view'));

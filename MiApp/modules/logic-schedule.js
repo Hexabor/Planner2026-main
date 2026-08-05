@@ -155,6 +155,36 @@ Object.assign(App.logic, {
         setPaint: function(sid) { App.uiState.paintShiftId = (App.uiState.paintShiftId === sid) ? null : sid; App.ui.renderPlanner(document.getElementById('main-view')); const _insp = document.getElementById('inspector-content'); if(_insp) App.ui.renderPlannerInspector(_insp); },
 
         // ALT+click: borrar turno de la celda
+        // ── Blindaje de turnos ──
+        // Un turno blindado no se puede tocar (pintar, borrar, arrastrar, intercambiar,
+        // ni afectar por acciones masivas) sin confirmar antes que se quiere quitar el blindaje.
+        isBlindado: function(empId, date) {
+            return !!(App.data.blindados && App.data.blindados[date] && App.data.blindados[date][empId]);
+        },
+        toggleBlindaje: function(empId, date) {
+            if(!App.data.blindados) App.data.blindados = {};
+            if(!App.data.blindados[date]) App.data.blindados[date] = {};
+            if(App.data.blindados[date][empId]) {
+                delete App.data.blindados[date][empId];
+            } else {
+                App.data.blindados[date][empId] = true;
+            }
+            Safe.save('v40_db', App.data);
+            App.ui.renderPlanner(document.getElementById('main-view'));
+            const insp = document.getElementById('inspector-content');
+            if(insp) App.ui.renderPlannerInspector(insp);
+        },
+        // Devuelve true si se puede proceder (no estaba blindado, o el usuario ha decidido quitar el blindaje).
+        // Devuelve false si hay que abortar la acción.
+        _blindajeGate: function(empId, date) {
+            if(!App.logic.isBlindado(empId, date)) return true;
+            const emp = App.data.empleados.find(e => e.id === empId);
+            const empName = emp ? emp.nombre : 'Este empleado';
+            if(!confirm(`🔒 TURNO BLINDADO\n\n${empName} pidió que no se tocara este turno.\n\n¿Quitar el blindaje para poder cambiarlo?`)) return false;
+            delete App.data.blindados[date][empId];
+            return true;
+        },
+
         erase: function(empId) {
             const date = App.uiState.currentDate;
             if(App.logic.isDayLocked(date)) {
@@ -162,6 +192,7 @@ Object.assign(App.logic, {
                 return;
             }
             if(!App.data.schedule[date] || !App.data.schedule[date][empId]) return;
+            if(!App.logic._blindajeGate(empId, date)) return;
 
             // Limpia marca de "recuperación inferida" si la había para este día
             const _empClean = App.data.empleados.find(e => e.id === empId);
@@ -221,6 +252,15 @@ Object.assign(App.logic, {
                 alert('🔒 Esta semana está cerrada.\n\nPara editar los turnos, ábrela primero con el switch del planificador.');
                 return;
             }
+
+            // Modo blindaje activo: el clic bloquea/desbloquea el turno, no lo modifica
+            if(sid === 'blindaje') {
+                App.logic.toggleBlindaje(empId, date);
+                return;
+            }
+
+            // Turno blindado: pedir confirmación antes de tocarlo
+            if(!App.logic._blindajeGate(empId, date)) return;
 
             // Limpia marca de "recuperación inferida": cualquier acción manual la deja de ser auto
             const _empClean = App.data.empleados.find(e => e.id === empId);
@@ -1028,6 +1068,13 @@ Object.assign(App.logic, {
 
                 if(!dragState.previewShift) return;
 
+                // Turno blindado: pedir confirmación antes de aplicar el cambio de horario
+                // (si se rechaza, hay que re-renderizar para descartar el preview visual del arrastre)
+                if(!App.logic._blindajeGate(empId, date)) {
+                    App.ui.renderPlanner(document.getElementById('main-view'));
+                    return;
+                }
+
                 // Commit final: actualizar modelo
                 const finalShift = dragState.previewShift;
                 if(!App.data.schedule[date]) App.data.schedule[date] = {};
@@ -1253,6 +1300,8 @@ Object.assign(App.logic, {
             };
             if (!_checkPlan(sw.a.empId, date)) return;
             if (!_checkPlan(sw.b.empId, date)) return;
+            if (!App.logic._blindajeGate(sw.a.empId, date)) return;
+            if (!App.logic._blindajeGate(sw.b.empId, date)) return;
 
             const shA = (App.data.schedule[date] || {})[sw.a.empId] || null;
             const shB = (App.data.schedule[date] || {})[sw.b.empId] || null;
@@ -1335,6 +1384,8 @@ Object.assign(App.logic, {
             };
             if (!_checkSwapPlan(sourceEmpId, sourceDate)) return;
             if (!_checkSwapPlan(targetEmpId, targetDate)) return;
+            if (!App.logic._blindajeGate(sourceEmpId, sourceDate)) return;
+            if (!App.logic._blindajeGate(targetEmpId, targetDate)) return;
 
             // Obtener turnos actuales
             const sourceShiftId = App.data.schedule[sourceDate] ? App.data.schedule[sourceDate][sourceEmpId] : null;
@@ -1898,14 +1949,18 @@ Object.assign(App.logic, {
         massClearDay: function() {
             if(!confirm("⚠️ VACIAR DÍA\n\n¿Seguro que quieres BORRAR TODOS los turnos del día actual?\n\nEsta acción no se puede deshacer.")) return;
             const date = App.uiState.currentDate;
-            if(App.data.schedule[date]) { 
-                delete App.data.schedule[date]; 
+            let skipped = 0;
+            if(App.data.schedule[date]) {
+                Object.keys(App.data.schedule[date]).forEach(empId => {
+                    if(App.logic.isBlindado(empId, date)) { skipped++; return; }
+                    delete App.data.schedule[date][empId];
+                });
             }
-            Safe.save('v40_db', App.data); 
-            App.ui.renderPlanner(document.getElementById('main-view')); 
-            App.ui.renderPlannerInspector(document.getElementById('inspector-content')); 
+            Safe.save('v40_db', App.data);
+            App.ui.renderPlanner(document.getElementById('main-view'));
+            App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
             App.logic.checkAlerts();
-            alert("✅ Día vaciado correctamente.");
+            alert(`✅ Día vaciado correctamente.${skipped > 0 ? `\n\n🔒 ${skipped} turno${skipped!==1?'s':''} blindado${skipped!==1?'s':''} respetado${skipped!==1?'s':''}.` : ''}`);
         },
         massFillDay: function(targetDate) {
             const date = targetDate || App.uiState.currentDate;
@@ -1923,6 +1978,7 @@ Object.assign(App.logic, {
             App.data.empleados.forEach(e => {
                 if(!e.active) return;
                 if(App.data.schedule[date][e.id]) return;
+                if(App.logic.isBlindado(e.id, date)) return;
                 const req = Utils.getRequest(e.id, date);
                 if(req && req.status === 'approved') return;
                 const best = App.logic.getSmartShift(e, finalConfig);
@@ -1959,20 +2015,24 @@ Object.assign(App.logic, {
             const monday = Utils.getMonday(App.uiState.currentDate);
             const days = Utils.getWeekDays(monday);
             let deletedDays = 0;
-            
+            let skipped = 0;
+
             days.forEach(d => {
                 if(App.data.schedule[d]) {
-                    delete App.data.schedule[d];
+                    Object.keys(App.data.schedule[d]).forEach(empId => {
+                        if(App.logic.isBlindado(empId, d)) { skipped++; return; }
+                        delete App.data.schedule[d][empId];
+                    });
                     deletedDays++;
                 }
             });
-            
-            Safe.save('v40_db', App.data); 
-            App.ui.renderPlanner(document.getElementById('main-view')); 
+
+            Safe.save('v40_db', App.data);
+            App.ui.renderPlanner(document.getElementById('main-view'));
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
             App.logic.checkAlerts();
-            
-            alert(`✅ Semana vaciada.\n\nSe han eliminado los turnos de ${deletedDays} día(s).`);
+
+            alert(`✅ Semana vaciada.\n\nSe han eliminado los turnos de ${deletedDays} día(s).${skipped > 0 ? `\n\n🔒 ${skipped} turno${skipped!==1?'s':''} blindado${skipped!==1?'s':''} respetado${skipped!==1?'s':''}.` : ''}`);
         },
         massClearAll: function() {
             
