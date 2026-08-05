@@ -301,11 +301,11 @@ Object.assign(App.ui, {
                 <div style="display:flex; flex-direction:row; gap:8px; flex:0 0 auto; width:auto; align-items:flex-start;">
                     ${vistaModuleHtml}
                     ${App.ui._renderWorkspacePresetsModule()}
-                    ${App.ui._renderNotasPostit()}
                 </div>
             </div>
             </div>
-            </div>`;
+            </div>
+            ${App.ui._renderNotasPostit()}`;
 
 
             if(App.uiState.plannerViewMode === 'individual') {
@@ -825,8 +825,10 @@ Object.assign(App.ui, {
                 const isActiveDay = d === App.uiState.currentDate;
                 const activeDayStyle = isActiveDay ? 'font-weight:800; color:var(--primary);' : '';
                 
-                // Click handler: pintar turno en este día
-                const clickHandler = isLocked ? '' : `onclick="App.uiState.currentDate='${d}'; App.logic.paint('${empId}')"`;
+                // Click handler: pintar turno en este día. Se deja siempre activo (aunque el día
+                // esté bloqueado) porque paint() permite añadir/editar notas en modo "nota" incluso
+                // con el día cerrado; para el resto de acciones, paint() ya avisa y bloquea internamente.
+                const clickHandler = `onclick="App.uiState.currentDate='${d}'; App.logic.paint('${empId}')"`;
                 const rowCursor = isLocked ? 'cursor:not-allowed;' : 'cursor:pointer;';
                 const lockIcon = isLocked ? ' 🔒' : '';
 

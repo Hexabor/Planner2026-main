@@ -1179,9 +1179,9 @@ Object.assign(App.ui, {
         _balanceSwapSelect: function(empId, di) {
             const monday = Utils.getMonday(App.uiState.currentDate);
             const days = Utils.getWeekDays(monday);
-            if (App.logic.isDayLocked(days[di])) return;
 
-            // Si hay turno seleccionado en la paleta → pintar directamente
+            // Herramienta de la paleta activa (pintar turno, blindar o anotar) → aplicar directamente.
+            // Se comprueba ANTES del bloqueo de día: el modo "nota" debe funcionar aunque esté cerrado.
             if (App.uiState.paintShiftId) {
                 const prevDate = App.uiState.currentDate;
                 App.uiState.currentDate = days[di];
@@ -1189,6 +1189,8 @@ Object.assign(App.ui, {
                 App.uiState.currentDate = prevDate;
                 return;
             }
+
+            if (App.logic.isDayLocked(days[di])) return;
 
             // Sin turno en paleta → lógica de selección para intercambio
             if (!App.uiState._balSwap) App.uiState._balSwap = {};
@@ -1216,10 +1218,14 @@ Object.assign(App.ui, {
         },
 
         // ── Notas del día (postit) ──
+        // Panel independiente (no vive dentro de la tarjeta de controles, que tiene
+        // overflow:hidden y ancho fijo). Solo se renderiza si hay alguna nota ese día.
         _renderNotasPostit: function() {
             const date = App.uiState.currentDate;
             const notasHoy = (App.data.notas && App.data.notas[date]) || {};
             const empIds = Object.keys(notasHoy);
+            if(empIds.length === 0) return '';
+
             const rows = empIds.map(empId => {
                 const emp = App.data.empleados.find(e => e.id === empId);
                 const nombre = emp ? emp.nombre : empId;
@@ -1234,10 +1240,12 @@ Object.assign(App.ui, {
                 </div>`;
             }).join('');
 
-            return `<div class="planner-module" style="width:150px; background:#fffbeb; border:1px solid #fde68a;">
-                <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em; color:#92400e;">📝 NOTAS DEL DÍA</div>
-                <div class="planner-module-content" style="padding:5px 7px; max-height:110px; overflow-y:auto; display:block;">
-                    ${rows || `<div style="font-size:0.56rem; color:#b45309; opacity:0.7; text-align:center; padding:8px 2px;">Sin notas este día.<br>Activa 📝 Nota y haz clic en un turno.</div>`}
+            return `<div style="margin:0 20px 12px 20px; display:flex; justify-content:flex-end;">
+                <div class="planner-module" style="width:180px; background:#fffbeb; border:1px solid #fde68a; box-shadow:0 2px 6px rgba(0,0,0,0.08);">
+                    <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em; color:#92400e;">📝 NOTAS DEL DÍA</div>
+                    <div class="planner-module-content" style="padding:5px 7px; max-height:130px; overflow-y:auto; display:block;">
+                        ${rows}
+                    </div>
                 </div>
             </div>`;
         },

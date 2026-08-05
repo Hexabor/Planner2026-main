@@ -281,6 +281,13 @@ Object.assign(App.logic, {
 
             if(sid === null) return;
 
+            // Modo nota activo: el clic abre un cuadro para escribir/editar la nota, no toca el turno.
+            // Se permite aunque la semana esté cerrada — es una anotación, no una edición del turno.
+            if(sid === 'nota') {
+                App.logic.setNota(empId, date);
+                return;
+            }
+
             // Semana cerrada — no permitir edición
             if(App.logic.isDayLocked(date)) {
                 alert('🔒 Esta semana está cerrada.\n\nPara editar los turnos, ábrela primero con el switch del planificador.');
@@ -290,12 +297,6 @@ Object.assign(App.logic, {
             // Modo blindaje activo: el clic bloquea/desbloquea el turno, no lo modifica
             if(sid === 'blindaje') {
                 App.logic.toggleBlindaje(empId, date);
-                return;
-            }
-
-            // Modo nota activo: el clic abre un cuadro para escribir/editar la nota, no toca el turno
-            if(sid === 'nota') {
-                App.logic.setNota(empId, date);
                 return;
             }
 
