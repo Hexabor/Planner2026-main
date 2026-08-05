@@ -33,6 +33,13 @@ Object.assign(App.ui, {
             const controlsScale = Math.min(1, (availableWidth - 40) / (985 + rightColWidth));
             const gridScale = Math.min(1, (availableWidth - 40) / 1465);
 
+            // Panel "Notas del día": vive fuera de planner-controls-super-wrapper (que tiene
+            // overflow:hidden + ancho fijo) para no recortarse. Se coloca justo a la derecha de
+            // la tarjeta de controles, a la altura del módulo Flujos, usando el mismo scale.
+            const _notasHtml = App.ui._renderNotasPostit();
+            const _notasLeft = 20 + Math.round((985 + rightColWidth) * controlsScale) + 14;
+            const _notasTop = 15 + Math.round(15 * controlsScale);
+
             // Calcular scale basado en el ancho disponible
 
             // Calcular horas por día para la semana
@@ -138,7 +145,8 @@ Object.assign(App.ui, {
                 </div>
             </div>`;
 
-            let html = `<div class="planner-controls-super-wrapper">
+            let html = `<div style="position:relative; display:flow-root;">
+            <div class="planner-controls-super-wrapper">
                 <div class="planner-controls-super" id="planner-controls-super" style="transform: scale(${controlsScale}); transform-origin: top left; width:${985 + rightColWidth}px; min-width:${985 + rightColWidth}px;">
                 <div class="planner-controls">
                 <!-- MÓDULO 1: NAVEGADOR -->
@@ -305,7 +313,8 @@ Object.assign(App.ui, {
             </div>
             </div>
             </div>
-            ${App.ui._renderNotasPostit()}`;
+            ${_notasHtml ? `<div style="position:absolute; left:${_notasLeft}px; top:${_notasTop}px;">${_notasHtml}</div>` : ''}
+            </div>`;
 
 
             if(App.uiState.plannerViewMode === 'individual') {

@@ -1218,8 +1218,9 @@ Object.assign(App.ui, {
         },
 
         // ── Notas del día (postit) ──
-        // Panel independiente (no vive dentro de la tarjeta de controles, que tiene
-        // overflow:hidden y ancho fijo). Solo se renderiza si hay alguna nota ese día.
+        // Devuelve solo la tarjeta; quien la usa (renderPlanner) la posiciona fuera de
+        // planner-controls-super-wrapper (overflow:hidden + ancho fijo) para que no se recorte.
+        // Devuelve '' si no hay ninguna nota ese día — así no ocupa sitio ni se renderiza.
         _renderNotasPostit: function() {
             const date = App.uiState.currentDate;
             const notasHoy = (App.data.notas && App.data.notas[date]) || {};
@@ -1240,12 +1241,10 @@ Object.assign(App.ui, {
                 </div>`;
             }).join('');
 
-            return `<div style="margin:0 20px 12px 20px; display:flex; justify-content:flex-end;">
-                <div class="planner-module" style="width:180px; background:#fffbeb; border:1px solid #fde68a; box-shadow:0 2px 6px rgba(0,0,0,0.08);">
-                    <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em; color:#92400e;">📝 NOTAS DEL DÍA</div>
-                    <div class="planner-module-content" style="padding:5px 7px; max-height:130px; overflow-y:auto; display:block;">
-                        ${rows}
-                    </div>
+            return `<div class="planner-module" style="width:170px; background:#fffbeb; border:1px solid #fde68a; box-shadow:0 2px 6px rgba(0,0,0,0.08); z-index:5;">
+                <div class="planner-module-title" style="padding:2px 8px; font-size:0.48rem; letter-spacing:0.1em; color:#92400e;">📝 NOTAS DEL DÍA</div>
+                <div class="planner-module-content" style="padding:5px 7px; max-height:130px; overflow-y:auto; display:block;">
+                    ${rows}
                 </div>
             </div>`;
         },
