@@ -10,6 +10,7 @@ Object.assign(App.ui, {
                 items: [
                     '🔒 Planner → el candado de "turno blindado" se ha movido: antes flotaba sobre la barra del turno en la rejilla horaria, ahora la columna REQ de ese turno se marca con un recuadro rojo (junto al icono de solicitud del empleado, si lo hay, con el candado como marca pequeña en la esquina), en rejilla grupal e individual',
                     '🔒 El aviso al tocar un turno blindado ya no es el diálogo genérico del navegador (Aceptar/Cancelar) — ahora es una ventana propia con botones "Mantener blindaje" / "Quitar blindaje"',
+                    '🔧 Arreglo: los turnos blindados 🔒 y las notas 📝 no viajaban en los backups (export JSON modular ni backup selectivo a Drive) — solo sobrevivían en este mismo ordenador. Ahora se incluyen en la sección "Planificación" de ambos backups, igual que el resto de datos del cuadrante',
                 ]
             },
             {

@@ -417,6 +417,8 @@ App.io = {
                 exportData.eventos = App.data.eventos || [];
                 exportData.libranzaPlans = App.data.libranzaPlans || [];
                 exportData.vacacionesPlans = App.data.vacacionesPlans || [];
+                exportData.blindados = App.data.blindados || {};
+                exportData.notas = App.data.notas || {};
             }
             if(document.getElementById('cb-exp-keys').checked) {
                 exportData.traspasoLlaves = App.data.traspasoLlaves || [];
@@ -557,6 +559,8 @@ App.io = {
                 if(data.eventos) App.data.eventos = data.eventos;
                 if(data.libranzaPlans) App.data.libranzaPlans = data.libranzaPlans;
                 if(data.vacacionesPlans) App.data.vacacionesPlans = data.vacacionesPlans;
+                if(data.blindados) App.data.blindados = data.blindados;
+                if(data.notas) App.data.notas = data.notas;
                 affected.push("Planificación y Solicitudes");
             }
             if(document.getElementById('cb-imp-keys').checked && !document.getElementById('cb-imp-keys').disabled) {
