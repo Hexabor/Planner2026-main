@@ -626,6 +626,26 @@ const Utils = {
         if (vp) return { empId, type: 'VAC', status: 'approved', start: date, end: date, planId: vp.id, planType: 'vacaciones', _synthetic: true };
         return undefined;
     },
+
+    // Contenido de la celda REQ: icono de solicitud (si hay) + badge de blindaje superpuesto (si el turno está blindado).
+    // Centraliza la lógica que antes estaba duplicada entre vista grupal e individual.
+    getReqCell: function(empId, date) {
+        const request = Utils.getRequest(empId, date);
+        let reqClass = ''; let reqIcon = '';
+        if(request && request.status !== 'rejected') {
+            let icon='⚠️'; if(request.type==='VAC') icon='🏖️'; if(request.type==='BAJ') icon='🏥';
+            if(request.type==='LIB') icon='🏠'; if(request.type==='AP') icon='📋'; if(request.type==='HRL') icon='⏰';
+            reqIcon = icon;
+            if(request.status === 'approved') reqClass = 'req-approved-attended';
+            else if(request.status === 'pending') reqClass = 'req-pending';
+        }
+        let html = reqIcon;
+        if(empId && date && App.logic.isBlindado(empId, date)) {
+            reqClass += ' req-blindado';
+            html += `<div title="Turno blindado — clic para pedir confirmación antes de cambiarlo" style="position:absolute; top:0; right:1px; font-size:0.55rem; line-height:1; z-index:5; pointer-events:none; filter:drop-shadow(0 0 1px white);">🔒</div>`;
+        }
+        return { reqClass, html };
+    },
     calcHours: function(start, end, bStart, bEnd, breakMinutes) { if(!start || !end) return 0; const getMin=(t)=>{if(!t)return 0;const[h,m]=t.split(':').map(Number);return h*60+m;}; let total=getMin(end)-getMin(start); if(total<0) total+=24*60; let brk=0; if(bStart && bEnd){ brk=getMin(bEnd)-getMin(bStart); if(brk<0) brk+=24*60; } else if(typeof breakMinutes==='number' && breakMinutes>0){ brk=breakMinutes; } return Math.max(0,(total-brk)/60); },
     
     isShiftValidForDay: function(shift, dayConfig) {
@@ -711,9 +731,6 @@ const Utils = {
             } else {
                 html+=`<div style="position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:${s.color}; font-weight:bold; font-size:1.1rem; opacity:0.8; z-index:10; background:rgba(255,255,255,0.6); pointer-events:none;">${s.code}</div>`;
             }
-        }
-        if(empId && date && App.logic.isBlindado(empId, date)) {
-            html+=`<div title="Turno blindado — clic para pedir confirmación antes de cambiarlo" style="position:absolute; top:1px; right:2px; font-size:0.7rem; z-index:20; pointer-events:none; filter:drop-shadow(0 0 1px white);">🔒</div>`;
         }
         if(empId && date) {
             const _nota = App.logic.getNota(empId, date);

@@ -1438,7 +1438,7 @@ Object.assign(App.ui, {
             modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
         },
 
-        _balanceSwapExec: function() {
+        _balanceSwapExec: async function() {
             const sw = App.uiState._balSwap;
             if (!sw || !sw.a || !sw.b || sw.a.di !== sw.b.di) return;
 
@@ -1456,8 +1456,8 @@ Object.assign(App.ui, {
             const shB = (App.data.schedule[date] || {})[empB] || null;
 
             if (!shA && !shB) { App.uiState._balSwap = {}; return; }
-            if (!App.logic._blindajeGate(empA, date)) return;
-            if (!App.logic._blindajeGate(empB, date)) return;
+            if (!(await App.logic._blindajeGate(empA, date))) return;
+            if (!(await App.logic._blindajeGate(empB, date))) return;
 
             if (!App.data.schedule[date]) App.data.schedule[date] = {};
             if (shA && shB) {

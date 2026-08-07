@@ -474,7 +474,6 @@ Object.assign(App.ui, {
                 const dayAssignments = App.data.schedule[date] || {};
                 const shiftId = dayAssignments[e.id];
                 const shift = shiftId ? Utils.getShift(shiftId) : null;
-                const request = Utils.getRequest(e.id, date);
                 const isDisabled = e.active === false;
                 const rolEnFecha = Utils.getRolEnFecha(e, date);
                 const computedTag = ['MNG','AM','SPV'].includes(rolEnFecha) ? 3 : 1;
@@ -527,14 +526,7 @@ Object.assign(App.ui, {
                     }
                 }
 
-                let reqClass = ''; let reqIcon = '';
-                if(request && request.status !== 'rejected') {
-                    let icon='⚠️'; if(request.type==='VAC') icon='🏖️'; if(request.type==='BAJ') icon='🏥';
-                    if(request.type==='LIB') icon='🏠'; if(request.type==='AP') icon='📋'; if(request.type==='HRL') icon='⏰';
-                    reqIcon = icon;
-                    if(request.status === 'approved') reqClass = 'req-approved-attended';
-                    else if(request.status === 'pending') reqClass = 'req-pending';
-                }
+                const { reqClass, html: reqCellHtml } = Utils.getReqCell(e.id, date);
 
                 let absenceClass = '';
                 if(shift && shift.fixed) {
@@ -561,7 +553,7 @@ Object.assign(App.ui, {
                     <div class="pg-tag ${tag3Class}" style="${disabledBg}">${tagContent}</div>
                     <div class="pg-hours" style="${disabledBg}">${hoursContent}</div>
                     <div class="pg-schedule" ${scheduleClick} style="${finalScheduleStyle}" id="schedule-${e.id}">${scheduleContent}</div>
-                    <div class="pg-req ${reqClass}" style="${disabledBg}">${reqIcon}</div>
+                    <div class="pg-req ${reqClass}" style="${disabledBg}">${reqCellHtml}</div>
                     <div class="pg-right ${absenceClass}" style="${disabledBg};position:relative;" onclick="if(event.target===event.currentTarget||event.target.classList.contains('pt-slot')||event.target.classList.contains('pt-bg-grid')){event.stopPropagation();if(event.altKey){App.logic.erase('${e.id}');return;}if(App.uiState.paintShiftId){App.logic.paint('${e.id}');}else if(App.uiState._gridSwap&&App.uiState._gridSwap.a){App.logic._gridSwapSelect('${e.id}','${date}');}else{App.logic.paint('${e.id}');}}">${Utils.renderPlannerTimeline(shiftForTimeline, finalConfig, e.id, date)}${Utils.renderEventosOverlay(e.id, date, finalConfig)}</div>
                 </div>`;
             }; // fin renderEmpRow
@@ -814,16 +806,8 @@ Object.assign(App.ui, {
                     totalHours += hours;
                 }
 
-                // REQ — réplica exacta del grupal
-                const request = Utils.getRequest(empId, d);
-                let reqClass = ''; let reqIcon = '';
-                if(request && request.status !== 'rejected') {
-                    let icon='⚠️'; if(request.type==='VAC') icon='🏖️'; if(request.type==='BAJ') icon='🏥';
-                    if(request.type==='LIB') icon='🏠'; if(request.type==='AP') icon='📋'; if(request.type==='HRL') icon='⏰';
-                    reqIcon = icon;
-                    if(request.status === 'approved') reqClass = 'req-approved-attended';
-                    else if(request.status === 'pending') reqClass = 'req-pending';
-                }
+                // REQ — icono de solicitud + badge de blindaje (Utils.getReqCell, compartido con la vista grupal)
+                const { reqClass, html: reqCellHtml } = Utils.getReqCell(empId, d);
 
                 // Festivo
                 const festivoCell = holiday 
@@ -854,7 +838,7 @@ Object.assign(App.ui, {
                     </td>
                     <td style="text-align:center; padding:2px;">${festivoCell}</td>
                     <td style="text-align:center; ${scheduleColor}">${scheduleContent}</td>
-                    <td class="${reqClass}" style="text-align:center;">${reqIcon}</td>
+                    <td class="${reqClass}" style="text-align:center;position:relative;">${reqCellHtml}</td>
                     <td style="padding:4px 8px;position:relative;">${timeline}${Utils.renderEventosOverlay(empId, d, rowConfig)}</td>
                     <td style="text-align:center; font-weight:700;">${hours > 0 ? hours + 'h' : ''}</td>
                 </tr>`;

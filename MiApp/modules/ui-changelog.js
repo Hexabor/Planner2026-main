@@ -6,6 +6,13 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '07/08/2026', version: 'v1.0',
+                items: [
+                    '🔒 Planner → el candado de "turno blindado" se ha movido: antes flotaba sobre la barra del turno en la rejilla horaria, ahora la columna REQ de ese turno se marca con un recuadro rojo (junto al icono de solicitud del empleado, si lo hay, con el candado como marca pequeña en la esquina), en rejilla grupal e individual',
+                    '🔒 El aviso al tocar un turno blindado ya no es el diálogo genérico del navegador (Aceptar/Cancelar) — ahora es una ventana propia con botones "Mantener blindaje" / "Quitar blindaje"',
+                ]
+            },
+            {
                 fecha: '05/08/2026', version: 'v1.0',
                 items: [
                     '📝 Planner → nuevo botón "Nota" junto a "Blindar" bajo la paleta de turnos: actívalo y haz clic en un turno (rejilla o balance) para escribir una anotación libre (p.ej. por qué está blindado, o por qué se asignó así). El turno muestra un 📝 con la nota al pasar el ratón. Todas las notas del día se ven en el panel independiente "NOTAS DEL DÍA" (postit junto a Flujos, fuera de la tarjeta de controles para que no se recorte), que solo aparece si hay alguna nota y permite editarlas o borrarlas. Se pueden escribir/editar aunque el día esté cerrado',

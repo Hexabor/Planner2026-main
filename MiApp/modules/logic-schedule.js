@@ -174,15 +174,34 @@ Object.assign(App.logic, {
             const insp = document.getElementById('inspector-content');
             if(insp) App.ui.renderPlannerInspector(insp);
         },
-        // Devuelve true si se puede proceder (no estaba blindado, o el usuario ha decidido quitar el blindaje).
-        // Devuelve false si hay que abortar la acción.
+        // Devuelve una Promise<boolean>: true si se puede proceder (no estaba blindado, o el usuario ha
+        // decidido quitar el blindaje pulsando "Quitar blindaje"); false si ha pulsado "Mantener blindaje"
+        // y hay que abortar la acción. Todos los call sites deben usar `await`.
         _blindajeGate: function(empId, date) {
-            if(!App.logic.isBlindado(empId, date)) return true;
+            if(!App.logic.isBlindado(empId, date)) return Promise.resolve(true);
             const emp = App.data.empleados.find(e => e.id === empId);
             const empName = emp ? emp.nombre : 'Este empleado';
-            if(!confirm(`🔒 TURNO BLINDADO\n\n${empName} pidió que no se tocara este turno.\n\n¿Quitar el blindaje para poder cambiarlo?`)) return false;
-            delete App.data.blindados[date][empId];
-            return true;
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('blindaje-confirm-modal');
+                document.getElementById('blindaje-confirm-msg').textContent =
+                    `${empName} pidió que no se tocara este turno.\n\n¿Quitar el blindaje para poder cambiarlo?`;
+                const btnKeep = document.getElementById('blindaje-confirm-keep');
+                const btnRemove = document.getElementById('blindaje-confirm-remove');
+                const cleanup = () => {
+                    overlay.classList.remove('open');
+                    btnKeep.removeEventListener('click', onKeep);
+                    btnRemove.removeEventListener('click', onRemove);
+                };
+                const onKeep = () => { cleanup(); resolve(false); };
+                const onRemove = () => {
+                    if(App.data.blindados[date]) delete App.data.blindados[date][empId];
+                    cleanup();
+                    resolve(true);
+                };
+                btnKeep.addEventListener('click', onKeep);
+                btnRemove.addEventListener('click', onRemove);
+                overlay.classList.add('open');
+            });
         },
 
         // ── Notas de turno ──
@@ -219,14 +238,14 @@ Object.assign(App.logic, {
             }
         },
 
-        erase: function(empId) {
+        erase: async function(empId) {
             const date = App.uiState.currentDate;
             if(App.logic.isDayLocked(date)) {
                 alert('🔒 Esta semana está cerrada.\n\nPara editar los turnos, ábrela primero con el switch del planificador.');
                 return;
             }
             if(!App.data.schedule[date] || !App.data.schedule[date][empId]) return;
-            if(!App.logic._blindajeGate(empId, date)) return;
+            if(!(await App.logic._blindajeGate(empId, date))) return;
 
             // Limpia marca de "recuperación inferida" si la había para este día
             const _empClean = App.data.empleados.find(e => e.id === empId);
@@ -275,7 +294,7 @@ Object.assign(App.logic, {
             return App.data.libranzaPlans.find(p => p.applied && p.empId === empId && p.dates.includes(date)) || null;
         },
 
-        paint: function(empId) {
+        paint: async function(empId) {
             const sid = App.uiState.paintShiftId;
             const date = App.uiState.currentDate;
 
@@ -301,7 +320,7 @@ Object.assign(App.logic, {
             }
 
             // Turno blindado: pedir confirmación antes de tocarlo
-            if(!App.logic._blindajeGate(empId, date)) return;
+            if(!(await App.logic._blindajeGate(empId, date))) return;
 
             // Limpia marca de "recuperación inferida": cualquier acción manual la deja de ser auto
             const _empClean = App.data.empleados.find(e => e.id === empId);
@@ -1085,7 +1104,7 @@ Object.assign(App.logic, {
                 }
             };
 
-            const onMouseUp = (e) => {
+            const onMouseUp = async (e) => {
                 e.preventDefault();
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
@@ -1111,7 +1130,7 @@ Object.assign(App.logic, {
 
                 // Turno blindado: pedir confirmación antes de aplicar el cambio de horario
                 // (si se rechaza, hay que re-renderizar para descartar el preview visual del arrastre)
-                if(!App.logic._blindajeGate(empId, date)) {
+                if(!(await App.logic._blindajeGate(empId, date))) {
                     App.ui.renderPlanner(document.getElementById('main-view'));
                     return;
                 }
@@ -1314,7 +1333,7 @@ Object.assign(App.logic, {
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
         },
 
-        _gridSwapExec: function() {
+        _gridSwapExec: async function() {
             const sw = App.uiState._gridSwap;
             if (!sw || !sw.a || !sw.b || sw.a.date !== sw.b.date) return;
             const date = sw.a.date;
@@ -1341,8 +1360,8 @@ Object.assign(App.logic, {
             };
             if (!_checkPlan(sw.a.empId, date)) return;
             if (!_checkPlan(sw.b.empId, date)) return;
-            if (!App.logic._blindajeGate(sw.a.empId, date)) return;
-            if (!App.logic._blindajeGate(sw.b.empId, date)) return;
+            if (!(await App.logic._blindajeGate(sw.a.empId, date))) return;
+            if (!(await App.logic._blindajeGate(sw.b.empId, date))) return;
 
             const shA = (App.data.schedule[date] || {})[sw.a.empId] || null;
             const shB = (App.data.schedule[date] || {})[sw.b.empId] || null;
@@ -1382,7 +1401,7 @@ Object.assign(App.logic, {
             }
         },
         
-        shiftDrop: function(event, targetEmpId, targetDate) {
+        shiftDrop: async function(event, targetEmpId, targetDate) {
             event.preventDefault();
             event.stopPropagation();
             event.currentTarget.classList.remove('drag-over-active');
@@ -1425,8 +1444,8 @@ Object.assign(App.logic, {
             };
             if (!_checkSwapPlan(sourceEmpId, sourceDate)) return;
             if (!_checkSwapPlan(targetEmpId, targetDate)) return;
-            if (!App.logic._blindajeGate(sourceEmpId, sourceDate)) return;
-            if (!App.logic._blindajeGate(targetEmpId, targetDate)) return;
+            if (!(await App.logic._blindajeGate(sourceEmpId, sourceDate))) return;
+            if (!(await App.logic._blindajeGate(targetEmpId, targetDate))) return;
 
             // Obtener turnos actuales
             const sourceShiftId = App.data.schedule[sourceDate] ? App.data.schedule[sourceDate][sourceEmpId] : null;

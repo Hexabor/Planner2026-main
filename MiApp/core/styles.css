@@ -467,6 +467,7 @@
         .pg-req.req-pending { background: #fef3c7; }
         .pg-req.req-approved-attended { background: #dcfce7; }
         .pg-req.req-rejected { background: white; }
+        .req-blindado { box-shadow: inset 0 0 0 2px #ef4444; }
         .pg-rol { padding: 0 6px; border-bottom: 1px solid var(--border); background: white; display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--border); height: 32px; cursor: pointer; }
         .pg-rol:hover { background: #f8fafc; }
         .pg-tag { padding: 0 6px; border-bottom: 1px solid var(--border); background: white; display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--border); height: 32px; cursor: pointer; }
