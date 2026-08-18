@@ -6,6 +6,13 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '18/08/2026', version: 'v1.0',
+                items: [
+                    '🎯 Gestor de llaves → nuevo botón "Reasignar desde el principio": elige libremente, para cada llave, un portador inicial entre TODA la plantilla activa vigente (no solo TAG3), borra los traspasos desde hoy en adelante y fija ese reparto como nuevo punto de partida. El histórico pasado no se toca',
+                    '🔧 Arreglo: en el inspector del día (gestor de llaves) y en las vistas "por persona"/"por llave" podía aparecer un empleado con el contrato ya terminado (fechaFin pasada) porque solo se comprobaba el flag "activo", no la vigencia real del contrato. Ahora usan Utils.empleadoVigenteEnFecha, igual que el resto del planificador',
+                ]
+            },
+            {
                 fecha: '07/08/2026', version: 'v1.0',
                 items: [
                     '🔒 Planner → el candado de "turno blindado" se ha movido: antes flotaba sobre la barra del turno en la rejilla horaria, ahora la columna REQ de ese turno se marca con un recuadro rojo (junto al icono de solicitud del empleado, si lo hay, con el candado como marca pequeña en la esquina), en rejilla grupal e individual',

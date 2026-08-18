@@ -426,7 +426,7 @@ App.mobile = {
 
         // Rejilla TAG3 + próximos 5 días
         const tag3 = App.data.empleados
-            .filter(e => e.active !== false && ['MNG', 'AM', 'SPV'].includes(Utils.getRolEnFecha(e, fecha)))
+            .filter(e => e.active !== false && Utils.empleadoVigenteEnFecha(e, fecha) && ['MNG', 'AM', 'SPV'].includes(Utils.getRolEnFecha(e, fecha)))
             .sort((a, b) => (a.customOrder || 0) - (b.customOrder || 0));
 
         const dObj = new Date(fecha + 'T12:00:00');

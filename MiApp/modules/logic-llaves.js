@@ -35,7 +35,7 @@ App.llaves = {
     _tag3Ids: function() {
         const hoy = new Date().toISOString().slice(0, 10);
         return App.data.empleados
-            .filter(e => e.active !== false && ['MNG', 'AM', 'SPV'].includes(Utils.getRolEnFecha(e, hoy)))
+            .filter(e => e.active !== false && Utils.empleadoVigenteEnFecha(e, hoy) && ['MNG', 'AM', 'SPV'].includes(Utils.getRolEnFecha(e, hoy)))
             .map(e => e.id);
     },
 

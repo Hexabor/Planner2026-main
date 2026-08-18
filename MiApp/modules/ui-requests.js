@@ -2524,7 +2524,7 @@ Object.assign(App.ui, {
             const { dates } = this._llavesDateRange();
             const LLAVE_COLORS = ['#2563eb', '#7c3aed', '#0891b2', '#dc2626', '#d97706'];
             const tag3 = App.data.empleados
-                .filter(e => e.active !== false && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, hoy)))
+                .filter(e => e.active !== false && Utils.empleadoVigenteEnFecha(e, hoy) && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, hoy)))
                 .sort((a,b) => a.customOrder - b.customOrder);
 
             if (tag3.length === 0) return '<div style="padding:32px;text-align:center;color:#94a3b8;">No hay empleados TAG3.</div>';
@@ -2595,7 +2595,7 @@ Object.assign(App.ui, {
             const { dates } = this._llavesDateRange();
             const LLAVE_COLORS = ['#2563eb', '#7c3aed', '#0891b2', '#dc2626', '#d97706'];
             const tag3 = App.data.empleados
-                .filter(e => e.active !== false && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, hoy)))
+                .filter(e => e.active !== false && Utils.empleadoVigenteEnFecha(e, hoy) && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, hoy)))
                 .sort((a,b) => a.customOrder - b.customOrder);
 
             if (tag3.length === 0) return '<div style="padding:32px;text-align:center;color:#94a3b8;">No hay empleados TAG3.</div>';
@@ -2834,6 +2834,101 @@ Object.assign(App.ui, {
             App.logic._refreshLlaves();
         },
 
+        // Abre el modal de reasignación manual: fija, para cada llave, un portador inicial
+        // elegido libremente entre TODA la plantilla activa (no solo TAG3), y borra los
+        // traspasos futuros para arrancar la cadena de cero desde hoy. El histórico pasado
+        // no se toca.
+        _llavesReasignarAbrir: function() {
+            const llaves = App.data.config.llaves || [];
+            if (llaves.length === 0) { alert('No hay llaves configuradas.'); return; }
+
+            const hoy = new Date().toISOString().slice(0, 10);
+            const plantilla = App.data.empleados
+                .filter(e => Utils.empleadoVigenteEnFecha(e, hoy))
+                .sort((a, b) => a.customOrder - b.customOrder);
+
+            const rows = llaves.map((l, idx) => {
+                const actual = App.logic.getTitularLlave(l.id, hoy) || '__TIENDA__';
+                const opts = `<option value="__TIENDA__"${actual === '__TIENDA__' ? ' selected' : ''}>🏪 Tienda</option>` +
+                    plantilla.map(e => `<option value="${e.id}"${e.id === actual ? ' selected' : ''}>${e.nombre}</option>`).join('');
+                return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="flex:0 0 120px;font-size:0.82rem;font-weight:600;color:#334155;">Llave ${idx + 1}${l.alias ? ' · ' + l.alias : ''}</span>
+                    <select id="reasignar-llave-${l.id}" style="flex:1;padding:5px 6px;border:1px solid #e2e8f0;border-radius:5px;font-size:0.82rem;">${opts}</select>
+                </div>`;
+            }).join('');
+
+            const content = document.getElementById('llaves-reasignar-content');
+            content.innerHTML = `
+                <p style="color:#475569;font-size:0.82rem;margin:0 0 14px;">
+                    Se borrarán todos los traspasos desde hoy en adelante y el reparto que elijas aquí
+                    pasará a ser el nuevo punto de partida. El histórico pasado no se toca.
+                </p>
+                ${rows}
+                <div style="display:flex; gap:10px; margin-top:16px;">
+                    <button class="btn" style="flex:1; background:#f1f5f9; color:#334155;" onclick="document.getElementById('llaves-reasignar-modal').classList.remove('open')">Cancelar</button>
+                    <button class="btn btn-danger" style="flex:2;" onclick="App.ui._llavesReasignarConfirmar()">Reasignar y aplicar</button>
+                </div>`;
+
+            document.getElementById('llaves-reasignar-modal').classList.add('open');
+        },
+
+        _llavesReasignarConfirmar: function() {
+            const llaves = App.data.config.llaves || [];
+            const hoy = new Date().toISOString().slice(0, 10);
+
+            const elegido = {};
+            for (const l of llaves) {
+                const sel = document.getElementById('reasignar-llave-' + l.id);
+                elegido[l.id] = sel ? sel.value : '__TIENDA__';
+            }
+
+            // No permitir que una misma persona quede como titular inicial de dos llaves
+            const usados = new Set();
+            for (const l of llaves) {
+                const r = elegido[l.id];
+                if (r === '__TIENDA__') continue;
+                if (usados.has(r)) {
+                    const nombre = App.data.empleados.find(e => e.id === r)?.nombre || r;
+                    alert(`⚠️ ${nombre} está asignado a más de una llave. Cada llave necesita un titular distinto.`);
+                    return;
+                }
+                usados.add(r);
+            }
+
+            const aEliminar = (App.data.traspasoLlaves || []).filter(t => t.fecha >= hoy).length;
+
+            // Borrar traspasos desde hoy en adelante (el histórico pasado se conserva)
+            App.data.traspasoLlaves = (App.data.traspasoLlaves || []).filter(t => t.fecha < hoy);
+
+            // Crear la nueva ancla de partida por llave con el portador elegido
+            const now = new Date().toISOString();
+            llaves.forEach(l => {
+                App.data.traspasoLlaves.push({
+                    id: 'tr_reset_' + Date.now() + '_' + l.id,
+                    llaveId: l.id,
+                    dadorId: '__TIENDA__',
+                    receptorId: elegido[l.id],
+                    fecha: hoy,
+                    source: 'reset',
+                    creadoEn: now
+                });
+            });
+
+            Safe.save('v40_db', App.data);
+            App.logic.checkAlerts();
+            document.getElementById('llaves-reasignar-modal').classList.remove('open');
+
+            const resumen = llaves.map((l, i) => {
+                const tid = elegido[l.id];
+                const emp = tid !== '__TIENDA__' ? App.data.empleados.find(e => e.id === tid) : null;
+                const nombre = emp ? emp.nombre : '🏪 Tienda';
+                return `• L${i + 1}${l.alias ? ' ' + l.alias : ''} → ${nombre}`;
+            }).join('\n');
+            alert(`✅ Llaves reasignadas desde ${Utils.formatDateES(hoy)}\n\n${aEliminar} traspaso${aEliminar !== 1 ? 's' : ''} futuro${aEliminar !== 1 ? 's' : ''} eliminado${aEliminar !== 1 ? 's' : ''}\n\nNuevos portadores:\n${resumen}`);
+
+            App.logic._refreshLlaves();
+        },
+
         _renderLlaves: function(c, sectionBar) {
             const hoy = new Date().toISOString().slice(0,10);
             const llaves = App.data.config.llaves || [];
@@ -3051,6 +3146,8 @@ Object.assign(App.ui, {
                                 style="padding:7px 14px;background:white;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;font-weight:600;font-size:0.78rem;cursor:pointer;">🔄 Revalidar desde hoy</button>
                             <button onclick="App.ui._llavesReiniciar()" title="Reinicia la cadena desde una fecha y archiva (borra) todo lo posterior"
                                 style="padding:7px 14px;background:white;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;font-weight:600;font-size:0.78rem;cursor:pointer;">🧹 Reiniciar cadena</button>
+                            <button onclick="App.ui._llavesReasignarAbrir()" title="Elige libremente el portador inicial de cada llave (cualquier miembro de la plantilla) y borra los traspasos futuros"
+                                style="padding:7px 14px;background:white;color:#b45309;border:1px solid #fde68a;border-radius:6px;font-weight:600;font-size:0.78rem;cursor:pointer;">🎯 Reasignar desde el principio</button>
                             <button onclick="App.ui.renderDayInspector('${hoy}')"
                                 style="padding:7px 16px;background:#2563eb;color:white;border:none;border-radius:6px;font-weight:700;font-size:0.82rem;cursor:pointer;">+ Nuevo traspaso</button>
                         </div>
@@ -3085,7 +3182,7 @@ Object.assign(App.ui, {
 
             // TAG3 activos en la fecha
             const tag3 = App.data.empleados
-                .filter(e => e.active !== false && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, fecha)))
+                .filter(e => e.active !== false && Utils.empleadoVigenteEnFecha(e, fecha) && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, fecha)))
                 .sort((a, b) => a.customOrder - b.customOrder);
 
             // 5 fechas futuras
@@ -3334,7 +3431,7 @@ Object.assign(App.ui, {
 
             const tag3Opts = `<option value="__TIENDA__">🏪 Dejar en tienda</option>` +
                 App.data.empleados
-                .filter(e => e.active !== false && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, fecha)))
+                .filter(e => e.active !== false && Utils.empleadoVigenteEnFecha(e, fecha) && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, fecha)))
                 .sort((a,b) => a.customOrder - b.customOrder)
                 .map(e => `<option value="${e.id}">${e.nombre}</option>`).join('');
 
@@ -3433,7 +3530,7 @@ Object.assign(App.ui, {
 
             const tag3Opts = `<option value="__TIENDA__"${editData && editData.receptorId === '__TIENDA__' ? ' selected' : ''}>🏪 Dejar en tienda (sin portador)</option>` +
                 App.data.empleados
-                .filter(e => e.active !== false && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, fechaRef)))
+                .filter(e => e.active !== false && Utils.empleadoVigenteEnFecha(e, fechaRef) && ['MNG','AM','SPV'].includes(Utils.getRolEnFecha(e, fechaRef)))
                 .sort((a,b) => a.customOrder - b.customOrder)
                 .map(e => `<option value="${e.id}"${editData && editData.receptorId === e.id ? ' selected' : ''}>${e.nombre}</option>`).join('');
 
