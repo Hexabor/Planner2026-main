@@ -1524,10 +1524,14 @@ Object.assign(App.logic, {
         },
 
         getTitularLlaveInicio: function(llaveId, dateStr) {
-            // Titular AL INICIO del día — excluye traspasos del propio día (fecha < dateStr)
-            // Útil para apertura: el dador llega con la llave aunque ese día la entregue
+            // Titular AL INICIO del día — excluye traspasos del propio día (fecha < dateStr).
+            // Útil para apertura: el dador llega con la llave aunque ese día la entregue.
+            // Excepción: los anclas de reinicio (source:'reset') fechadas ese mismo día SÍ cuentan,
+            // porque no son un traspaso intradía — declaran el titular vigente desde el minuto cero
+            // de esa fecha (evita que un traspaso normal posterior el mismo día del reset se marque
+            // como "flujo roto" por no encontrar al dador como titular de inicio de día).
             const traspasos = (App.data.traspasoLlaves || [])
-                .filter(t => t.llaveId === llaveId && t.fecha < dateStr)
+                .filter(t => t.llaveId === llaveId && (t.fecha < dateStr || (t.fecha === dateStr && t.source === 'reset')))
                 .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creadoEn.localeCompare(a.creadoEn));
             return traspasos.length > 0 ? traspasos[0].receptorId : null;
         },

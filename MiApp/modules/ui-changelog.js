@@ -9,6 +9,7 @@ Object.assign(App.ui, {
                 fecha: '18/08/2026', version: 'v1.0',
                 items: [
                     '🎯 Gestor de llaves → nuevo botón "Reasignar desde el principio": elige libremente, para cada llave, un portador inicial entre TODA la plantilla activa vigente (no solo TAG3), borra los traspasos desde hoy en adelante y fija ese reparto como nuevo punto de partida. El histórico pasado no se toca',
+                    '🔧 Arreglo: si tras reasignar (o reiniciar la cadena) hacías otro traspaso normal ese mismo día, se marcaba como "⚠ Flujo roto" porque el ancla de reinicio, al estar fechada ese día, no contaba todavía como titular al inicio del día. Ahora un reinicio cuenta como vigente desde el minuto cero de su fecha, así que los traspasos posteriores el mismo día encadenan bien (también mejora la cobertura de apertura/cierre y las vistas por persona/por llave justo el día del reinicio)',
                     '🔧 Arreglo: en el inspector del día (gestor de llaves) y en las vistas "por persona"/"por llave" podía aparecer un empleado con el contrato ya terminado (fechaFin pasada) porque solo se comprobaba el flag "activo", no la vigencia real del contrato. Ahora usan Utils.empleadoVigenteEnFecha, igual que el resto del planificador',
                 ]
             },
