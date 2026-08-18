@@ -501,7 +501,9 @@ Object.assign(App.ui, {
             const days = Utils.getWeekDays(monday);
             let stats = [];
             App.data.empleados.filter(e => {
-                return e.active && Utils.empleadoVigenteEnFecha(e, monday);
+                // Vigente en ALGÚN día de la semana, no solo el lunes — si no, quien empieza
+                // o termina contrato a mitad de semana desaparece del balance esa semana.
+                return e.active && Utils.empleadoVigenteEnRango(e, days[0], days[days.length - 1]);
             }).sort((a,b)=>a.customOrder-b.customOrder).forEach(e => {
                 let planned = 0;
                 let asig = 0;

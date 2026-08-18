@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '18/08/2026 (noche)', version: 'v1.0',
+                items: [
+                    '🔧 Planner → Balance Semanal: quien empieza (o termina) contrato a mitad de semana ya no desaparece de la tabla. Antes solo se comprobaba si el empleado estaba vigente el lunes; ahora se comprueba si lo está en algún día de la semana, igual que en la rejilla principal',
+                ]
+            },
+            {
                 fecha: '18/08/2026 (tarde)', version: 'v1.0',
                 items: [
                     '🔧 Presentación → vista Llaves imprimible: las anclas de punto de partida (reinicio de cadena o reasignación desde el principio) ya no salen listadas como si fueran una transferencia más (con "Tienda" como entregador). Solo se imprimen las transferencias reales entre personas',
