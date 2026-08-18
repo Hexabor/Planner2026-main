@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '18/08/2026 (tarde)', version: 'v1.0',
+                items: [
+                    '🔧 Presentación → vista Llaves imprimible: las anclas de punto de partida (reinicio de cadena o reasignación desde el principio) ya no salen listadas como si fueran una transferencia más (con "Tienda" como entregador). Solo se imprimen las transferencias reales entre personas',
+                ]
+            },
+            {
                 fecha: '18/08/2026', version: 'v1.0',
                 items: [
                     '🎯 Gestor de llaves → nuevo botón "Reasignar desde el principio": elige libremente, para cada llave, un portador inicial entre TODA la plantilla activa vigente (no solo TAG3), borra los traspasos desde hoy en adelante y fija ese reparto como nuevo punto de partida. El histórico pasado no se toca',

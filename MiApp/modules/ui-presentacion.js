@@ -321,8 +321,11 @@ Object.assign(App.ui, {
                 return l.alias || '';
             };
 
+            // source:'reset' son anclas de punto de partida (reinicio de cadena / reasignación
+            // manual), no transferencias reales — no deben imprimirse como si alguien tuviera
+            // que entregar físicamente la llave.
             const traspasos = (App.data.traspasoLlaves || [])
-                .filter(t => t.fecha >= desde && t.fecha <= limiteStr)
+                .filter(t => t.fecha >= desde && t.fecha <= limiteStr && t.source !== 'reset')
                 .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.llaveId.localeCompare(b.llaveId));
 
             const porFecha = {};
