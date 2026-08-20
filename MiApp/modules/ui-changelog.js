@@ -6,6 +6,13 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '20/08/2026', version: 'v1.0',
+                items: [
+                    '✨ Gestión de Equipo → nueva columna "Vacaciones" en la rejilla principal: días atribuidos (turnos "V") frente al total que corresponde ese año natural, prorrateado desde el primer contrato hasta la fecha de baja (si la hay) sobre la base de 31 días naturales/año',
+                    '✨ Inspector de empleado → nueva pestaña "Vacaciones": lista los días concedidos ("V") año a año, con el arrastre de pendientes o exceso de un año a otro, para ver de un vistazo en qué fechas se concedieron y por qué un año puede parecer "pasado" cuando en realidad venía de días pendientes del anterior',
+                ]
+            },
+            {
                 fecha: '18/08/2026 (noche)', version: 'v1.0',
                 items: [
                     '🔧 Planner → Balance Semanal: quien empieza (o termina) contrato a mitad de semana ya no desaparece de la tabla. Antes solo se comprobaba si el empleado estaba vigente el lunes; ahora se comprueba si lo está en algún día de la semana, igual que en la rejilla principal',

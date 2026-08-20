@@ -852,5 +852,12 @@ window.addEventListener('beforeunload', function(){ try { Safe.flush('v40_db'); 
     <span style="color:#f59e0b;">↩</span> Hay recuperaciones disponibles en el planificador sin asignar a ningún festivo.<br><br>
     <span style="color:#ef4444;">●</span> Festivo compensado (con R asignada) pero aún no pedido en Factorial.
 </div>
+<!-- Tooltip fijo para columna Vacaciones en tabla de empleados -->
+<div id="vacaciones-info-tip" style="display:none; position:fixed; z-index:9999; background:#1e293b; color:#e2e8f0; padding:10px 14px; border-radius:8px; font-size:0.75rem; line-height:1.7; max-width:270px; box-shadow:0 4px 20px rgba(0,0,0,0.3); pointer-events:none;">
+    <strong>Vacaciones del año natural</strong><br>
+    Días atribuidos (turnos "V" en el planificador) / total que corresponde ese año.<br><br>
+    El total son <strong>31 días naturales/año</strong>, prorrateados según los días del año natural (1 ene → 31 dic) en que el empleado estuvo de alta (desde su primer contrato hasta su fecha de baja, si la hay).<br><br>
+    🟢 Cuadra · 🟡 Faltan por atribuir · 🔵 Atribuidos de más.
+</div>
 </body>
 </html>

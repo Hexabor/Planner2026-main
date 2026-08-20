@@ -167,6 +167,29 @@ Object.assign(App.ui, {
             return pendientes;
         },
 
+        // Helper: vacaciones (V) del año natural en curso — días atribuidos (schedule) vs. total proporcional.
+        // Total = 31 días naturales/año, prorrateado según los días del año en que el empleado estuvo
+        // de alta (primer contrato → fecha de baja, si la hay).
+        _calcVacacionesInfo: function(emp, year) {
+            year = year || new Date().getFullYear();
+            const yStart = `${year}-01-01`, yEnd = `${year}-12-31`;
+            const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+            const daysInYear = isLeap ? 366 : 365;
+            const ini = (emp.fechaInicio && emp.fechaInicio > yStart) ? emp.fechaInicio : yStart;
+            const fin = (emp.fechaFin && emp.fechaFin < yEnd) ? emp.fechaFin : yEnd;
+            let diasVigente = 0;
+            if(fin >= ini) diasVigente = Math.round((new Date(fin + 'T12:00:00') - new Date(ini + 'T12:00:00')) / 86400000) + 1;
+            const total = Math.round((diasVigente / daysInYear) * 31 * 10) / 10;
+            let atribuidos = 0;
+            Object.keys(App.data.schedule || {}).forEach(iso => {
+                if(iso < yStart || iso > yEnd) return;
+                const sid = App.data.schedule[iso]?.[emp.id];
+                const sh = sid ? Utils.getShift(sid) : null;
+                if(sh && sh.fixed && sh.code === 'V') atribuidos++;
+            });
+            return { atribuidos, total, year };
+        },
+
         // Helper: Rs en el schedule no asignadas a ningún festivo (solo semanas cerradas)
         _calcRsDisponibles: function(emp) {
             if(!emp) return 0;
@@ -217,7 +240,7 @@ Object.assign(App.ui, {
                 const _tramoTxt = `${Utils.formatDateES(_hpa.start)} → ${Utils.formatDateES(_hpa.end)}`;
                 html+=`<table class="data-table" style="table-layout:auto; width:100%;"><thead><tr><th style="width:30px" onclick="App.logic.sortEmp('custom')">☰</th>`;
                 html+= getSortHeader('nombre', 'Nombre', '200px');
-                if(!isPrefs) { html+= getSortHeader('rol', 'Puesto', '') + getSortHeader('tag', 'Tag', '') + getSortHeader('contrato', 'Horas', '') + `<th style="text-align:center; white-space:nowrap;">Por asignar<span style="cursor:help;font-size:9px;vertical-align:super;margin-left:2px;" onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById('desvio-info-tip');t.style.left=r.left+'px';t.style.top=(r.bottom+4)+'px';t.style.display='block';const dt=document.getElementById('desvio-info-tramo');if(dt)dt.textContent='${_tramoTxt}';" onmouseleave="document.getElementById('desvio-info-tip').style.display='none';">ℹ️</span></th><th style="text-align:center; white-space:nowrap;">Festivos 🔒<span style="cursor:help;font-size:9px;vertical-align:super;margin-left:2px;" onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById('festivos-info-tip');t.style.left=r.left+'px';t.style.top=(r.bottom+4)+'px';t.style.display='block';" onmouseleave="document.getElementById('festivos-info-tip').style.display='none';">ℹ️</span></th>`; } 
+                if(!isPrefs) { html+= getSortHeader('rol', 'Puesto', '') + getSortHeader('tag', 'Tag', '') + getSortHeader('contrato', 'Horas', '') + `<th style="text-align:center; white-space:nowrap;">Por asignar<span style="cursor:help;font-size:9px;vertical-align:super;margin-left:2px;" onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById('desvio-info-tip');t.style.left=r.left+'px';t.style.top=(r.bottom+4)+'px';t.style.display='block';const dt=document.getElementById('desvio-info-tramo');if(dt)dt.textContent='${_tramoTxt}';" onmouseleave="document.getElementById('desvio-info-tip').style.display='none';">ℹ️</span></th><th style="text-align:center; white-space:nowrap;">Festivos 🔒<span style="cursor:help;font-size:9px;vertical-align:super;margin-left:2px;" onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById('festivos-info-tip');t.style.left=r.left+'px';t.style.top=(r.bottom+4)+'px';t.style.display='block';" onmouseleave="document.getElementById('festivos-info-tip').style.display='none';">ℹ️</span></th><th style="text-align:center; white-space:nowrap;">Vacaciones<span style="cursor:help;font-size:9px;vertical-align:super;margin-left:2px;" onmouseenter="const r=this.getBoundingClientRect();const t=document.getElementById('vacaciones-info-tip');t.style.left=r.left+'px';t.style.top=(r.bottom+4)+'px';t.style.display='block';" onmouseleave="document.getElementById('vacaciones-info-tip').style.display='none';">ℹ️</span></th>`; }
                 else { html+=`<th>Domingos</th><th>Libranza 1</th><th>Libranza 2</th><th>Turno</th><th>Partidos</th>`; }
                 html+=`</tr></thead><tbody>`;
                 const showInactive = App.uiState.showInactive || false;
@@ -272,7 +295,9 @@ Object.assign(App.ui, {
                         const rojoNum = sinFactorial > 0 ? ` <span title="${sinFactorial} festivo${sinFactorial>1?'s':''} compensado${sinFactorial>1?'s':''} pero sin pedir en Factorial" style="color:#ef4444; font-weight:700; cursor:help;">(${sinFactorial})</span>` : '';
                         const azulNum = sobrantesR > 0 ? ` <span title="${sobrantesR} recuperación${sobrantesR>1?'es':''} sobrante${sobrantesR>1?'s':''} tras cubrir los festivos pendientes" style="color:#3b82f6; font-weight:700; cursor:help;">(${sobrantesR})</span>` : '';
                         const festivosCell = `${festivosPend > 0 ? `${festivosPend} ⚠` : '✓'}${rojoNum}${azulNum}`;
-                        html+=`<td style="text-align:center;"><span class="badge badge-role">${rolHoy}</span></td><td style="text-align:center;"><span class="badge badge-tag">T${tag}</span></td><td style="text-align:center;"><div class="contract-chart" style="background:${bg}; display:inline-block;"></div>${contratoActual}h${tieneHistorial?'<sup style="font-size:0.55rem;color:#94a3b8;margin-left:2px;">📋</sup>':''}</td><td style="text-align:center; font-family:monospace; font-weight:700; color:${dColor};">${dSign}${desvioAcum}h</td><td style="text-align:center; font-weight:700; color:${fColor};">${festivosCell}</td>`;
+                        const vacInfo = App.ui._calcVacacionesInfo(e);
+                        const vColor = vacInfo.atribuidos < vacInfo.total ? '#f59e0b' : vacInfo.atribuidos > vacInfo.total ? '#3b82f6' : '#10b981';
+                        html+=`<td style="text-align:center;"><span class="badge badge-role">${rolHoy}</span></td><td style="text-align:center;"><span class="badge badge-tag">T${tag}</span></td><td style="text-align:center;"><div class="contract-chart" style="background:${bg}; display:inline-block;"></div>${contratoActual}h${tieneHistorial?'<sup style="font-size:0.55rem;color:#94a3b8;margin-left:2px;">📋</sup>':''}</td><td style="text-align:center; font-family:monospace; font-weight:700; color:${dColor};">${dSign}${desvioAcum}h</td><td style="text-align:center; font-weight:700; color:${fColor};">${festivosCell}</td><td style="text-align:center; font-family:monospace; font-weight:700; color:${vColor};">${vacInfo.atribuidos}/${vacInfo.total}</td>`;
                     } else { html+=`<td>${App.ui.getPrefSelect(e.id, 'sunday', e.prefs?.sunday, {'indif':'Indif.','like':'Sí','hate':'No'})}</td><td>${App.ui.getPrefSelect(e.id, 'off1', e.prefs?.off1, {'any':'Indif.','L':'Lun','M':'Mar','X':'Mié','J':'Jue','V':'Vie','S':'Sáb'})}</td><td>${App.ui.getPrefSelect(e.id, 'off2', e.prefs?.off2, {'any':'Indif.','L':'Lun','M':'Mar','X':'Mié','J':'Jue','V':'Vie','S':'Sáb'})}</td><td>${App.ui.getPrefShiftSelect(e.id, e.prefs?.shift)}</td><td>${App.ui.getPrefSelect(e.id, 'split', e.prefs?.split, {'ok':'OK','no':'No','help':'Ayuda'})}</td>`; }
                     html+=`</tr>`;
                 });
@@ -335,8 +360,10 @@ Object.assign(App.ui, {
                 style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='desvio'?'white':'transparent'}; box-shadow:${tab==='desvio'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">DESVÍO</button>
             <button type="button" onclick="App.uiState.empInspTab='ajustes'; App.ui.renderEmpInspector('${id}')" 
                 style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='ajustes'?'white':'transparent'}; box-shadow:${tab==='ajustes'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">AJUSTES</button>
-            <button type="button" onclick="App.uiState.empInspTab='festivos'; App.ui.renderEmpInspector('${id}')" 
+            <button type="button" onclick="App.uiState.empInspTab='festivos'; App.ui.renderEmpInspector('${id}')"
                 style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='festivos'?'white':'transparent'}; box-shadow:${tab==='festivos'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">FESTIVOS</button>
+            <button type="button" onclick="App.uiState.empInspTab='vacaciones'; App.ui.renderEmpInspector('${id}')"
+                style="flex:1; white-space:nowrap; padding:8px 12px; border:none; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; background:${tab==='vacaciones'?'white':'transparent'}; box-shadow:${tab==='vacaciones'?'0 1px 3px rgba(0,0,0,0.1)':'none'}">VACACIONES</button>
         </div>` : '';
 
     let content = '';
@@ -477,6 +504,9 @@ Object.assign(App.ui, {
     }
     else if (tab === 'festivos') {
         content = (typeof App.ui.renderEmpFestivosInspector === 'function') ? App.ui.renderEmpFestivosInspector(e) : `<div>Error Festivos</div>`;
+    }
+    else if (tab === 'vacaciones') {
+        content = (typeof App.ui.renderEmpVacacionesInspector === 'function') ? App.ui.renderEmpVacacionesInspector(e) : `<div>Error Vacaciones</div>`;
     }
 
     const container = document.getElementById('inspector-content');
@@ -856,6 +886,122 @@ renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
             </div>
         ` : ''}
     </div>`;
+},
+
+// Pestaña VACACIONES del inspector: días concedidos (turnos "V") año a año, con el arrastre de
+// pendientes/exceso de un año al siguiente. Explica por qué alguien puede parecer "pasado" en un año
+// concreto cuando en realidad arrastraba días pendientes del año anterior (o al revés).
+renderEmpVacacionesInspector: function(emp) {
+    if(!emp || !emp.id) return `<p style="color:var(--text-muted);font-size:0.85rem;">Guarda el empleado primero.</p>`;
+
+    const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    const shortDate = iso => { const d = new Date(iso + 'T12:00:00'); return `${d.getDate()} ${monthNames[d.getMonth()]}`; };
+    const sg = n => (n > 0 ? '+' : '') + n;
+
+    // 1. Recopilar todos los días "V" del empleado, agrupados por año natural
+    const locked = App.data.lockedDays || {};
+    const byYear = {};
+    Object.keys(App.data.schedule || {}).sort().forEach(iso => {
+        const sid = App.data.schedule[iso]?.[emp.id];
+        const sh = sid ? Utils.getShift(sid) : null;
+        if(sh && sh.fixed && sh.code === 'V') {
+            const y = parseInt(iso.slice(0, 4));
+            (byYear[y] = byYear[y] || []).push(iso);
+        }
+    });
+
+    // 2. Rango de años a mostrar: desde el primer contrato (o el año más antiguo con V, si es anterior)
+    //    hasta la fecha de baja (o el año actual / el más reciente con V, lo que sea mayor)
+    const curYear = new Date().getFullYear();
+    const vYears = Object.keys(byYear).map(Number);
+    let startYear = emp.fechaInicio ? parseInt(emp.fechaInicio.slice(0, 4)) : (vYears.length ? Math.min(...vYears) : curYear);
+    if(vYears.length) startYear = Math.min(startYear, ...vYears);
+    let endYear = emp.fechaFin ? parseInt(emp.fechaFin.slice(0, 4)) : curYear;
+    endYear = Math.max(endYear, curYear, ...(vYears.length ? vYears : [curYear]));
+
+    const years = [];
+    for(let y = startYear; y <= endYear; y++) years.push(y);
+
+    // 3. Saldo corrido año a año: lo que entra de arrastre + lo que corresponde ese año − lo atribuido
+    let arrastre = emp.vacPendientes || 0;
+    const arrastreInicial = arrastre;
+    const rows = years.map(y => {
+        const info = App.ui._calcVacacionesInfo(emp, y);
+        const dates = (byYear[y] || []).slice().sort();
+        const arrastreEntrante = arrastre;
+        const disponibles = Math.round((arrastreEntrante + info.total) * 10) / 10;
+        const saldo = Math.round((disponibles - dates.length) * 10) / 10;
+        arrastre = saldo;
+        return { year: y, total: info.total, arrastreEntrante, disponibles, atribuidos: dates.length, dates, saldo };
+    });
+
+    const actual = rows.find(r => r.year === curYear) || rows[rows.length - 1];
+    const saldoFinal = rows.length ? rows[rows.length - 1].saldo : 0;
+    const saldoColor = saldoFinal < -0.05 ? '#ef4444' : saldoFinal > 0.05 ? '#3b82f6' : '#10b981';
+
+    // --- CABECERA RESUMEN ---
+    let html = `
+    <div style="background:white; border-bottom:1px solid var(--border); margin:-12px -12px 12px -12px; padding:12px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px; padding:8px; text-align:center;">
+                <div style="font-size:1.2rem; font-weight:800; color:#7c3aed;">${actual ? actual.atribuidos : 0}/${actual ? actual.total : 0}</div>
+                <div style="font-size:0.6rem; color:#7c3aed; text-transform:uppercase; font-weight:600;">Este año (${curYear})</div>
+            </div>
+            <div style="background:${saldoFinal < -0.05 ? '#fef2f2' : saldoFinal > 0.05 ? '#eff6ff' : '#f0fdf4'}; border:1px solid ${saldoFinal < -0.05 ? '#fecaca' : saldoFinal > 0.05 ? '#bfdbfe' : '#dcfce7'}; border-radius:8px; padding:8px; text-align:center;">
+                <div style="font-size:1.2rem; font-weight:800; color:${saldoColor};">${sg(saldoFinal)}</div>
+                <div style="font-size:0.6rem; color:${saldoColor}; text-transform:uppercase; font-weight:600;">${saldoFinal < -0.05 ? 'De más (pasado)' : saldoFinal > 0.05 ? 'Pendientes' : 'Saldo al día'}</div>
+            </div>
+        </div>
+        ${arrastreInicial !== 0 ? `<div style="margin-top:8px; font-size:0.65rem; color:#94a3b8; line-height:1.5;">Incluye ${arrastreInicial} día${Math.abs(arrastreInicial) !== 1 ? 's' : ''} de arrastre manual anterior a ${startYear} (editable en <button type="button" onclick="App.uiState.empInspTab='overview'; App.ui.renderEmpInspector('${emp.id}')" style="background:none;border:none;color:#2563eb;cursor:pointer;font-size:0.65rem;text-decoration:underline;padding:0;">Datos → Arrastres de etapas anteriores</button>).</div>` : ''}
+    </div>`;
+
+    // --- BLOQUES POR AÑO (más reciente primero) ---
+    rows.slice().reverse().forEach(r => {
+        const rColor = r.saldo < -0.05 ? '#ef4444' : r.saldo > 0.05 ? '#3b82f6' : '#10b981';
+        const isCurrent = r.year === curYear;
+        const hasContent = r.dates.length > 0 || r.arrastreEntrante !== 0;
+
+        html += `<details ${isCurrent || Math.abs(r.saldo) > 0.05 ? 'open' : ''} style="margin-bottom:8px; border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+            <summary style="padding:9px 10px; cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; background:${isCurrent ? '#faf5ff' : '#f8fafc'}; user-select:none;">
+                <span style="font-weight:800; font-size:0.8rem; color:${isCurrent ? '#7c3aed' : 'var(--text-main)'};">${r.year}${isCurrent ? ' · actual' : ''}</span>
+                <span style="display:flex; align-items:center; gap:8px; font-family:monospace; font-size:0.78rem;">
+                    <span style="color:#64748b;">${r.atribuidos}/${r.total}</span>
+                    <span style="font-weight:800; color:${rColor};">${sg(r.saldo)}</span>
+                </span>
+            </summary>
+            <div style="padding:10px; border-top:1px dashed var(--border);">
+                <div style="display:flex; gap:4px; align-items:center; margin-bottom:${r.dates.length ? '10px' : '0'}; font-size:0.68rem; color:#64748b; flex-wrap:wrap;">
+                    <span title="Arrastre entrante de años anteriores">⟵ ${sg(r.arrastreEntrante)}</span>
+                    <span style="color:#cbd5e1;">+</span>
+                    <span title="Corresponden este año (31 naturales prorrateados)">${r.total} corresponden</span>
+                    <span style="color:#cbd5e1;">=</span>
+                    <span style="font-weight:700;">${r.disponibles} disponibles</span>
+                    <span style="color:#cbd5e1;">−</span>
+                    <span title="Días 'V' atribuidos en el planificador este año">${r.atribuidos} atribuidos</span>
+                    <span style="color:#cbd5e1;">=</span>
+                    <span style="font-weight:800; color:${rColor};">${sg(r.saldo)} ${r.saldo < -0.05 ? 'de más' : r.saldo > 0.05 ? 'pendientes' : 'al día'}</span>
+                </div>
+                ${r.dates.length > 0 ? `
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    ${r.dates.map(d => {
+                        const dt = new Date(d + 'T12:00:00');
+                        const wd = dayNames[dt.getDay()];
+                        const isLocked = !!locked[d];
+                        return `<div style="display:flex; align-items:center; gap:6px; font-size:0.73rem; color:#334155;">
+                            <span title="${isLocked ? 'Semana cerrada' : 'Semana abierta'}">${isLocked ? '🔒' : '🔓'}</span>
+                            <span style="font-weight:700; width:32px; color:#7c3aed;">${wd}</span>
+                            <span>${shortDate(d)} '${d.slice(2, 4)}</span>
+                        </div>`;
+                    }).join('')}
+                </div>` : `<div style="text-align:center; padding:10px; color:var(--text-muted); font-size:0.72rem; ${hasContent ? '' : 'display:none;'}">Sin días de vacaciones atribuidos ese año.</div>`}
+            </div>
+        </details>`;
+    });
+
+    html += `<div style="margin-top:10px; font-size:0.65rem; color:#94a3b8; line-height:1.5;">🔴 Ha disfrutado más días de los que le corresponden ese año (contando arrastre) · 🔵 Le quedan días pendientes que pasan al año siguiente · 🟢 Saldo al día.</div>`;
+
+    return html;
 },
 });
 
