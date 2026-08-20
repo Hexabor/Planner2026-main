@@ -6,17 +6,18 @@ if(typeof _localISO === 'undefined') var _localISO = (d) => { const y=d.getFullY
 
 Object.assign(App.logic, {
         exportToggle: function(empId) {
-            const idx = App.uiState.exportEmps.indexOf(empId);
+            const idx = App.data.config.exportEmps.indexOf(empId);
             if(idx >= 0) {
-                App.uiState.exportEmps.splice(idx, 1);
+                App.data.config.exportEmps.splice(idx, 1);
             } else {
-                App.uiState.exportEmps.push(empId);
+                App.data.config.exportEmps.push(empId);
             }
+            Safe.save('v40_db', App.data);
             App.ui.renderExport(document.querySelector('.main-scroll'));
         },
         exportSelectAll: function() {
             // Extraer gaps existentes
-            const currentGaps = App.uiState.exportEmps.filter(item => 
+            const currentGaps = App.data.config.exportEmps.filter(item => 
                 typeof item === 'object' && item.type === 'gap'
             );
             
@@ -27,13 +28,14 @@ Object.assign(App.logic, {
                 .map(e => e.id);
             
             // Combinar: empleados + gaps al final
-            App.uiState.exportEmps = [...allEmps, ...currentGaps];
-            
+            App.data.config.exportEmps = [...allEmps, ...currentGaps];
+
+            Safe.save('v40_db', App.data);
             App.ui.renderExport(document.querySelector('.main-scroll'));
         },
         exportSelectNone: function() {
             // Si no hay gaps, crear uno automáticamente
-            const hasGaps = App.uiState.exportEmps.some(item => 
+            const hasGaps = App.data.config.exportEmps.some(item => 
                 typeof item === 'object' && item.type === 'gap'
             );
             
@@ -44,14 +46,15 @@ Object.assign(App.logic, {
                     type: 'gap',
                     name: 'hueco'
                 };
-                App.uiState.exportEmps.push(gap);
+                App.data.config.exportEmps.push(gap);
             }
             
             // Mantener solo los gaps, eliminar empleados
-            App.uiState.exportEmps = App.uiState.exportEmps.filter(item => 
+            App.data.config.exportEmps = App.data.config.exportEmps.filter(item =>
                 typeof item === 'object' && item.type === 'gap'
             );
-            
+
+            Safe.save('v40_db', App.data);
             App.ui.renderExport(document.querySelector('.main-scroll'));
         },
         exportDragStart: function(e, idx) {
@@ -87,20 +90,22 @@ Object.assign(App.logic, {
             const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
             if(fromIdx === targetIdx) return;
             
-            const movedId = App.uiState.exportEmps[fromIdx];
-            App.uiState.exportEmps.splice(fromIdx, 1);
-            App.uiState.exportEmps.splice(targetIdx, 0, movedId);
-            
+            const movedId = App.data.config.exportEmps[fromIdx];
+            App.data.config.exportEmps.splice(fromIdx, 1);
+            App.data.config.exportEmps.splice(targetIdx, 0, movedId);
+
+            Safe.save('v40_db', App.data);
             App.ui.renderExport(document.querySelector('.main-scroll'));
         },
         exportMove: function(empId, direction) {
-            const idx = App.uiState.exportEmps.indexOf(empId);
+            const idx = App.data.config.exportEmps.indexOf(empId);
             if(idx < 0) return;
             const newIdx = idx + direction;
-            if(newIdx < 0 || newIdx >= App.uiState.exportEmps.length) return;
-            
-            App.uiState.exportEmps.splice(idx, 1);
-            App.uiState.exportEmps.splice(newIdx, 0, empId);
+            if(newIdx < 0 || newIdx >= App.data.config.exportEmps.length) return;
+
+            App.data.config.exportEmps.splice(idx, 1);
+            App.data.config.exportEmps.splice(newIdx, 0, empId);
+            Safe.save('v40_db', App.data);
             App.ui.renderExport(document.querySelector('.main-scroll'));
         },
         
@@ -116,23 +121,25 @@ Object.assign(App.logic, {
             };
             
             // Añadir al final de exportEmps
-            App.uiState.exportEmps.push(gap);
-            
+            App.data.config.exportEmps.push(gap);
+
             // Cerrar modal y limpiar input
             document.getElementById('gap-modal').classList.remove('open');
             nameInput.value = '';
-            
+
+            Safe.save('v40_db', App.data);
             // Re-renderizar
             App.ui.renderExport(document.querySelector('.main-scroll'));
         },
-        
+
         removeGap: function(idx) {
-            App.uiState.exportEmps.splice(idx, 1);
+            App.data.config.exportEmps.splice(idx, 1);
+            Safe.save('v40_db', App.data);
             App.ui.renderExport(document.querySelector('.main-scroll'));
         },
         
         copyDayGrid: async function(date) {
-            const empIds = App.uiState.exportEmps;
+            const empIds = App.data.config.exportEmps;
             const rows = [];
             
             // Generar grid (solo celdas, sin nombres)
@@ -206,7 +213,7 @@ Object.assign(App.logic, {
             }
         },
         copyWeekGrid: async function(mondayDate) {
-            const empIds = App.uiState.exportEmps;
+            const empIds = App.data.config.exportEmps;
             const ROWS_PER_DAY = 15;
             const COLS = 26;
             const allRows = [];
@@ -359,7 +366,7 @@ Object.assign(App.logic, {
             const sundayD = new Date(monday); sundayD.setDate(sundayD.getDate() + 6);
             const start = monday;
             const end = _localISO(sundayD);
-            const empIds = App.uiState.exportEmps;
+            const empIds = App.data.config.exportEmps;
             const realEmps = empIds.filter(i => typeof i === 'string').length;
             
             if(!start || !end) {

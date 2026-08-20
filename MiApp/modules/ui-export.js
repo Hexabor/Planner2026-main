@@ -8,11 +8,14 @@ var _localISO = _localISO || function(d) { const y=d.getFullYear(); const m=Stri
 Object.assign(App.ui, {
         renderExport: function(c) {
             // Inicializar exportEmps si está vacío con todos los empleados activos
-            if(App.uiState.exportEmps.length === 0) {
-                App.uiState.exportEmps = App.data.empleados
+            // (guarda también contra backups antiguos cargados en caliente, sin el campo)
+            if(!App.data.config.exportEmps) App.data.config.exportEmps = [];
+            if(App.data.config.exportEmps.length === 0 && App.data.empleados.length > 0) {
+                App.data.config.exportEmps = App.data.empleados
                     .filter(e => e.active !== false)
                     .sort((a,b) => a.customOrder - b.customOrder)
                     .map(e => e.id);
+                Safe.save('v40_db', App.data);
             }
             
             // Inicializar semana del Horario Eficiente
@@ -175,7 +178,7 @@ Object.assign(App.ui, {
                             <!-- Empleados -->
                             <div style="border:1px solid var(--border); border-radius:6px; padding:8px;">
                                 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
-                                    <span style="font-size:0.68rem; font-weight:700; color:#1e293b;">👥 Empleados (${App.uiState.exportEmps.filter(i => typeof i === 'string').length})</span>
+                                    <span style="font-size:0.68rem; font-weight:700; color:#1e293b;">👥 Empleados (${App.data.config.exportEmps.filter(i => typeof i === 'string').length})</span>
                                     <span onclick="alert('ℹ️ Orden de empleados\\n\\nSi tu intención es pegar los turnos en el Horario Eficiente, es importante que ordenes a los empleados exactamente igual que están en ese documento, respetando también los huecos que haya entre ellos.\\n\\nUsa los huecos (+Hueco) para representar filas vacías o separadores del Excel.')"
                                           style="cursor:pointer; font-size:0.75rem; opacity:0.5; transition:opacity 0.15s;"
                                           onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'"
@@ -191,8 +194,8 @@ Object.assign(App.ui, {
             `;
 
             // EMPLEADOS SELECCIONADOS
-            if(App.uiState.exportEmps.length > 0) {
-                App.uiState.exportEmps.forEach((item, idx) => {
+            if(App.data.config.exportEmps.length > 0) {
+                App.data.config.exportEmps.forEach((item, idx) => {
                     const isGap = typeof item === 'object' && item.type === 'gap';
                     if(isGap) {
                         const gapName = item.name || '───────';
@@ -228,7 +231,7 @@ Object.assign(App.ui, {
 
             // EMPLEADOS NO SELECCIONADOS
             const unselectedEmps = App.data.empleados
-                .filter(e => e.active !== false && !App.uiState.exportEmps.includes(e.id))
+                .filter(e => e.active !== false && !App.data.config.exportEmps.includes(e.id))
                 .sort((a,b) => a.customOrder - b.customOrder);
             if(unselectedEmps.length > 0) {
                 unselectedEmps.forEach(e => {
@@ -241,7 +244,7 @@ Object.assign(App.ui, {
                             <span style="color:#64748b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.nombre}</span>
                         </div>`;
                 });
-            } else if(App.uiState.exportEmps.length === 0) {
+            } else if(App.data.config.exportEmps.length === 0) {
                 html += `<div style="text-align:center; padding:12px; color:var(--text-muted); font-size:0.62rem;">⚠️ Ningún empleado<br>seleccionado</div>`;
             }
 
@@ -314,7 +317,7 @@ Object.assign(App.ui, {
             if(!container) return;
             
             const monday = App.uiState.exportWeek;
-            const empIds = App.uiState.exportEmps;
+            const empIds = App.data.config.exportEmps;
             
             if(!monday || empIds.length === 0) {
                 container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted);">

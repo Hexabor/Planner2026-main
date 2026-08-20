@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '20/08/2026 (tarde)', version: 'v1.0',
+                items: [
+                    '🔧 Exportar → panel "Horario Eficiente": el orden, la selección de empleados y los huecos personalizados (+Hueco) ya no se perdían al recargar la página — ahora viajan en el guardado local, en el backup JSON completo y en el guardado modular a Drive, igual que el resto de configuración',
+                ]
+            },
+            {
                 fecha: '20/08/2026', version: 'v1.0',
                 items: [
                     '✨ Gestión de Equipo → nueva columna "Vacaciones" en la rejilla principal: días atribuidos (turnos "V") frente al total que corresponde ese año natural, prorrateado desde el primer contrato hasta la fecha de baja (si la hay) sobre la base de 31 días naturales/año',

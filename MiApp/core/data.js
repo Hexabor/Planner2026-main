@@ -45,10 +45,9 @@ const App = {
         shiftSortDir:'asc',
         shiftsViewMode: 'catalog', // 'catalog' | 'adhoc' 
         monitorTab: 'charts', 
-        balanceStartDate: null, 
-        balanceEndDate: null, 
-        exportEmps: [], 
-        exportStartDate: '', 
+        balanceStartDate: null,
+        balanceEndDate: null,
+        exportStartDate: '',
         exportEndDate: '',
         icsLabelMode: 'code',   // 'code' | 'desc' | 'custom'
         icsLabelCustom: 'Turno',
@@ -160,6 +159,7 @@ const App = {
         if(!App.data.config.equilibrioLimits) App.data.config.equilibrioLimits = { M: 0, T: 0, I: 0, P: 0 }; // 0 = sin límite
         if(!App.data.config.paletteColumns) App.data.config.paletteColumns = 4;
         if(!App.data.config.workspacePresets) App.data.config.workspacePresets = [];
+        if(!App.data.config.exportEmps) App.data.config.exportEmps = []; // Orden/selección/huecos del panel "Horario Eficiente" (Exportar)
         // Asegurar que todos los turnos tienen paletteVisible
         (App.data.shiftDefs || []).forEach(s => { if(s.paletteVisible === undefined) s.paletteVisible = true; });
         if(!App.data.eventos) App.data.eventos = [];
