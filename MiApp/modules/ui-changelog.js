@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '14/10/2026', version: 'v1.1',
+                items: [
+                    '🔧 Numeración de versiones: cada entrega sube ahora la versión (v1.1, v1.2...) para distinguirlas. La versión de la cabecera, el título de la pestaña y Novedades salen de un único sitio, así que siempre coinciden. Las entregas anteriores siguen agrupadas como v1.0',
+                ]
+            },
+            {
                 fecha: '20/08/2026 (tarde)', version: 'v1.0',
                 items: [
                     '🔧 Exportar → panel "Horario Eficiente": el orden, la selección de empleados y los huecos personalizados (+Hueco) ya no se perdían al recargar la página — ahora viajan en el guardado local, en el backup JSON completo y en el guardado modular a Drive, igual que el resto de configuración',
@@ -634,7 +640,7 @@ Object.assign(App.ui, {
         c.innerHTML = `<div style="max-width:680px; margin:0 auto; padding:24px;">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;">
                 <h2 style="margin:0;font-size:1.2rem;font-weight:800;color:#0f172a;">Novedades</h2>
-                <span style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:10px;padding:2px 10px;font-size:0.75rem;font-weight:700;">v1.0</span>
+                <span style="background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:10px;padding:2px 10px;font-size:0.75rem;font-weight:700;">${App.VERSION}</span>
             </div>
             <p style="margin:0 0 24px;font-size:0.82rem;color:#94a3b8;">Historial de cambios y mejoras, del más reciente al más antiguo.</p>
             ${rows}

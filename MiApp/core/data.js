@@ -3,6 +3,10 @@
 // ============================================================
 
 const App = {
+    // Versión de entrega visible (cabecera, título y Novedades). Subir en cada entrega: v1.1, v1.2...
+    // No confundir con data.meta.ver, que es la versión del formato de datos.
+    VERSION: 'v1.1',
+
     data: {
         meta: { ver: "41.93" },
         config: { weekStart: "2025-12-29", stdHours: 1711 }, 
@@ -85,7 +89,10 @@ const App = {
     },
 
     init: function() {
-        console.log("Iniciando v40.41 Monitor Refinado...");
+        console.log(`Iniciando Planificador ${App.VERSION}...`);
+        document.title = `Planificador 2026 ${App.VERSION}`;
+        const verEl = document.getElementById('app-version');
+        if(verEl) verEl.textContent = App.VERSION;
         const s = Safe.load('v40_db');
         if(s) {
             try {
