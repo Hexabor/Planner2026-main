@@ -23,6 +23,12 @@ App.logic = {
             if(!App.data.schedule || typeof App.data.schedule !== 'object') App.data.schedule = {};
             if(!App.data.storeConfig) App.data.storeConfig = { base: {}, special: [], holidays: [] };
 
+            // Festivos: la fecha Factorial manual (campo "Fact.") se sustituye por el pin 📌 Fijado.
+            // Una R con fecha Factorial anotada pasa a estar fijada (ya pedida).
+            App.data.empleados.forEach(e => {
+                Object.values(e?.festivoTracking || {}).forEach(t => { if(t && t.factorialDate && t.rDate) t.fijada = true; });
+            });
+
             // shiftDefs: ensure breakStart/breakEnd exist; support legacy `break` (minutes)
             const _getMin = (t)=>{ if(!t) return 0; const parts=String(t).split(':'); if(parts.length<2) return 0; const h=Number(parts[0]); const m=Number(parts[1]); return (Number.isFinite(h)?h:0)*60 + (Number.isFinite(m)?m:0); };
             const _spanMin = (start,end)=>{ if(!start||!end) return 0; let total=_getMin(end)-_getMin(start); if(total<0) total+=24*60; return total; };

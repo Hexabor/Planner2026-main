@@ -6,6 +6,13 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '15/10/2026 (noche, 2)', version: 'v1.5',
+                items: [
+                    '✨ Informe Factorial (Gestión de Equipo → 📋 Factorial) con dos pestañas. "Por pedir" (principal): solo las recuperaciones de festivos trabajados con fecha de R hasta ayer que no estén fijadas — las futuras no se piden nunca porque pueden moverse —, con un mensaje de texto por persona listo para copiar y mandárselo individualmente. "Totales": la tabla completa de consulta (por pedir, futuras, ya pedidas, sin R), sin acciones',
+                    '🔧 Ficha personal → Festivos: desaparece el campo "Fact." con la fecha de Factorial; basta con el botón 📌 Factorial / Fijado. Las fechas Factorial que hubiera anotadas se convierten automáticamente en fijadas. Marcar como pedida desde el informe también fija la R',
+                ]
+            },
+            {
                 fecha: '15/10/2026 (noche)', version: 'v1.4',
                 items: [
                     '🔧 Ficha personal → Festivos: al fijar una recuperación, el botón dice "📌 Factorial / Fijado" solo en los festivos trabajados (los que se piden en Factorial); en los que coinciden con libranza o vacaciones dice simplemente "📌 Fijado"',

@@ -894,12 +894,6 @@ renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
                     ${pinBtn}
                 </div>
                 ${fijada && !rEnCalendario ? `<div style="font-size:0.62rem; color:#b91c1c; line-height:1.4;">⚠️ La R fijada ya no está en el calendario. Vuelve a ponerla o, si ${isTrabajado ? 'en Factorial ha cambiado' : 'ha cambiado'}, desfíjala.</div>` : ''}
-                ${isTrabajado ? `
-                <div style="display:flex; align-items:center; gap:6px;">
-                    <span style="font-size:0.65rem; color:var(--text-muted); width:50px;">Fact.:</span>
-                    <div style="flex:1;">${Utils.getDateInputHTML(`fact-${h.date}`, tr.factorialDate || '', `App.logic.festivoTrackUpd('${emp.id}','${h.date}','factorialDate',this.dataset.isoValue)`)}</div>
-                    ${tr.factorialDate ? `<button onclick="App.logic.festivoTrackUpd('${emp.id}','${h.date}','factorialDate',null)" title="Borrar fecha Factorial" style="border:none; background:none; color:#94a3b8; cursor:pointer; font-size:14px; line-height:1; padding:2px; flex-shrink:0;">✕</button>` : ''}
-                </div>` : ''}
             </div>
         ` : ''}
     </div>`;
