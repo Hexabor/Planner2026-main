@@ -226,6 +226,7 @@ Object.assign(App.ui, {
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">
                     ${_nInact > 0 ? `<button onclick="App.uiState.showInactive=!App.uiState.showInactive; App.ui.renderEmp(document.querySelector('.main-scroll'));" title="${App.uiState.showInactive ? 'Ocultar inactivos' : 'Mostrar inactivos'}" style="display:flex; align-items:center; gap:4px; padding:3px 9px; border:1px solid ${App.uiState.showInactive ? '#2563eb' : '#e2e8f0'}; border-radius:20px; font-size:0.7rem; font-weight:600; cursor:pointer; background:${App.uiState.showInactive ? '#eff6ff' : 'white'}; color:${App.uiState.showInactive ? '#2563eb' : '#94a3b8'};">${_svgEye} ${_nInact}</button>` : ''}
+                    <button onclick="App.ui.renderInformeFactorial()" title="Recuperaciones de festivos trabajados que cada persona tiene que pedir en Factorial" style="padding:5px 10px; border:1px solid #e2e8f0; border-radius:6px; background:white; color:#334155; font-size:0.72rem; font-weight:700; cursor:pointer; white-space:nowrap;">📋 Factorial</button>
                     <button class="btn btn-primary" style="width:auto;margin:0" onclick="App.logic.empSelect(null)">+ Nuevo</button>
                 </div>
             </div>`;
@@ -286,7 +287,7 @@ Object.assign(App.ui, {
                         const holidayDates = new Set((App.data.storeConfig.holidays || []).map(h => h.date));
                         const sinFactorial = Object.entries(tracking).filter(([hDate, t]) => {
                             if(!holidayDates.has(hDate)) return false;
-                            if(!t.rDate || !allRsInSchedule.has(t.rDate) || t.factorialDate) return false;
+                            if(!t.rDate || !allRsInSchedule.has(t.rDate) || t.factorialDate || t.fijada) return false;
                             // Solo festivos realmente trabajados (turno con horas), no "coincide"
                             const sid = App.data.schedule[hDate]?.[e.id];
                             const sh = sid ? Utils.getShift(sid) : null;
