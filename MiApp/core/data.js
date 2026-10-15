@@ -5,7 +5,7 @@
 const App = {
     // Versión de entrega visible (cabecera, título y Novedades). Subir en cada entrega: v1.1, v1.2...
     // No confundir con data.meta.ver, que es la versión del formato de datos.
-    VERSION: 'v1.1',
+    VERSION: 'v1.2',
 
     data: {
         meta: { ver: "41.93" },

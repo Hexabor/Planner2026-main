@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '15/10/2026', version: 'v1.2',
+                items: [
+                    '✨ Ficha personal → Festivos: cada recuperación asignada tiene ahora un botón "📌 Fijar" para marcarla como aceptada en Factorial. Una R fijada no se puede reasignar desde el desplegable y "Resetear recuperaciones" la respeta; para cambiarla hay que desfijarla antes. Si el día de R fijado desaparece del calendario, la tarjeta lo avisa',
+                ]
+            },
+            {
                 fecha: '14/10/2026', version: 'v1.1',
                 items: [
                     '🔧 Numeración de versiones: cada entrega sube ahora la versión (v1.1, v1.2...) para distinguirlas. La versión de la cabecera, el título de la pestaña y Novedades salen de un único sitio, así que siempre coinciden. Las entregas anteriores siguen agrupadas como v1.0',

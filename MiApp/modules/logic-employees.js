@@ -246,19 +246,22 @@ Object.assign(App.logic, {
 },
 
         festivoResetRecuperaciones: function(empId) {
+            const i = App.data.empleados.findIndex(e => e.id === empId);
+            if(i < 0) return;
+            const tracking = App.data.empleados[i].festivoTracking || {};
+            const nFijadas = Object.values(tracking).filter(t => t.fijada).length;
             const confirmed = confirm(
                 '⚠️ ACCIÓN DESTRUCTIVA\n\n' +
-                'Esto desasignará TODAS las recuperaciones de festivos registradas para este empleado.\n\n' +
+                'Esto desasignará las recuperaciones de festivos registradas para este empleado.\n\n' +
+                (nFijadas > 0 ? `📌 Las ${nFijadas} fijada${nFijadas !== 1 ? 's' : ''} (aceptada${nFijadas !== 1 ? 's' : ''} en Factorial) se conservan.\n\n` : '') +
                 'Tendrás que volver a asignarlas manualmente desde el panel de festivos.\n\n' +
                 'Está pensado para reordenar durante la elaboración de horarios.\n\n' +
                 'Piénsalo bien antes de pulsarlo.\n\n' +
                 '¿Deseas continuar?'
             );
             if(!confirmed) return;
-            const i = App.data.empleados.findIndex(e => e.id === empId);
-            if(i < 0) return;
-            const tracking = App.data.empleados[i].festivoTracking || {};
             Object.keys(tracking).forEach(hDate => {
+                if(tracking[hDate].fijada) return; // aceptada en Factorial: intocable
                 if(tracking[hDate].rDate) delete tracking[hDate].rDate;
                 if(tracking[hDate].factorialDate) delete tracking[hDate].factorialDate;
                 // Si el registro quedó vacío, eliminarlo
@@ -314,6 +317,7 @@ Object.assign(App.logic, {
                     const estado = getEstado(h.date);
                     if(!(estado === 'coincide' || estado === 'trabaja' || estado === 'vacaciones')) return false;
                     const tr = tracking[h.date] || {};
+                    if(tr.fijada) return false; // aceptada en Factorial: no se reasigna aunque su R falte del calendario
                     return !(tr.rDate && allRsSet.has(tr.rDate));
                 })
                 .map(h => h.date)
@@ -346,11 +350,37 @@ Object.assign(App.logic, {
             if(i < 0) return;
             if(!App.data.empleados[i].festivoTracking) App.data.empleados[i].festivoTracking = {};
             if(!App.data.empleados[i].festivoTracking[hDate]) App.data.empleados[i].festivoTracking[hDate] = {};
+            // Una R fijada (aceptada en Factorial) no se puede reasignar sin desfijarla antes
+            if(field === 'rDate' && App.data.empleados[i].festivoTracking[hDate].fijada) {
+                alert('📌 Esta recuperación está fijada (aceptada en Factorial).\n\nDesfíjala primero si de verdad necesitas cambiarla.');
+                this._festivoRerender(empId);
+                return;
+            }
             App.data.empleados[i].festivoTracking[hDate][field] = value || null;
             // Limpiar entrada vacía
             const t = App.data.empleados[i].festivoTracking[hDate];
             if(!t.rDate && !t.factorialDate) delete App.data.empleados[i].festivoTracking[hDate];
             Safe.save('v40_db', App.data);
+            this._festivoRerender(empId);
+        },
+
+        // Fija/desfija la recuperación de un festivo como "aceptada en Factorial".
+        // Una R fijada no se puede reasignar ni la borra "Resetear recuperaciones".
+        festivoToggleFijada: function(empId, hDate) {
+            const emp = App.data.empleados.find(x => x.id === empId);
+            const t = emp?.festivoTracking?.[hDate];
+            if(!t || !t.rDate) return;
+            if(t.fijada) {
+                if(!confirm('¿Desfijar esta recuperación?\n\nSolo deberías hacerlo si en Factorial se ha anulado o cambiado. Una vez desfijada, "Resetear recuperaciones" podrá desasignarla.')) return;
+                delete t.fijada;
+            } else {
+                t.fijada = true;
+            }
+            Safe.save('v40_db', App.data);
+            this._festivoRerender(empId);
+        },
+
+        _festivoRerender: function(empId) {
             App.ui.renderEmp(document.querySelector('.main-scroll'));
             // Preservar estado abierto de <details> antes de re-renderizar
             const inspector = document.getElementById('inspector-content');

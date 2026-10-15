@@ -824,7 +824,7 @@ markDirty: function() {
             ↺ Resetear recuperaciones de festivos
         </button>
         <div style="margin-top:5px; font-size:0.65rem; color:#94a3b8; line-height:1.5; padding:0 2px;">
-            Desasigna todas las recuperaciones registradas. Útil para reordenar durante la elaboración de horarios.
+            Desasigna las recuperaciones registradas, salvo las fijadas (📌 aceptadas en Factorial). Útil para reordenar durante la elaboración de horarios.
         </div>
     </div>`;
 
@@ -858,8 +858,19 @@ renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
         }
     });
 
+    // R fijada = aceptada en Factorial: no se puede reasignar ni resetear
+    const fijada = !!(tr.fijada && tr.rDate);
+    const rEnCalendario = !!tr.rDate && allRs.includes(tr.rDate);
+    const pinBtn = !tr.rDate ? '' : fijada
+        ? `<button onclick="App.logic.festivoToggleFijada('${emp.id}','${h.date}')" title="Aceptada en Factorial. Pulsa para desfijar" style="border:1px solid #86efac; background:#dcfce7; color:#15803d; border-radius:4px; cursor:pointer; font-size:0.65rem; font-weight:700; padding:3px 6px; flex-shrink:0; white-space:nowrap;">📌 Factorial</button>`
+        : `<button onclick="App.logic.festivoToggleFijada('${emp.id}','${h.date}')" title="Fijar: ya está aceptada en Factorial (no se podrá reasignar ni resetear)" style="border:1px solid var(--border); background:white; color:#64748b; border-radius:4px; cursor:pointer; font-size:0.65rem; font-weight:700; padding:3px 6px; flex-shrink:0; white-space:nowrap;">📌 Fijar</button>`;
+    // Si la R fijada ya no está en el calendario, el desplegable no la lista: la mostramos aparte
+    if(fijada && !rEnCalendario) {
+        rOpts += `<option value="${tr.rDate}" selected>${Utils.getWeekCode(tr.rDate)} · ${tr.rDate.split('-').reverse().join('/')} (no está en el calendario)</option>`;
+    }
+
     return `
-    <div style="border:1px solid ${isLocked ? 'var(--border)' : '#bfdbfe'}; border-radius:8px; padding:10px; margin-bottom:8px; background:${isLocked ? 'white' : '#f0f7ff'};">
+    <div style="border:1px solid ${fijada ? '#86efac' : isLocked ? 'var(--border)' : '#bfdbfe'}; border-radius:8px; padding:10px; margin-bottom:8px; background:${isLocked ? 'white' : '#f0f7ff'};">
         <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">
             <div>
                 <div style="font-weight:700; font-size:0.85rem;">${isLocked ? '🔒' : '🔓'} ${label} <span style="font-weight:400; color:#94a3b8;">'${yearShort}</span></div>
@@ -872,11 +883,13 @@ renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
             <div style="display:flex; flex-direction:column; gap:6px; padding-top:6px; border-top:1px dashed var(--border);">
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span style="font-size:0.65rem; color:var(--text-muted); width:50px;">R dada:</span>
-                    <select style="flex:1; padding:3px; border:1px solid var(--border); border-radius:4px; font-size:0.7rem;"
+                    <select style="flex:1; min-width:0; padding:3px; border:1px solid var(--border); border-radius:4px; font-size:0.7rem;${fijada ? ' background:#f0fdf4; color:#15803d; font-weight:700;' : ''}" ${fijada ? 'disabled title="Fijada: aceptada en Factorial"' : ''}
                         onchange="App.logic.festivoTrackUpd('${emp.id}','${h.date}','rDate',this.value);">
                         ${rOpts}
                     </select>
+                    ${pinBtn}
                 </div>
+                ${fijada && !rEnCalendario ? `<div style="font-size:0.62rem; color:#b91c1c; line-height:1.4;">⚠️ La R fijada ya no está en el calendario. Vuelve a ponerla o, si en Factorial ha cambiado, desfíjala.</div>` : ''}
                 ${isTrabajado ? `
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span style="font-size:0.65rem; color:var(--text-muted); width:50px;">Fact.:</span>
