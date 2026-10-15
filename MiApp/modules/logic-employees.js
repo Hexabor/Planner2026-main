@@ -253,7 +253,7 @@ Object.assign(App.logic, {
             const confirmed = confirm(
                 '⚠️ ACCIÓN DESTRUCTIVA\n\n' +
                 'Esto desasignará las recuperaciones de festivos registradas para este empleado.\n\n' +
-                (nFijadas > 0 ? `📌 Las ${nFijadas} fijada${nFijadas !== 1 ? 's' : ''} (aceptada${nFijadas !== 1 ? 's' : ''} en Factorial) se conservan.\n\n` : '') +
+                (nFijadas > 0 ? `📌 Las ${nFijadas} fijada${nFijadas !== 1 ? 's' : ''} se conservan.\n\n` : '') +
                 'Tendrás que volver a asignarlas manualmente desde el panel de festivos.\n\n' +
                 'Está pensado para reordenar durante la elaboración de horarios.\n\n' +
                 'Piénsalo bien antes de pulsarlo.\n\n' +
@@ -352,7 +352,7 @@ Object.assign(App.logic, {
             if(!App.data.empleados[i].festivoTracking[hDate]) App.data.empleados[i].festivoTracking[hDate] = {};
             // Una R fijada (aceptada en Factorial) no se puede reasignar sin desfijarla antes
             if(field === 'rDate' && App.data.empleados[i].festivoTracking[hDate].fijada) {
-                alert('📌 Esta recuperación está fijada (aceptada en Factorial).\n\nDesfíjala primero si de verdad necesitas cambiarla.');
+                alert('📌 Esta recuperación está fijada.\n\nDesfíjala primero si de verdad necesitas cambiarla.');
                 this._festivoRerender(empId);
                 return;
             }
@@ -371,7 +371,7 @@ Object.assign(App.logic, {
             const t = emp?.festivoTracking?.[hDate];
             if(!t || !t.rDate) return;
             if(t.fijada) {
-                if(!confirm('¿Desfijar esta recuperación?\n\nSolo deberías hacerlo si en Factorial se ha anulado o cambiado. Una vez desfijada, "Resetear recuperaciones" podrá desasignarla.')) return;
+                if(!confirm('¿Desfijar esta recuperación?\n\nSolo deberías hacerlo si se ha anulado o cambiado (en Factorial, si era un festivo trabajado). Una vez desfijada, "Resetear recuperaciones" podrá desasignarla.')) return;
                 delete t.fijada;
             } else {
                 t.fijada = true;

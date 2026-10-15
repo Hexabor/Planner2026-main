@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '15/10/2026 (noche)', version: 'v1.4',
+                items: [
+                    '🔧 Ficha personal → Festivos: al fijar una recuperación, el botón dice "📌 Factorial / Fijado" solo en los festivos trabajados (los que se piden en Factorial); en los que coinciden con libranza o vacaciones dice simplemente "📌 Fijado"',
+                ]
+            },
+            {
                 fecha: '15/10/2026 (tarde)', version: 'v1.3',
                 items: [
                     '✨ Gestión de Equipo → botón "📋 Factorial": informe de las recuperaciones de festivos trabajados que cada persona tiene que pedir en Factorial — día de R a pedir y texto exacto de la solicitud ("Festivo trabajado DD/MM/AAAA"). Las ya pedidas (fecha Factorial anotada) o fijadas (📌) salen tachadas como "YA PEDIDA" para no pedirlas dos veces, y los festivos trabajados sin R asignada aparecen como "SIN R". Desde el propio informe se puede marcar una como pedida, copiar el texto o imprimirlo',
