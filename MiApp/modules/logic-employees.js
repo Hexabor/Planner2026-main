@@ -277,27 +277,33 @@ Object.assign(App.logic, {
 
         // Adjudica automáticamente recuperaciones a los festivos pendientes.
         // Empareja el festivo pendiente MÁS ANTIGUO con la recuperación libre MÁS ANTIGUA.
+        // Estado de un festivo para un empleado: 'disfrutado' | 'coincide' | 'trabaja' | 'vacaciones' | 'sin_definir'.
+        // Todos salvo 'disfrutado' (y 'sin_definir') generan una recuperación que se pide en Factorial.
+        festivoEstado: function(emp, hDate) {
+            const sid = App.data.schedule[hDate]?.[emp.id];
+            const shift = sid ? Utils.getShift(sid) : null;
+            if(!shift) return 'sin_definir';
+            if(shift.fixed && shift.code === 'V') return 'vacaciones';
+            if(shift.fixed && shift.code === 'F') {
+                const wdays = Utils.getWeekDays(Utils.getMonday(hDate));
+                let countL = 0;
+                wdays.forEach(d => { const s2 = App.data.schedule[d]?.[emp.id]; const sh2 = s2 ? Utils.getShift(s2) : null; if(sh2 && sh2.fixed && sh2.code === 'L') countL++; });
+                return countL >= 2 ? 'disfrutado' : 'coincide';
+            }
+            if(shift.start && shift.end) return 'trabaja';
+            return 'sin_definir';
+        },
+
+        festivoAdeuda: function(estado) {
+            return estado === 'coincide' || estado === 'trabaja' || estado === 'vacaciones';
+        },
+
         festivoAdjudicarRecuperaciones: function(empId) {
             const i = App.data.empleados.findIndex(e => e.id === empId);
             if(i < 0) return;
             const emp = App.data.empleados[i];
             const tracking = emp.festivoTracking || {};
-
-            // Estado de un festivo (mismo criterio que el panel)
-            const getEstado = (hDate) => {
-                const sid = App.data.schedule[hDate]?.[emp.id];
-                const shift = sid ? Utils.getShift(sid) : null;
-                if(!shift) return 'sin_definir';
-                if(shift.fixed && shift.code === 'V') return 'vacaciones';
-                if(shift.fixed && shift.code === 'F') {
-                    const wdays = Utils.getWeekDays(Utils.getMonday(hDate));
-                    let countL = 0;
-                    wdays.forEach(d => { const s2 = App.data.schedule[d]?.[emp.id]; const sh2 = s2 ? Utils.getShift(s2) : null; if(sh2 && sh2.fixed && sh2.code === 'L') countL++; });
-                    return countL >= 2 ? 'disfrutado' : 'coincide';
-                }
-                if(shift.start && shift.end) return 'trabaja';
-                return 'sin_definir';
-            };
+            const getEstado = (hDate) => App.logic.festivoEstado(emp, hDate);
 
             // Recuperaciones (R) en el calendario, libres (sin vincular) y más antiguas primero
             const allRs = [];

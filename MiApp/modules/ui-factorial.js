@@ -1,11 +1,11 @@
 // ============================================================
-// UI: Informe Factorial — recuperaciones de festivos trabajados por pedir
+// UI: Informe Factorial — recuperaciones de festivos por pedir
 // ============================================================
 // Dos pestañas:
-//  · POR PEDIR (principal): solo recuperaciones (R) de festivos TRABAJADOS cuya fecha ya ha pasado
+//  · POR PEDIR (principal): solo recuperaciones (R) de festivos NO DISFRUTADOS (trabajados, coincide, vacaciones) cuya fecha ya ha pasado
 //    (ayer o antes) y que aún no constan como pedidas. Las futuras nunca se piden: pueden moverse.
 //    Por persona, un mensaje de texto listo para copiar y mandárselo individualmente.
-//  · TOTALES (consulta): todos los festivos trabajados con su estado (por pedir, ya pedida, sin R),
+//  · TOTALES (consulta): todos los festivos no disfrutados con su estado (por pedir, ya pedida, sin R),
 //    pasados y futuros.
 // "Ya pedida" = recuperación fijada (📌 Factorial / Fijado en la ficha).
 
@@ -31,17 +31,16 @@ Object.assign(App.ui, {
             const items = [];
             holidays.forEach(h => {
                 if(!Utils.empleadoVigenteEnFecha(emp, h.date)) return;
-                // Solo festivos realmente trabajados (mismo criterio que el estado "trabaja" del panel)
-                const sid = App.data.schedule[h.date]?.[emp.id];
-                const sh = sid ? Utils.getShift(sid) : null;
-                if(!(sh && !sh.fixed && sh.start && sh.end)) return;
+                // Todo festivo no disfrutado (trabajado, coincide con libranza, vacaciones) se pide en Factorial
+                const estadoFest = App.logic.festivoEstado(emp, h.date);
+                if(!App.logic.festivoAdeuda(estadoFest)) return;
                 const tr = tracking[h.date] || {};
                 const rValida = !!tr.rDate && (realRs.has(tr.rDate) || tr.fijada);
                 let estado;
                 if(tr.factorialDate || tr.fijada) estado = 'pedida';
                 else if(rValida) estado = 'pedir';
                 else estado = 'sin_r';
-                items.push({ hDate: h.date, nota: h.note || '', rDate: rValida ? tr.rDate : null, estado, factorialDate: tr.factorialDate || null, fijada: !!tr.fijada });
+                items.push({ hDate: h.date, nota: h.note || '', rDate: rValida ? tr.rDate : null, estado, estadoFest, factorialDate: tr.factorialDate || null, fijada: !!tr.fijada });
             });
             if(items.length) out.push({ emp, items });
         });
@@ -60,14 +59,22 @@ Object.assign(App.ui, {
         return ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][new Date(iso + 'T12:00:00').getDay()];
     },
 
+    // Texto de la solicitud en Factorial según por qué se debe el festivo
+    _informeFactorialMotivo: function(item) {
+        const f = Utils.formatDateES(item.hDate);
+        if(item.estadoFest === 'coincide') return `Festivo en libranza ${f}`;
+        if(item.estadoFest === 'vacaciones') return `Festivo en vacaciones ${f}`;
+        return `Festivo trabajado ${f}`;
+    },
+
     // Mensaje individual para mandar a la persona
     _informeFactorialMensaje: function(emp, items) {
         const nombre = (emp.nombre || '').trim().split(/\s+/)[0] || '';
         const n = items.length;
         const lineas = [
-            `Hola ${nombre}, tienes ${n === 1 ? 'una ausencia pendiente' : `${n} ausencias pendientes`} de pedir en Factorial por festivo trabajado:`,
+            `Hola ${nombre}, tienes ${n === 1 ? 'una ausencia pendiente' : `${n} ausencias pendientes`} de pedir en Factorial por recuperación de festivo:`,
             '',
-            ...items.map(i => `• Día ${Utils.formatDateES(i.rDate)} (${App.ui._fDiaSem(i.rDate)}) → en la solicitud pon: "Festivo trabajado ${Utils.formatDateES(i.hDate)}"`),
+            ...items.map(i => `• Día ${Utils.formatDateES(i.rDate)} (${App.ui._fDiaSem(i.rDate)}) → en la solicitud pon: "${App.ui._informeFactorialMotivo(i)}"`),
             '',
             '¡Gracias!'
         ];
@@ -113,7 +120,7 @@ Object.assign(App.ui, {
         const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
         const ayer = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return App.ui._isoLocal(d); })();
         let html = `<div style="font-size:0.72rem; color:#64748b; line-height:1.5; margin-bottom:12px;">
-            Recuperaciones de festivos <b>trabajados</b> con fecha de R hasta ayer (${Utils.formatDateES(ayer)}) que aún no constan como pedidas.
+            Recuperaciones de festivos <b>no disfrutados</b> (trabajados, en libranza o en vacaciones) con fecha de R hasta ayer (${Utils.formatDateES(ayer)}) que aún no constan como pedidas.
             Las futuras no salen aquí: pueden moverse, así que no se piden hasta que pasen. Cuando la persona la pida, márcala como pedida.
         </div>`;
 
@@ -154,7 +161,7 @@ Object.assign(App.ui, {
         const soloPend = App.uiState.factInformeSoloPend !== false; // por defecto: solo personas con algo por pedir
         const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
         const hoy = App.ui._isoLocal();
-        const motivo = hDate => `Festivo trabajado ${Utils.formatDateES(hDate)}`;
+        const motivo = it => App.ui._informeFactorialMotivo(it);
 
         const totPedir = data.reduce((s, d) => s + d.items.filter(i => i.estado === 'pedir').length, 0);
         const totFut   = data.reduce((s, d) => s + d.items.filter(i => i.estado === 'pedir' && i.rDate >= hoy).length, 0);
@@ -168,7 +175,7 @@ Object.assign(App.ui, {
                 return `<tr style="border-bottom:1px solid #f1f5f9;">
                     <td style="padding:6px 8px;">${futura ? badge('#e0f2fe', '#075985', '🕓 FUTURA') : badge('#fee2e2', '#991b1b', '⬜ POR PEDIR')}</td>
                     <td style="padding:6px 8px; font-weight:700; white-space:nowrap;">${Utils.formatDateES(it.rDate)} <span style="font-weight:400; color:#64748b;">${App.ui._fDiaSem(it.rDate)} · ${Utils.getWeekCode(it.rDate)}</span></td>
-                    <td style="padding:6px 8px;">${motivo(it.hDate)}</td>
+                    <td style="padding:6px 8px;">${motivo(it)}</td>
                     <td style="padding:6px 8px; text-align:right; font-size:0.65rem; color:#94a3b8; white-space:nowrap;">${futura ? 'No se pide hasta que pase' : ''}</td>
                 </tr>`;
             }
@@ -177,25 +184,25 @@ Object.assign(App.ui, {
                 return `<tr style="border-bottom:1px solid #f1f5f9; color:#94a3b8;">
                     <td style="padding:6px 8px;">${badge('#dcfce7', '#15803d', '✅ YA PEDIDA')}</td>
                     <td style="padding:6px 8px; white-space:nowrap; text-decoration:line-through;">${it.rDate ? Utils.formatDateES(it.rDate) : '—'}</td>
-                    <td style="padding:6px 8px; text-decoration:line-through;">${motivo(it.hDate)}</td>
+                    <td style="padding:6px 8px; text-decoration:line-through;">${motivo(it)}</td>
                     <td style="padding:6px 8px; text-align:right; font-size:0.65rem; white-space:nowrap;">${det}</td>
                 </tr>`;
             }
             return `<tr style="border-bottom:1px solid #f1f5f9;">
                 <td style="padding:6px 8px;">${badge('#fef9c3', '#854d0e', '⏳ SIN R')}</td>
                 <td style="padding:6px 8px; color:#94a3b8; font-style:italic;">sin día de recuperación</td>
-                <td style="padding:6px 8px; color:#64748b;">${motivo(it.hDate)}</td>
+                <td style="padding:6px 8px; color:#64748b;">${motivo(it)}</td>
                 <td style="padding:6px 8px; text-align:right; font-size:0.65rem; color:#94a3b8;">Aún no se puede pedir</td>
             </tr>`;
         };
 
         let html = `<div style="font-size:0.72rem; color:#64748b; line-height:1.5; margin-bottom:12px;">
-            Solo consulta: todos los festivos <b>trabajados</b> y su estado, pasados y futuros. Lo que hay que pedir ya está en la pestaña <b>Por pedir</b>.
+            Solo consulta: todos los festivos <b>no disfrutados</b> y su estado, pasados y futuros. Lo que hay que pedir ya está en la pestaña <b>Por pedir</b>.
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
             <span style="background:#fee2e2; color:#991b1b; padding:4px 10px; border-radius:6px; font-size:0.72rem; font-weight:800;">${totPedir - totFut} por pedir</span>
             ${totFut ? `<span style="background:#e0f2fe; color:#075985; padding:4px 10px; border-radius:6px; font-size:0.72rem; font-weight:800;" title="R asignadas con fecha de hoy en adelante">${totFut} futuras</span>` : ''}
-            ${totSinR ? `<span style="background:#fef9c3; color:#854d0e; padding:4px 10px; border-radius:6px; font-size:0.72rem; font-weight:800;" title="Festivos trabajados que aún no tienen R asignada en la ficha">${totSinR} sin R asignada</span>` : ''}
+            ${totSinR ? `<span style="background:#fef9c3; color:#854d0e; padding:4px 10px; border-radius:6px; font-size:0.72rem; font-weight:800;" title="Festivos no disfrutados que aún no tienen R asignada en la ficha">${totSinR} sin R asignada</span>` : ''}
             <label style="display:flex; align-items:center; gap:5px; font-size:0.72rem; color:#475569; cursor:pointer; margin-left:auto;">
                 <input type="checkbox" ${soloPend ? 'checked' : ''} onchange="App.uiState.factInformeSoloPend=this.checked; App.ui.renderInformeFactorial();"> Ocultar personas con todo pedido
             </label>
@@ -204,7 +211,7 @@ Object.assign(App.ui, {
         <div id="factorial-informe-totales">`;
 
         if(!visibles.length) {
-            html += `<div style="padding:30px; text-align:center; color:var(--text-muted); font-size:0.85rem;">✓ No hay recuperaciones de festivos trabajados pendientes.</div>`;
+            html += `<div style="padding:30px; text-align:center; color:var(--text-muted); font-size:0.85rem;">✓ No hay recuperaciones de festivos pendientes.</div>`;
         } else {
             visibles.forEach(({ emp, items }) => {
                 html += `<div style="margin-bottom:14px; border:1px solid var(--border); border-radius:8px; overflow:hidden; break-inside:avoid;">
@@ -265,7 +272,7 @@ Object.assign(App.ui, {
             'h1{font-size:18px;margin:0 0 2px;}.sub{color:#64748b;font-size:12px;margin-bottom:14px;}' +
             '@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}@page{size:A4;margin:10mm;}</style>' +
             '</head><body onload="window.print()">' +
-            '<h1>📋 Recuperaciones de festivos trabajados — totales</h1>' +
+            '<h1>📋 Recuperaciones de festivos — totales</h1>' +
             '<div class="sub">' + (storeName ? storeName + ' · ' : '') + Utils.formatDateES(App.ui._isoLocal()) + '</div>' +
             inner + '</body></html>');
         w.document.close();

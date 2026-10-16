@@ -226,7 +226,7 @@ Object.assign(App.ui, {
                 </div>
                 <div style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">
                     ${_nInact > 0 ? `<button onclick="App.uiState.showInactive=!App.uiState.showInactive; App.ui.renderEmp(document.querySelector('.main-scroll'));" title="${App.uiState.showInactive ? 'Ocultar inactivos' : 'Mostrar inactivos'}" style="display:flex; align-items:center; gap:4px; padding:3px 9px; border:1px solid ${App.uiState.showInactive ? '#2563eb' : '#e2e8f0'}; border-radius:20px; font-size:0.7rem; font-weight:600; cursor:pointer; background:${App.uiState.showInactive ? '#eff6ff' : 'white'}; color:${App.uiState.showInactive ? '#2563eb' : '#94a3b8'};">${_svgEye} ${_nInact}</button>` : ''}
-                    <button onclick="App.ui.renderInformeFactorial()" title="Recuperaciones de festivos trabajados que cada persona tiene que pedir en Factorial" style="padding:5px 10px; border:1px solid #e2e8f0; border-radius:6px; background:white; color:#334155; font-size:0.72rem; font-weight:700; cursor:pointer; white-space:nowrap;">📋 Factorial</button>
+                    <button onclick="App.ui.renderInformeFactorial()" title="Recuperaciones de festivos no disfrutados que cada persona tiene que pedir en Factorial" style="padding:5px 10px; border:1px solid #e2e8f0; border-radius:6px; background:white; color:#334155; font-size:0.72rem; font-weight:700; cursor:pointer; white-space:nowrap;">📋 Factorial</button>
                     <button class="btn btn-primary" style="width:auto;margin:0" onclick="App.logic.empSelect(null)">+ Nuevo</button>
                 </div>
             </div>`;
@@ -288,10 +288,8 @@ Object.assign(App.ui, {
                         const sinFactorial = Object.entries(tracking).filter(([hDate, t]) => {
                             if(!holidayDates.has(hDate)) return false;
                             if(!t.rDate || !allRsInSchedule.has(t.rDate) || t.factorialDate || t.fijada) return false;
-                            // Solo festivos realmente trabajados (turno con horas), no "coincide"
-                            const sid = App.data.schedule[hDate]?.[e.id];
-                            const sh = sid ? Utils.getShift(sid) : null;
-                            return sh && sh.start && sh.end;
+                            // Todo festivo no disfrutado (trabajado, coincide, vacaciones) se pide en Factorial
+                            return App.logic.festivoAdeuda(App.logic.festivoEstado(e, hDate));
                         }).length;
                         const rojoNum = sinFactorial > 0 ? ` <span title="${sinFactorial} festivo${sinFactorial>1?'s':''} compensado${sinFactorial>1?'s':''} pero sin pedir en Factorial" style="color:#ef4444; font-weight:700; cursor:help;">(${sinFactorial})</span>` : '';
                         const azulNum = sobrantesR > 0 ? ` <span title="${sobrantesR} recuperación${sobrantesR>1?'es':''} sobrante${sobrantesR>1?'s':''} tras cubrir los festivos pendientes" style="color:#3b82f6; font-weight:700; cursor:help;">(${sobrantesR})</span>` : '';
@@ -688,25 +686,7 @@ markDirty: function() {
         .filter(h => Utils.empleadoVigenteEnFecha(emp, h.date));
 
     // --- Helper: calcular estado ---
-    const getEstado = (hDate) => {
-        const sid = App.data.schedule[hDate]?.[emp.id];
-        const shift = sid ? Utils.getShift(sid) : null;
-        if(!shift) return 'sin_definir';
-        if(shift.fixed && shift.code === 'V') return 'vacaciones';
-        if(shift.fixed && shift.code === 'F') {
-            const monday = Utils.getMonday(hDate);
-            const wdays  = Utils.getWeekDays(monday);
-            let countL = 0;
-            wdays.forEach(d => {
-                const s2 = App.data.schedule[d]?.[emp.id];
-                const sh2 = s2 ? Utils.getShift(s2) : null;
-                if(sh2 && sh2.fixed && sh2.code === 'L') countL++;
-            });
-            return countL >= 2 ? 'disfrutado' : 'coincide';
-        }
-        if(shift.start && shift.end) return 'trabaja';
-        return 'sin_definir';
-    };
+    const getEstado = (hDate) => App.logic.festivoEstado(emp, hDate);
 
     // --- Obtener Rs disponibles (Historial completo de la App) ---
     const allRs = [];
@@ -836,8 +816,8 @@ markDirty: function() {
 renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
     const locked = App.data.lockedDays || {};
     const isLocked = !!locked[h.date];
-    const needsTracking = estado === 'coincide' || estado === 'trabaja' || estado === 'vacaciones';
-    const isTrabajado = estado === 'trabaja';
+    // Toda recuperación de festivo no disfrutado (trabajado, coincide con libranza, vacaciones) se pide en Factorial
+    const needsTracking = App.logic.festivoAdeuda(estado);
     const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     const d = new Date(h.date);
     const label = `${d.getDate()} ${monthNames[d.getMonth()]}`;
@@ -859,15 +839,12 @@ renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
         }
     });
 
-    // R fijada: no se puede reasignar ni resetear. Solo los festivos trabajados se piden en
-    // Factorial; en el resto (coincide, vacaciones) fijar es solo bloquear la R.
+    // R fijada = aceptada en Factorial: no se puede reasignar ni resetear.
     const fijada = !!(tr.fijada && tr.rDate);
     const rEnCalendario = !!tr.rDate && allRs.includes(tr.rDate);
-    const fijadaLabel = isTrabajado ? 'Factorial / Fijado' : 'Fijado';
-    const fijadaTitle = isTrabajado ? 'Aceptada en Factorial' : 'Fijada';
     const pinBtn = !tr.rDate ? '' : fijada
-        ? `<button onclick="App.logic.festivoToggleFijada('${emp.id}','${h.date}')" title="${fijadaTitle}. Pulsa para desfijar" style="border:1px solid #86efac; background:#dcfce7; color:#15803d; border-radius:4px; cursor:pointer; font-size:0.65rem; font-weight:700; padding:3px 6px; flex-shrink:0; white-space:nowrap;">📌 ${fijadaLabel}</button>`
-        : `<button onclick="App.logic.festivoToggleFijada('${emp.id}','${h.date}')" title="${isTrabajado ? 'Fijar: ya está aceptada en Factorial' : 'Fijar esta recuperación'} (no se podrá reasignar ni resetear)" style="border:1px solid var(--border); background:white; color:#64748b; border-radius:4px; cursor:pointer; font-size:0.65rem; font-weight:700; padding:3px 6px; flex-shrink:0; white-space:nowrap;">📌 Fijar</button>`;
+        ? `<button onclick="App.logic.festivoToggleFijada('${emp.id}','${h.date}')" title="Aceptada en Factorial. Pulsa para desfijar" style="border:1px solid #86efac; background:#dcfce7; color:#15803d; border-radius:4px; cursor:pointer; font-size:0.65rem; font-weight:700; padding:3px 6px; flex-shrink:0; white-space:nowrap;">📌 Factorial / Fijado</button>`
+        : `<button onclick="App.logic.festivoToggleFijada('${emp.id}','${h.date}')" title="Fijar: ya está aceptada en Factorial (no se podrá reasignar ni resetear)" style="border:1px solid var(--border); background:white; color:#64748b; border-radius:4px; cursor:pointer; font-size:0.65rem; font-weight:700; padding:3px 6px; flex-shrink:0; white-space:nowrap;">📌 Fijar</button>`;
     // Si la R fijada ya no está en el calendario, el desplegable no la lista: la mostramos aparte
     if(fijada && !rEnCalendario) {
         rOpts += `<option value="${tr.rDate}" selected>${Utils.getWeekCode(tr.rDate)} · ${tr.rDate.split('-').reverse().join('/')} (no está en el calendario)</option>`;
@@ -887,13 +864,13 @@ renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
             <div style="display:flex; flex-direction:column; gap:6px; padding-top:6px; border-top:1px dashed var(--border);">
                 <div style="display:flex; align-items:center; gap:6px;">
                     <span style="font-size:0.65rem; color:var(--text-muted); width:50px;">R dada:</span>
-                    <select style="flex:1; min-width:0; padding:3px; border:1px solid var(--border); border-radius:4px; font-size:0.7rem;${fijada ? ' background:#f0fdf4; color:#15803d; font-weight:700;' : ''}" ${fijada ? `disabled title="${isTrabajado ? 'Fijada: aceptada en Factorial' : 'Fijada'}"` : ''}
+                    <select style="flex:1; min-width:0; padding:3px; border:1px solid var(--border); border-radius:4px; font-size:0.7rem;${fijada ? ' background:#f0fdf4; color:#15803d; font-weight:700;' : ''}" ${fijada ? `disabled title="Fijada: aceptada en Factorial"` : ''}
                         onchange="App.logic.festivoTrackUpd('${emp.id}','${h.date}','rDate',this.value);">
                         ${rOpts}
                     </select>
                     ${pinBtn}
                 </div>
-                ${fijada && !rEnCalendario ? `<div style="font-size:0.62rem; color:#b91c1c; line-height:1.4;">⚠️ La R fijada ya no está en el calendario. Vuelve a ponerla o, si ${isTrabajado ? 'en Factorial ha cambiado' : 'ha cambiado'}, desfíjala.</div>` : ''}
+                ${fijada && !rEnCalendario ? `<div style="font-size:0.62rem; color:#b91c1c; line-height:1.4;">⚠️ La R fijada ya no está en el calendario. Vuelve a ponerla o, si en Factorial ha cambiado, desfíjala.</div>` : ''}
             </div>
         ` : ''}
     </div>`;

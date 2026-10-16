@@ -6,6 +6,14 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '17/10/2026', version: 'v1.6',
+                items: [
+                    '🔧 Festivos: las recuperaciones de festivos que coinciden con libranza (y las de festivos en vacaciones) también se piden en Factorial. Solo los festivos disfrutados no se piden',
+                    '🔧 Ficha personal → Festivos: todas las recuperaciones fijadas muestran "📌 Factorial / Fijado"',
+                    '🔧 Informe Factorial y contador rojo de la columna Festivos: incluyen también los festivos en libranza y en vacaciones. El texto de la solicitud se adapta: "Festivo trabajado", "Festivo en libranza" o "Festivo en vacaciones" + fecha',
+                ]
+            },
+            {
                 fecha: '15/10/2026 (noche, 2)', version: 'v1.5',
                 items: [
                     '✨ Informe Factorial (Gestión de Equipo → 📋 Factorial) con dos pestañas. "Por pedir" (principal): solo las recuperaciones de festivos trabajados con fecha de R hasta ayer que no estén fijadas — las futuras no se piden nunca porque pueden moverse —, con un mensaje de texto por persona listo para copiar y mandárselo individualmente. "Totales": la tabla completa de consulta (por pedir, futuras, ya pedidas, sin R), sin acciones',
