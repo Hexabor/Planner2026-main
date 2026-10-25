@@ -260,6 +260,15 @@ Object.assign(App.logic, {
                 '¿Deseas continuar?'
             );
             if(!confirmed) return;
+            this._festivoResetCore(App.data.empleados[i]);
+            Safe.save('v40_db', App.data);
+            App.ui.renderEmpInspector(empId);
+            App.ui.renderEmp(document.querySelector('.main-scroll'));
+        },
+
+        // Desasigna las recuperaciones no fijadas de un empleado (sin guardar ni repintar).
+        _festivoResetCore: function(emp) {
+            const tracking = emp.festivoTracking || {};
             Object.keys(tracking).forEach(hDate => {
                 if(tracking[hDate].fijada) return; // aceptada en Factorial: intocable
                 if(tracking[hDate].rDate) delete tracking[hDate].rDate;
@@ -269,10 +278,41 @@ Object.assign(App.logic, {
                     delete tracking[hDate];
                 }
             });
-            App.data.empleados[i].festivoTracking = tracking;
+            emp.festivoTracking = tracking;
+        },
+
+        // Resetea y vuelve a adjudicar las recuperaciones de toda la plantilla activa.
+        // Las fijadas (📌 aceptadas en Factorial) se conservan y sus R no se reutilizan.
+        festivoReajustarEquipo: function() {
+            const emps = App.data.empleados.filter(e => e.active !== false);
+            if(emps.length === 0) return;
+            const nFijadas = emps.reduce((n, e) => n + Object.values(e.festivoTracking || {}).filter(t => t.fijada).length, 0);
+            const confirmed = confirm(
+                '⚠️ ACCIÓN SOBRE TODA LA PLANTILLA\n\n' +
+                `Se desasignarán las recuperaciones de festivos de ${emps.length} empleado${emps.length !== 1 ? 's' : ''} activo${emps.length !== 1 ? 's' : ''} ` +
+                'y se volverán a adjudicar automáticamente (festivo más antiguo ↔ R más antigua).\n\n' +
+                (nFijadas > 0 ? `📌 Las ${nFijadas} fijada${nFijadas !== 1 ? 's' : ''} en Factorial se conservan.\n\n` : '') +
+                'Las asignaciones manuales no fijadas se perderán.\n\n' +
+                '¿Deseas continuar?'
+            );
+            if(!confirmed) return;
+
+            let totalPares = 0;
+            const avisos = [];
+            emps.forEach(emp => {
+                this._festivoResetCore(emp);
+                const r = this._festivoAdjudicarCore(emp);
+                totalPares += r.pares;
+                if(r.sobranFest > 0) avisos.push(`⚠️ ${emp.nombre}: ${r.sobranFest} festivo(s) sin R disponible`);
+                if(r.sobranR > 0)    avisos.push(`↩ ${emp.nombre}: sobran ${r.sobranR} R`);
+            });
             Safe.save('v40_db', App.data);
-            App.ui.renderEmpInspector(empId);
+            if(App.uiState.selectedId) App.ui.renderEmpInspector(App.uiState.selectedId);
             App.ui.renderEmp(document.querySelector('.main-scroll'));
+
+            let msg = `✅ ${totalPares} recuperación${totalPares !== 1 ? 'es' : ''} adjudicada${totalPares !== 1 ? 's' : ''} en ${emps.length} empleado${emps.length !== 1 ? 's' : ''}.`;
+            if(avisos.length) msg += '\n\n' + avisos.join('\n');
+            alert(msg);
         },
 
         // Adjudica automáticamente recuperaciones a los festivos pendientes.
@@ -299,9 +339,23 @@ Object.assign(App.logic, {
         },
 
         festivoAdjudicarRecuperaciones: function(empId) {
-            const i = App.data.empleados.findIndex(e => e.id === empId);
-            if(i < 0) return;
-            const emp = App.data.empleados[i];
+            const emp = App.data.empleados.find(e => e.id === empId);
+            if(!emp) return;
+            const r = this._festivoAdjudicarCore(emp);
+            if(r.pendientes === 0) { alert('No hay festivos pendientes de asignar.'); return; }
+            if(r.libres === 0) { alert('No hay recuperaciones libres para adjudicar.'); return; }
+            Safe.save('v40_db', App.data);
+            App.ui.renderEmpInspector(empId);
+            App.ui.renderEmp(document.querySelector('.main-scroll'));
+
+            let msg = `✅ ${r.pares} recuperación${r.pares !== 1 ? 'es' : ''} adjudicada${r.pares !== 1 ? 's' : ''} (festivo más antiguo ↔ R más antigua).`;
+            if(r.sobranFest > 0) msg += `\n\n⚠️ Quedan ${r.sobranFest} festivo(s) pendiente(s) sin R disponible.`;
+            if(r.sobranR > 0)    msg += `\n\n↩ Sobran ${r.sobranR} recuperación(es) sin festivo al que asignar.`;
+            alert(msg);
+        },
+
+        // Empareja festivos pendientes con R libres de un empleado (sin guardar ni repintar).
+        _festivoAdjudicarCore: function(emp) {
             const tracking = emp.festivoTracking || {};
             const getEstado = (hDate) => App.logic.festivoEstado(emp, hDate);
 
@@ -329,9 +383,6 @@ Object.assign(App.logic, {
                 .map(h => h.date)
                 .sort((a, b) => a.localeCompare(b));
 
-            if(pendientes.length === 0) { alert('No hay festivos pendientes de asignar.'); return; }
-            if(rsLibres.length === 0) { alert('No hay recuperaciones libres para adjudicar.'); return; }
-
             // Emparejar oldest ↔ oldest
             const pares = Math.min(pendientes.length, rsLibres.length);
             for(let k = 0; k < pares; k++) {
@@ -339,16 +390,13 @@ Object.assign(App.logic, {
                 tracking[pendientes[k]].rDate = rsLibres[k];
             }
             emp.festivoTracking = tracking;
-            Safe.save('v40_db', App.data);
-            App.ui.renderEmpInspector(empId);
-            App.ui.renderEmp(document.querySelector('.main-scroll'));
-
-            const sobranFest = pendientes.length - pares;
-            const sobranR    = rsLibres.length - pares;
-            let msg = `✅ ${pares} recuperación${pares !== 1 ? 'es' : ''} adjudicada${pares !== 1 ? 's' : ''} (festivo más antiguo ↔ R más antigua).`;
-            if(sobranFest > 0) msg += `\n\n⚠️ Quedan ${sobranFest} festivo(s) pendiente(s) sin R disponible.`;
-            if(sobranR > 0)    msg += `\n\n↩ Sobran ${sobranR} recuperación(es) sin festivo al que asignar.`;
-            alert(msg);
+            return {
+                pendientes: pendientes.length,
+                libres: rsLibres.length,
+                pares,
+                sobranFest: pendientes.length - pares,
+                sobranR: rsLibres.length - pares
+            };
         },
 
         festivoTrackUpd: function(empId, hDate, field, value) {

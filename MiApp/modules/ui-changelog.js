@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '25/10/2026', version: 'v1.7',
+                items: [
+                    '✨ Gestión de Equipo → ↺ Reajustar R: resetea y vuelve a adjudicar de una vez las recuperaciones de festivos de toda la plantilla activa (festivo más antiguo ↔ R más antigua). Las fijadas (📌 aceptadas en Factorial) se conservan y sus R no se reutilizan. Al terminar muestra un resumen con quién se queda con festivos sin R o con R sobrantes',
+                ]
+            },
+            {
                 fecha: '17/10/2026', version: 'v1.6',
                 items: [
                     '🔧 Festivos: las recuperaciones de festivos que coinciden con libranza (y las de festivos en vacaciones) también se piden en Factorial. Solo los festivos disfrutados no se piden',
