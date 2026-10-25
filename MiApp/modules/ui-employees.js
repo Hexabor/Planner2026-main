@@ -134,7 +134,8 @@ Object.assign(App.ui, {
                         bpPorSemana[mon] = (bpPorSemana[mon] || 0) + 1;
                         if(sh.code === 'B') bajasH += cW / 5; else permisosH += cW / 5;
                     }
-                } else if(sh.start && sh.end) {
+                } else if(sh.start && sh.end && !sh.external) {
+                    // Los turnos externos (apoyo a otra tienda, aperturas, viajes) no suman: se registran como ajuste
                     workedH += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
                 }
             }

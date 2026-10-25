@@ -425,7 +425,7 @@ Object.assign(App.ui, {
                             else if(sh.code==='R') countR++;
                             else if(sh.code==='P') countP++;
                             else { countOtros++; otrosCodes[sh.code]=(otrosCodes[sh.code]||0)+1; }
-                        } else if(sh.start && sh.end) {
+                        } else if(sh.start && sh.end && !sh.external) {
                             workedDays++;
                         }
                     }

@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '25/10/2026', version: 'v1.9',
+                items: [
+                    '🔧 Horas por asignar (DES): los turnos externos (apoyo a otra tienda, aperturas, viajes) ya no suman como horas trabajadas, igual que en el ASIG semanal. Se siguen viendo en la rejilla; sus horas se registran como ajuste en la ficha',
+                ]
+            },
+            {
                 fecha: '25/10/2026', version: 'v1.8',
                 items: [
                     '🔧 Horas por asignar (DES): se calcula siempre sobre el ciclo configurado (Configuración → tramo, p. ej. 01/03–28/02), ya no sobre el rango que se dejara en Análisis. Mismo valor en Personal, Balance y Análisis → Horas por Staff',
