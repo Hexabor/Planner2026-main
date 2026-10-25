@@ -370,9 +370,10 @@ Object.assign(App.ui, {
                 if(!App.uiState.analisisHorasStaffStart) {
                     try { const saved = JSON.parse(localStorage.getItem('v40_analisisHorasStaff')); if(saved) { App.uiState.analisisHorasStaffStart = saved.start; App.uiState.analisisHorasStaffEnd = saved.end; } } catch(e){}
                 }
+                const _ciclo = App.ui._horasPorAsignarRango();
                 if(!App.uiState.analisisHorasStaffStart) {
-                    App.uiState.analisisHorasStaffStart = fyStart;
-                    App.uiState.analisisHorasStaffEnd   = fyEnd;
+                    App.uiState.analisisHorasStaffStart = _ciclo.start;
+                    App.uiState.analisisHorasStaffEnd   = _ciclo.end;
                 }
                 if(App.uiState.analisisHorasStaffStart > App.uiState.analisisHorasStaffEnd) {
                     const temp = App.uiState.analisisHorasStaffStart;
@@ -387,66 +388,25 @@ Object.assign(App.ui, {
                 const daysCount = Math.max(0, Math.floor((new Date(endISO+'T12:00:00') - new Date(startISO+'T12:00:00')) / _msDay) + 1);
 
                 const f1 = n => Math.round(n*10)/10;
-                const REF_CONTRATO = 37.5;                                  // contrato de referencia de las horas teóricas
                 const stdH = parseFloat(App.data.config.stdHours) || 1711;  // horas convenio/año para 37,5h/sem
+                const diasCiclo = App.ui._diasCiclo();
+                const esCiclo = startISO === _ciclo.start && endISO === _ciclo.end;
 
-                // Ventana "año anterior": 12 meses previos al inicio del rango
-                const prevStart = (() => { const d = new Date(startISO+'T12:00:00'); d.setFullYear(d.getFullYear()-1); return d.toISOString().slice(0,10); })();
                 const monthShortV2 = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
                 const fmtFestDateV2 = iso => { const dt = new Date(iso+'T12:00:00'); return `${dt.getDate()} ${monthShortV2[dt.getMonth()]} '${iso.slice(2,4)}`; };
 
-                // Festivos del año anterior pendientes de recuperar (mismo criterio que el panel legacy)
-                const calcPendPrevYear = (emp) => {
-                    const locked = App.data.lockedDays || {};
-                    const tracking = emp.festivoTracking || {};
-                    const realRs = new Set();
-                    Object.keys(App.data.schedule || {}).forEach(iso => {
-                        const sid = App.data.schedule[iso]?.[emp.id];
-                        const sh = sid ? Utils.getShift(sid) : null;
-                        if(sh && sh.fixed && sh.code === 'R') realRs.add(iso);
-                    });
-                    const holidays = (App.data.storeConfig.holidays || [])
-                        .filter(h => h.date >= prevStart && h.date < startISO)
-                        .filter(h => locked[h.date] && Utils.empleadoVigenteEnFecha(emp, h.date));
-                    let count = 0; const list = [];
-                    holidays.forEach(h => {
-                        const tr = tracking[h.date] || {};
-                        // Compensado SOLO si su R cae dentro del tramo anterior; si la R está en el rango actual, sigue siendo deuda heredada
-                        if(tr.rDate && realRs.has(tr.rDate) && tr.rDate >= prevStart && tr.rDate < startISO) return;
-                        const sid = App.data.schedule[h.date]?.[emp.id];
-                        const shift = sid ? Utils.getShift(sid) : null;
-                        if(!shift) return;
-                        let reason = null;
-                        if(shift.fixed && shift.code === 'V') reason = 'V (vacaciones no absorben)';
-                        else if(shift.fixed && shift.code === 'F') {
-                            const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
-                            let countL = 0;
-                            wdays.forEach(d => { const s2 = App.data.schedule[d]?.[emp.id]; const sh2 = s2 ? Utils.getShift(s2) : null; if(sh2 && sh2.fixed && sh2.code === 'L') countL++; });
-                            if(countL < 2) reason = `F (solo ${countL} L en la semana)`;
-                        } else if(shift.start && shift.end) reason = 'trabajado';
-                        if(reason) { count++; list.push({ date: h.date, reason }); }
-                    });
-                    return { count, list };
-                };
-
-                // Fila por empleado: recuento de días por tipo + horas trabajadas + horas teóricas
+                // Fila por empleado: horas (cálculo único compartido con Personal y Balance) + recuento de días por tipo
                 const rows = emps.map(emp => {
-                    let workedH=0, workedDays=0;
+                    const det = App.ui._horasPorAsignarDetalle(emp, startISO, endISO);
+                    let workedDays=0;
                     let countL=0, countV=0, countB=0, countF=0, countR=0, countP=0, countOtros=0;
-                    let bajasH=0, permisosH=0; // horas justificadas no contempladas en el convenio (B y P)
                     const otrosCodes = {};
-                    let theoH=0, daysVig=0; const theoTramos = {};
                     let _cur = new Date(startISO+'T12:00:00');
                     const _end = new Date(endISO+'T12:00:00');
                     while(_cur <= _end) {
                         const d = _cur.toISOString().slice(0,10);
                         _cur.setDate(_cur.getDate()+1);
                         if(!Utils.empleadoVigenteEnFecha(emp, d)) continue;
-                        // Horas teóricas: parte proporcional diaria del convenio (semana/7), según el contrato vigente ese día
-                        daysVig++;
-                        const cW = Utils.getContrato(emp, d);
-                        theoH += stdH * (cW / REF_CONTRATO) / 52 / 7;
-                        theoTramos[cW] = (theoTramos[cW] || 0) + 1; // días con ese contrato
                         const sid = App.data.schedule[d]?.[emp.id];
                         if(!sid) continue;
                         const sh = Utils.getShift(sid);
@@ -454,7 +414,7 @@ Object.assign(App.ui, {
                         if(sh.fixed) {
                             if(sh.code==='L') countL++;
                             else if(sh.code==='V') countV++;
-                            else if(sh.code==='B') { countB++; bajasH += cW / 5; }
+                            else if(sh.code==='B') countB++;
                             else if(sh.code==='F') {
                                 // Festivo disfrutado solo si la semana tuvo ≥2 L (los "coincide" no cuentan)
                                 const wdays = Utils.getWeekDays(Utils.getMonday(d));
@@ -463,31 +423,23 @@ Object.assign(App.ui, {
                                 if(weekL >= 2) countF++;
                             }
                             else if(sh.code==='R') countR++;
-                            else if(sh.code==='P') { countP++; permisosH += cW / 5; }
+                            else if(sh.code==='P') countP++;
                             else { countOtros++; otrosCodes[sh.code]=(otrosCodes[sh.code]||0)+1; }
                         } else if(sh.start && sh.end) {
                             workedDays++;
-                            workedH += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
                         }
                     }
-                    const pend = calcPendPrevYear(emp);
-                    // Horas de los festivos del tramo anterior pendientes de compensar (1 día = contrato/5)
-                    const pendPrevH = pend.list.reduce((s, p) => s + Utils.getContrato(emp, p.date) / 5, 0);
-                    const arrastre = emp.saldoInicial || 0; // horas arrastradas del periodo anterior
-                    // Horas por asignar: Teóricas − Trabajadas − ausencias justificadas no contempladas en el convenio
-                    // (B, festivos del tramo anterior, P) − arrastre del periodo anterior.
-                    // Positivo = horas que aún quedan por asignar · Negativo = horas asignadas de más.
-                    const saldoConv = f1(theoH - workedH - bajasH - permisosH - pendPrevH - arrastre);
                     return {
                         emp,
                         contratoActual: Utils.getContrato(emp, endISO),
-                        theoH: f1(theoH), theoTramos, daysVig,
+                        theoH: f1(det.theoH), theoTramos: det.theoTramos, daysVig: det.daysVig, horasDia: det.horasDia,
                         workedDays, countL, countV, countB, countF, countR, countP,
-                        pendPrev: pend.count, pendPrevList: pend.list,
-                        festRecA: countF + countR - pend.count,
+                        pendPrev: det.pendPrev, pendPrevList: det.pendPrevList,
+                        festRecA: countF + countR - det.pendPrev,
                         countOtros, otrosCodes,
-                        workedH: f1(workedH),
-                        bajasH: f1(bajasH), permisosH: f1(permisosH), pendPrevH: f1(pendPrevH), arrastre: f1(arrastre), saldoConv,
+                        workedH: f1(det.workedH),
+                        bajasH: f1(det.bajasH), permisosH: f1(det.permisosH), bpTopados: det.bpTopados,
+                        pendPrevH: f1(det.pendPrevH), arrastre: f1(det.arrastre), ajustesH: f1(det.ajustesH), saldoConv: det.saldo,
                         customOrder: emp.customOrder ?? 0
                     };
                 });
@@ -507,7 +459,7 @@ Object.assign(App.ui, {
                 const totWorkedDays=T('workedDays'), totL=T('countL'), totV=T('countV'),
                       totB=T('countB'), totF=T('countF'), totR=T('countR'), totP=T('countP'),
                       totFestRecA=T('festRecA'), totTheo=f1(T('theoH')), totPendPrev=T('pendPrev'),
-                      totOtros=T('countOtros'), totWorkedH=f1(T('workedH')), totArr=f1(T('arrastre')), totSaldo=f1(T('saldoConv'));
+                      totOtros=T('countOtros'), totWorkedH=f1(T('workedH')), totArr=f1(T('arrastre')), totAj=f1(T('ajustesH')), totSaldo=f1(T('saldoConv'));
 
                 // Estilos + helpers de orden
                 const thStyle  = `text-align:right;padding:8px 10px;font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;cursor:pointer;user-select:none;white-space:nowrap;`;
@@ -533,12 +485,13 @@ Object.assign(App.ui, {
                     ${th('Perm.','countP','Días de permiso (P)')}
                     ${th('H. trab.','workedH','Horas trabajadas (turnos con horario, descontando descansos)')}
                     ${th('Arrastre','arrastre','Horas arrastradas del periodo anterior (saldo de arranque del empleado, editable en su ficha → "Arrastres de etapas anteriores"). Positivo = trabajó de más · Negativo = debía horas. Se descuenta de "H. por asignar".')}
-                    ${th('H. por asignar','saldoConv','Horas por asignar = Teóricas (convenio) − H. trab. − ausencias justificadas no contempladas en el convenio (bajas, festivos del tramo anterior por compensar y permisos) − arrastre del periodo anterior. Positivo = horas que aún quedan por asignar al empleado · Negativo = horas asignadas de más.')}
+                    ${th('Ajustes','ajustesH','Ajustes de la ficha del empleado con fecha dentro del rango (pestaña Ajustes). Positivo = horas trabajadas de más fuera de turno · Negativo = horas de menos. Se descuentan de "H. por asignar".')}
+                    ${th('H. por asignar','saldoConv','Horas por asignar = Teóricas (convenio) − H. trab. − ausencias justificadas no contempladas en el convenio (bajas, festivos del tramo anterior por compensar y permisos; B y P cuentan como máximo 5 días por semana) − arrastre del periodo anterior − ajustes de la ficha. Positivo = horas que aún quedan por asignar al empleado · Negativo = horas asignadas de más.')}
                 `;
 
                 const renderRow = r => {
                     const theoTip = r.theoH > 0
-                        ? `<div class="diff-tooltip-wrap" style="cursor:help;">${r.theoH}h<div class="diff-tooltip" style="min-width:260px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Horas teóricas (${r.daysVig} días vigente)</div>${Object.entries(r.theoTramos).sort((a,b)=>parseFloat(b[0])-parseFloat(a[0])).map(([c,dias])=>{const cN=parseFloat(c);const sub=f1(stdH*(cN/REF_CONTRATO)/52/7*dias);return `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">${cN}h/sem × ${dias} día${dias!==1?'s':''}</span><span style="font-weight:600;font-family:monospace;">${sub}h</span></div>`;}).join('')}<div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">= Total teóricas</span><span style="font-weight:700;">${r.theoH}h</span></div><div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Base convenio <strong>${stdH}h/año</strong> para 37,5h/sem · proporcional al contrato y a los días con contrato vigente (año = 52 sem × 7 días). Cada tramo cuenta con sus propias horas.</div></div></div>`
+                        ? `<div class="diff-tooltip-wrap" style="cursor:help;">${r.theoH}h<div class="diff-tooltip" style="min-width:260px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Horas teóricas (${r.daysVig} días vigente)</div>${Object.entries(r.theoTramos).sort((a,b)=>parseFloat(b[0])-parseFloat(a[0])).map(([c,dias])=>{const cN=parseFloat(c);const sub=f1(cN*r.horasDia*dias);return `<div style="display:flex;justify-content:space-between;gap:16px;margin-top:3px;"><span style="color:#94a3b8;">${cN}h/sem × ${dias} día${dias!==1?'s':''}</span><span style="font-weight:600;font-family:monospace;">${sub}h</span></div>`;}).join('')}<div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">= Total teóricas</span><span style="font-weight:700;">${r.theoH}h</span></div><div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Base convenio <strong>${stdH}h/año</strong> para 37,5h/sem · proporcional al contrato y a los días con contrato vigente (ciclo de ${diasCiclo} días). Cada tramo cuenta con sus propias horas.</div></div></div>`
                         : '—';
                     const pendPrevCell = r.pendPrev > 0
                         ? `<div class="diff-tooltip-wrap" style="cursor:help;font-weight:700;color:#ef4444;">${r.pendPrev}<div class="diff-tooltip" style="min-width:230px;white-space:normal;line-height:1.55;text-align:left;"><div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:4px;">Festivos del tramo anterior sin compensar</div>${r.pendPrevList.map(p=>`<div style="color:#fca5a5;font-size:0.72rem;line-height:1.7;">${fmtFestDateV2(p.date)} <span style="color:#94a3b8;">— ${p.reason}</span></div>`).join('')}<div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Festivos de los 12 meses previos al inicio del rango (semanas cerradas) cuya recuperación no se hizo dentro de ese tramo: su R cae en el rango actual o aún no existe.</div></div></div>`
@@ -558,15 +511,17 @@ Object.assign(App.ui, {
                     <td style="${tdStyle}color:#ec4899;">${r.countP || '—'}</td>
                     <td style="${tdStyle}font-weight:700;color:#1e293b;">${r.workedH}h</td>
                     <td style="${tdStyle}font-weight:600;color:${r.arrastre > 0.5 ? '#f59e0b' : r.arrastre < -0.5 ? '#3b82f6' : '#94a3b8'};">${r.arrastre ? (r.arrastre > 0 ? '+' : '') + r.arrastre + 'h' : '—'}</td>
+                    <td style="${tdStyle}font-weight:600;color:${r.ajustesH ? '#475569' : '#94a3b8'};">${r.ajustesH ? (r.ajustesH > 0 ? '+' : '') + r.ajustesH + 'h' : '—'}</td>
                     <td style="${tdStyle}font-weight:700;color:${r.saldoConv > 0.5 ? '#f59e0b' : r.saldoConv < -0.5 ? '#3b82f6' : '#10b981'};">
                         <div class="diff-tooltip-wrap" style="cursor:help;">${r.saldoConv > 0 ? '+' : ''}${r.saldoConv}h<div class="diff-tooltip" style="min-width:240px;white-space:normal;line-height:1.55;text-align:left;font-weight:400;">
                             <div style="font-weight:700;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:5px;margin-bottom:6px;">Horas por asignar</div>
                             <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">Teóricas</span><span style="font-family:monospace;">${r.theoH}h</span></div>
                             <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− H. trab.</span><span style="font-family:monospace;">${r.workedH}h</span></div>
-                            <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Bajas</span><span style="font-family:monospace;">${r.bajasH}h</span></div>
+                            <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Bajas${r.bpTopados ? ` <span style="font-size:9px;">(${r.bpTopados} día${r.bpTopados!==1?'s':''} B/P sin descontar: tope 5/sem)</span>` : ''}</span><span style="font-family:monospace;">${r.bajasH}h</span></div>
                             <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Fest. tramo ant.</span><span style="font-family:monospace;">${r.pendPrevH}h</span></div>
                             <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Permisos</span><span style="font-family:monospace;">${r.permisosH}h</span></div>
                             <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Arrastre periodo ant.</span><span style="font-family:monospace;">${r.arrastre > 0 ? '+' : ''}${r.arrastre}h</span></div>
+                            <div style="display:flex;justify-content:space-between;gap:16px;"><span style="color:#94a3b8;">− Ajustes ficha</span><span style="font-family:monospace;">${r.ajustesH > 0 ? '+' : ''}${r.ajustesH}h</span></div>
                             <div style="display:flex;justify-content:space-between;gap:16px;margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.15);"><span style="color:#94a3b8;">= Por asignar</span><span style="font-weight:700;font-family:monospace;">${r.saldoConv > 0 ? '+' : ''}${r.saldoConv}h</span></div>
                             <div style="margin-top:6px;font-size:9.5px;color:#94a3b8;line-height:1.45;">Positivo = horas que aún quedan por asignar · Negativo = horas asignadas de más. Vacaciones y festivos disfrutados ya están descontados en las teóricas del convenio.</div>
                         </div></div>
@@ -597,6 +552,9 @@ Object.assign(App.ui, {
                     <div><div style="font-size:0.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:4px;">Hasta</div>
                         ${Utils.getDateInputHTML('analisis-staff-hasta', endISO, dateOnchange('End'))}</div>
                     <div style="align-self:flex-end;">${customBtn}</div>
+                    ${esCiclo
+                        ? `<div style="align-self:center;font-size:0.72rem;color:#15803d;font-weight:700;" title="Mismo valor que la columna DES de Personal y del Balance">✓ Ciclo completo</div>`
+                        : `<button onclick="App.uiState.analisisHorasStaffStart='${_ciclo.start}';App.uiState.analisisHorasStaffEnd='${_ciclo.end}';localStorage.setItem('v40_analisisHorasStaff',JSON.stringify({start:'${_ciclo.start}',end:'${_ciclo.end}'}));App.ui.renderAnalisis(document.querySelector('.main-scroll'));" title="Rango personalizado: H. por asignar no coincide con DES de Personal y Balance, que usan el ciclo completo. Pulsa para volver al ciclo." style="align-self:flex-end;padding:7px 14px;border-radius:6px;font-size:0.8rem;font-weight:700;cursor:pointer;border:1px solid #f59e0b;background:#fffbeb;color:#b45309;">↺ Ciclo completo</button>`}
                     <div style="margin-left:auto;font-size:0.78rem;color:#64748b;align-self:center;">${daysCount} día${daysCount!==1?'s':''} · ${emps.length} empleado${emps.length!==1?'s':''} activo${emps.length!==1?'s':''}</div>
                 </div>
 
@@ -619,6 +577,7 @@ Object.assign(App.ui, {
                                 <td style="${tdStyle}">${totP||'—'}</td>
                                 <td style="${tdStyle}">${totWorkedH}h</td>
                                 <td style="${tdStyle}">${totArr ? (totArr > 0 ? '+' : '') + totArr + 'h' : '—'}</td>
+                                <td style="${tdStyle}">${totAj ? (totAj > 0 ? '+' : '') + totAj + 'h' : '—'}</td>
                                 <td style="${tdStyle}color:${totSaldo > 0.5 ? '#f59e0b' : totSaldo < -0.5 ? '#3b82f6' : '#10b981'};">${totSaldo > 0 ? '+' : ''}${totSaldo}h</td>
                             </tr>
                         </tbody>

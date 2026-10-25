@@ -6,6 +6,16 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '25/10/2026', version: 'v1.8',
+                items: [
+                    '🔧 Horas por asignar (DES): se calcula siempre sobre el ciclo configurado (Configuración → tramo, p. ej. 01/03–28/02), ya no sobre el rango que se dejara en Análisis. Mismo valor en Personal, Balance y Análisis → Horas por Staff',
+                    '🔧 Horas por asignar: el convenio anual se reparte entre los días reales del ciclo (365). Antes se dividía entre 364 y un contrato completo salía con unas 4,7 h de más',
+                    '🔧 Horas por asignar: las bajas y permisos largos (B/P marcados los 7 días) descuentan como máximo 5 días por semana, es decir, una semana de contrato',
+                    '✨ Horas por asignar: los ajustes de la ficha del empleado (pestaña Ajustes) entran en el cálculo. Positivo = horas trabajadas de más → baja lo por asignar',
+                    '✨ Análisis → Horas por Staff: columna Ajustes, rango por defecto = ciclo completo y botón ↺ Ciclo completo cuando el rango es otro',
+                ]
+            },
+            {
                 fecha: '25/10/2026', version: 'v1.7',
                 items: [
                     '✨ Gestión de Equipo → ↺ Reajustar R: resetea y vuelve a adjudicar de una vez las recuperaciones de festivos de toda la plantilla activa (festivo más antiguo ↔ R más antigua). Las fijadas (📌 aceptadas en Factorial) se conservan y sus R no se reutilizan. Al terminar muestra un resumen con quién se queda con festivos sin R o con R sobrantes',

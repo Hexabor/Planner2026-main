@@ -54,17 +54,18 @@ Object.assign(App.ui, {
         },
 
         // ── HORAS POR ASIGNAR ───────────────────────────────────────────────
-        // Réplica exacta del cálculo de la columna "H. por asignar" de Análisis → Horas por Staff,
-        // para poder mostrar el MISMO valor en otras columnas (Balance, rejilla de Personal).
-        // Rango: el mismo selector por día (Desde/Hasta) de esa pestaña.
+        // Cálculo único de "H. por asignar" (DES). Lo usan la rejilla de Personal, el Balance y
+        // Análisis → Horas por Staff. Rango: el ciclo configurado (Configuración → tramo), día a día.
         _horasPorAsignarRango: function() {
-            let start = App.uiState.analisisHorasStaffStart;
-            let end   = App.uiState.analisisHorasStaffEnd;
-            if(!start) { try { const s = JSON.parse(localStorage.getItem('v40_analisisHorasStaff')); if(s){ start = s.start; end = s.end; } } catch(e){} }
-            const fyStart = App.data.config.weekStart || '2025-12-29';
-            if(!start) { start = fyStart; const d = new Date(fyStart + 'T00:00:00'); d.setDate(d.getDate() + 51*7); end = d.toISOString().slice(0,10); }
-            if(start > end) { const t = start; start = end; end = t; }
-            return { start, end };
+            const { iniRaw, finRaw } = App.ui._tramoRango();
+            return iniRaw <= finRaw ? { start: iniRaw, end: finRaw } : { start: finRaw, end: iniRaw };
+        },
+
+        // Nº de días del ciclo configurado (365 o 366). Repartir el convenio anual entre ellos
+        // hace que un ciclo completo con el mismo contrato sume exactamente stdHours × contrato / 37,5.
+        _diasCiclo: function() {
+            const { start, end } = App.ui._horasPorAsignarRango();
+            return Math.round((new Date(end + 'T12:00:00') - new Date(start + 'T12:00:00')) / 86400000) + 1;
         },
 
         // Festivos del tramo anterior (12 meses previos a startISO) sin compensar dentro de ese tramo. {count, list}.
@@ -85,43 +86,54 @@ Object.assign(App.ui, {
                 const sid = App.data.schedule[h.date]?.[emp.id];
                 const shift = sid ? Utils.getShift(sid) : null;
                 if(!shift) return;
-                let pend = false;
-                if(shift.fixed && shift.code === 'V') pend = true;
+                let reason = null;
+                if(shift.fixed && shift.code === 'V') reason = 'V (vacaciones no absorben)';
                 else if(shift.fixed && shift.code === 'F') {
                     const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
                     let cL = 0;
                     wdays.forEach(d => { const s = App.data.schedule[d]?.[emp.id]; const s2 = s ? Utils.getShift(s) : null; if(s2 && s2.fixed && s2.code === 'L') cL++; });
-                    if(cL < 2) pend = true;
-                } else if(shift.start && shift.end) pend = true;
-                if(pend) { count++; list.push({ date: h.date }); }
+                    if(cL < 2) reason = `F (solo ${cL} L en la semana)`;
+                } else if(shift.start && shift.end) reason = 'trabajado';
+                if(reason) { count++; list.push({ date: h.date, reason }); }
             });
             return { count, list };
         },
 
-        // Horas por asignar = Teóricas (convenio prorrateado por día) − H.trab − bajas − permisos
-        //                     − festivos del tramo anterior por compensar − arrastre del periodo anterior (saldoInicial).
+        // Desglose de horas por asignar en [startISO, endISO] (por defecto, el ciclo configurado):
+        //   Teóricas = convenio anual × contrato / 37,5, repartido entre los días del ciclo y contado solo los días vigentes
+        //   − H. trab. − bajas − permisos (B y P a contrato/5, máx. 5 días por semana entre ambos)
+        //   − festivos del tramo anterior por compensar − arrastre (saldoInicial) − ajustes de la ficha con fecha en el rango.
         // Positivo = horas que aún quedan por asignar · Negativo = horas asignadas de más.
-        _calcHorasPorAsignar: function(emp, startISO, endISO) {
-            if(!emp) return 0;
+        _horasPorAsignarDetalle: function(emp, startISO, endISO) {
             if(!startISO || !endISO) { const r = App.ui._horasPorAsignarRango(); startISO = startISO || r.start; endISO = endISO || r.end; }
             const stdH = parseFloat(App.data.config.stdHours) || 1711;
             const REF = 37.5;
-            let theoH = 0, workedH = 0, bajasH = 0, permisosH = 0;
+            const horasDia = stdH / REF / App.ui._diasCiclo(); // horas teóricas por día y por hora de contrato
+            let theoH = 0, workedH = 0, bajasH = 0, permisosH = 0, daysVig = 0, bpTopados = 0;
+            const theoTramos = {};
+            const bpPorSemana = {}; // lunes → días de B/P ya descontados esa semana
             let cur = new Date(startISO + 'T12:00:00');
             const end = new Date(endISO + 'T12:00:00');
             while(cur <= end) {
                 const d = cur.toISOString().slice(0,10);
                 cur.setDate(cur.getDate() + 1);
                 if(!Utils.empleadoVigenteEnFecha(emp, d)) continue;
+                daysVig++;
                 const cW = Utils.getContrato(emp, d);
-                theoH += stdH * (cW / REF) / 52 / 7;
+                theoH += cW * horasDia;
+                theoTramos[cW] = (theoTramos[cW] || 0) + 1;
                 const sid = App.data.schedule[d]?.[emp.id];
                 if(!sid) continue;
                 const sh = Utils.getShift(sid);
                 if(!sh) continue;
                 if(sh.fixed) {
-                    if(sh.code === 'B') bajasH += cW / 5;
-                    else if(sh.code === 'P') permisosH += cW / 5;
+                    if(sh.code === 'B' || sh.code === 'P') {
+                        // Una baja o permiso larga marcada los 7 días no descuenta más de una semana de contrato
+                        const mon = Utils.getMonday(d);
+                        if((bpPorSemana[mon] || 0) >= 5) { bpTopados++; continue; }
+                        bpPorSemana[mon] = (bpPorSemana[mon] || 0) + 1;
+                        if(sh.code === 'B') bajasH += cW / 5; else permisosH += cW / 5;
+                    }
                 } else if(sh.start && sh.end) {
                     workedH += Utils.calcHours(sh.start, sh.end, sh.breakStart, sh.breakEnd, sh.break);
                 }
@@ -129,7 +141,21 @@ Object.assign(App.ui, {
             const pend = App.ui._festivosPrevPend(emp, startISO);
             const pendPrevH = pend.list.reduce((s, p) => s + Utils.getContrato(emp, p.date) / 5, 0);
             const arrastre = emp.saldoInicial || 0; // horas arrastradas del periodo anterior (+ = trabajó de más → resta a lo por asignar)
-            return Math.round((theoH - workedH - bajasH - permisosH - pendPrevH - arrastre) * 10) / 10;
+            // Ajustes de la ficha (+ = horas trabajadas de más → resta a lo por asignar)
+            const ajustesH = (emp.ajustes || [])
+                .filter(a => a.fecha >= startISO && a.fecha <= endISO)
+                .reduce((s, a) => s + a.signo * a.horas, 0);
+            const f1 = n => Math.round(n * 10) / 10;
+            return {
+                theoH, theoTramos, daysVig, horasDia, workedH, bajasH, permisosH, bpTopados,
+                pendPrev: pend.count, pendPrevList: pend.list, pendPrevH, arrastre, ajustesH,
+                saldo: f1(theoH - workedH - bajasH - permisosH - pendPrevH - arrastre - ajustesH)
+            };
+        },
+
+        _calcHorasPorAsignar: function(emp, startISO, endISO) {
+            if(!emp) return 0;
+            return App.ui._horasPorAsignarDetalle(emp, startISO, endISO).saldo;
         },
 
         // Helper: festivos pendientes en semanas cerradas
