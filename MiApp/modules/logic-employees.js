@@ -327,6 +327,8 @@ Object.assign(App.logic, {
             if(!shift) return 'sin_definir';
             if(shift.fixed && shift.code === 'V') return this.esInicioVacaciones(emp.id, hDate) ? 'vacaciones' : 'absorbido';
             if(shift.fixed && shift.code === 'F') {
+                // F justo antes de empezar las vacaciones: disfrutado aunque la semana no tenga 2 L
+                if(this.esVisperaVacaciones(emp.id, hDate)) return 'disfrutado';
                 const wdays = Utils.getWeekDays(Utils.getMonday(hDate));
                 let countL = 0;
                 wdays.forEach(d => { const s2 = App.data.schedule[d]?.[emp.id]; const sh2 = s2 ? Utils.getShift(s2) : null; if(sh2 && sh2.fixed && sh2.code === 'L') countL++; });
@@ -342,6 +344,12 @@ Object.assign(App.logic, {
             if(!isV(date)) return false;
             const prev = new Date(date + 'T12:00:00'); prev.setDate(prev.getDate() - 1);
             return !isV(prev.toISOString().slice(0, 10));
+        },
+
+        // ¿Empieza un bloque de vacaciones el día siguiente a 'date'?
+        esVisperaVacaciones: function(empId, date) {
+            const next = new Date(date + 'T12:00:00'); next.setDate(next.getDate() + 1);
+            return this.esInicioVacaciones(empId, next.toISOString().slice(0, 10));
         },
 
         festivoAdeuda: function(estado) {

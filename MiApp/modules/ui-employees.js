@@ -92,7 +92,7 @@ Object.assign(App.ui, {
                     const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
                     let cL = 0;
                     wdays.forEach(d => { const s = App.data.schedule[d]?.[emp.id]; const s2 = s ? Utils.getShift(s) : null; if(s2 && s2.fixed && s2.code === 'L') cL++; });
-                    if(cL < 2) reason = `F (solo ${cL} L en la semana)`;
+                    if(cL < 2 && !App.logic.esVisperaVacaciones(emp.id, h.date)) reason = `F (solo ${cL} L en la semana)`;
                 } else if(shift.start && shift.end) reason = 'trabajado';
                 if(reason) { count++; list.push({ date: h.date, reason }); }
             });
@@ -187,7 +187,7 @@ Object.assign(App.ui, {
                     const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
                     let countL = 0;
                     wdays.forEach(d => { const s2 = App.data.schedule[d]?.[emp.id]; const sh2 = s2 ? Utils.getShift(s2) : null; if(sh2 && sh2.fixed && sh2.code === 'L') countL++; });
-                    if(countL < 2) pendientes++;
+                    if(countL < 2 && !App.logic.esVisperaVacaciones(emp.id, h.date)) pendientes++;
                 } else if(shift.start && shift.end) {
                     pendientes++;
                 }

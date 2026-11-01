@@ -6,6 +6,12 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '01/11/2026', version: 'v1.11',
+                items: [
+                    '🔧 F justo antes de las vacaciones (p. ej. lunes festivo con F y V de martes al lunes siguiente): cuenta como ✅ Disfrutado aunque esa semana no tenga 2 L',
+                ]
+            },
+            {
                 fecha: '01/11/2026', version: 'v1.10',
                 items: [
                     '🔧 Festivos en vacaciones: las vacaciones absorben los festivos que caen dentro de ellas (estado 🏖️ Absorbido). Ya no generan recuperación ni se piden en Factorial',

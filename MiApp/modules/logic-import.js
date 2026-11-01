@@ -1105,7 +1105,7 @@ Object.assign(App.logic, {
                                 const sh2 = s2 ? Utils.getShift(s2) : null;
                                 if (sh2 && sh2.fixed && sh2.code === 'L') countL++;
                             });
-                            if (countL < 2) pendientes++;
+                            if (countL < 2 && !App.logic.esVisperaVacaciones(empId, date)) pendientes++;
                         } else if (sh.start && sh.end) {
                             pendientes++;
                         }
