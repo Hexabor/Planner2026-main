@@ -6,6 +6,14 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '01/11/2026', version: 'v1.10',
+                items: [
+                    '🔧 Festivos en vacaciones: las vacaciones absorben los festivos que caen dentro de ellas (estado 🏖️ Absorbido). Ya no generan recuperación ni se piden en Factorial',
+                    '⚠️ Excepción: las vacaciones no pueden empezar en festivo. Si el festivo es el primer día de V, queda como ⚠️ Inicio de vacaciones y sigue contando como deuda hasta que se corrija (ese día va como festivo y las vacaciones empiezan al siguiente)',
+                    '✨ Nueva alerta: en semanas cerradas (desde la semana actual), avisa cuando las vacaciones de alguien empiezan en un festivo',
+                ]
+            },
+            {
                 fecha: '25/10/2026', version: 'v1.9',
                 items: [
                     '🔧 Horas por asignar (DES): los turnos externos (apoyo a otra tienda, aperturas, viajes) ya no suman como horas trabajadas, igual que en el ASIG semanal. Se siguen viendo en la rejilla; sus horas se registran como ajuste en la ficha',

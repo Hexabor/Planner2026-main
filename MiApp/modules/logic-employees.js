@@ -317,13 +317,15 @@ Object.assign(App.logic, {
 
         // Adjudica automáticamente recuperaciones a los festivos pendientes.
         // Empareja el festivo pendiente MÁS ANTIGUO con la recuperación libre MÁS ANTIGUA.
-        // Estado de un festivo para un empleado: 'disfrutado' | 'coincide' | 'trabaja' | 'vacaciones' | 'sin_definir'.
-        // Todos salvo 'disfrutado' (y 'sin_definir') generan una recuperación que se pide en Factorial.
+        // Estado de un festivo para un empleado: 'disfrutado' | 'coincide' | 'trabaja' | 'absorbido' | 'vacaciones' | 'sin_definir'.
+        // Un festivo dentro de las vacaciones queda absorbido por ellas ('absorbido', no se debe nada),
+        // salvo que sea el primer día: las vacaciones no pueden empezar en festivo ('vacaciones', mal planificado).
+        // 'coincide', 'trabaja' y 'vacaciones' generan una recuperación que se pide en Factorial.
         festivoEstado: function(emp, hDate) {
             const sid = App.data.schedule[hDate]?.[emp.id];
             const shift = sid ? Utils.getShift(sid) : null;
             if(!shift) return 'sin_definir';
-            if(shift.fixed && shift.code === 'V') return 'vacaciones';
+            if(shift.fixed && shift.code === 'V') return this.esInicioVacaciones(emp.id, hDate) ? 'vacaciones' : 'absorbido';
             if(shift.fixed && shift.code === 'F') {
                 const wdays = Utils.getWeekDays(Utils.getMonday(hDate));
                 let countL = 0;
@@ -332,6 +334,14 @@ Object.assign(App.logic, {
             }
             if(shift.start && shift.end) return 'trabaja';
             return 'sin_definir';
+        },
+
+        // ¿Es 'date' el primer día de un bloque de vacaciones (V ese día y no el anterior)?
+        esInicioVacaciones: function(empId, date) {
+            const isV = (d) => { const sid = App.data.schedule[d]?.[empId]; const sh = sid ? Utils.getShift(sid) : null; return !!(sh && sh.fixed && sh.code === 'V'); };
+            if(!isV(date)) return false;
+            const prev = new Date(date + 'T12:00:00'); prev.setDate(prev.getDate() - 1);
+            return !isV(prev.toISOString().slice(0, 10));
         },
 
         festivoAdeuda: function(estado) {
@@ -370,12 +380,12 @@ Object.assign(App.logic, {
             const assignedRDates = new Set(Object.values(tracking).map(t => t.rDate).filter(Boolean));
             const rsLibres = allRs.filter(r => !assignedRDates.has(r)).sort((a, b) => a.localeCompare(b));
 
-            // Festivos pendientes de disfrute (trabajado, coincide o en vacaciones) sin R válida, más antiguos primero
+            // Festivos pendientes de disfrute (trabajado, coincide o al inicio de vacaciones) sin R válida, más antiguos primero
             const pendientes = (App.data.storeConfig.holidays || [])
                 .filter(h => Utils.empleadoVigenteEnFecha(emp, h.date))
                 .filter(h => {
                     const estado = getEstado(h.date);
-                    if(!(estado === 'coincide' || estado === 'trabaja' || estado === 'vacaciones')) return false;
+                    if(!App.logic.festivoAdeuda(estado)) return false;
                     const tr = tracking[h.date] || {};
                     if(tr.fijada) return false; // aceptada en Factorial: no se reasigna aunque su R falte del calendario
                     return !(tr.rDate && allRsSet.has(tr.rDate));

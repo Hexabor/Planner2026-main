@@ -87,7 +87,7 @@ Object.assign(App.ui, {
                 const shift = sid ? Utils.getShift(sid) : null;
                 if(!shift) return;
                 let reason = null;
-                if(shift.fixed && shift.code === 'V') reason = 'V (vacaciones no absorben)';
+                if(shift.fixed && shift.code === 'V') { if(App.logic.esInicioVacaciones(emp.id, h.date)) reason = 'V (las vacaciones no pueden empezar en festivo)'; }
                 else if(shift.fixed && shift.code === 'F') {
                     const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
                     let cL = 0;
@@ -181,7 +181,8 @@ Object.assign(App.ui, {
                 const sid = App.data.schedule[h.date]?.[emp.id];
                 const shift = sid ? Utils.getShift(sid) : null;
                 if(!shift) return;
-                if(shift.fixed && shift.code === 'V') { pendientes++; return; } // Vacaciones NO absorben festivos
+                // Las vacaciones absorben el festivo, salvo que empiecen en él
+                if(shift.fixed && shift.code === 'V') { if(App.logic.esInicioVacaciones(emp.id, h.date)) pendientes++; return; }
                 if(shift.fixed && shift.code === 'F') {
                     const wdays = Utils.getWeekDays(Utils.getMonday(h.date));
                     let countL = 0;
@@ -741,9 +742,9 @@ markDirty: function() {
         const tr = tracking[h.date] || {};
         // rDate válida solo si la R aún existe en el schedule
         const rDateValida = tr.rDate && allRsSet.has(tr.rDate);
-        const isResuelto = (estado === 'disfrutado') || rDateValida;
+        const isResuelto = (estado === 'disfrutado') || (estado === 'absorbido') || rDateValida;
 
-        if(estado === 'coincide' || estado === 'trabaja' || estado === 'vacaciones') adeudadas++;
+        if(App.logic.festivoAdeuda(estado)) adeudadas++;
         if(rDateValida) dadas++;
 
         const itemHtml = this.renderFestivoItemRow(emp, h, estado, tr, allRs, assignedRDates);
@@ -855,7 +856,8 @@ renderFestivoItemRow: function(emp, h, estado, tr, allRs, assignedRDates) {
         disfrutado: ['#dcfce7','#15803d','✅ OK'],
         coincide: ['#fef9c3','#854d0e','⚠️ Coincide'],
         trabaja: ['#fee2e2','#991b1b','🔴 Trabaja'],
-        vacaciones: ['#ede9fe','#6d28d9','🏖️ En vacaciones'],
+        absorbido: ['#ede9fe','#6d28d9','🏖️ Absorbido'],
+        vacaciones: ['#fee2e2','#991b1b','⚠️ Inicio de vacaciones'],
         sin_definir: ['#f1f5f9','#94a3b8','⬜ ?']
     }[estado];
 

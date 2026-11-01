@@ -1096,7 +1096,7 @@ Object.assign(App.logic, {
                         const sid = App.data.schedule[date]?.[empId];
                         const sh = sid ? Utils.getShift(sid) : null;
                         if (!sh) return;
-                        if (sh.fixed && sh.code === 'V') { pendientes++; return; }
+                        if (sh.fixed && sh.code === 'V') { if (App.logic.esInicioVacaciones(empId, date)) pendientes++; return; }
                         if (sh.fixed && sh.code === 'F') {
                             const wdays = Utils.getWeekDays(Utils.getMonday(date));
                             let countL = 0;

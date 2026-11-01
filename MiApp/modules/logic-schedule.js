@@ -1722,6 +1722,27 @@ Object.assign(App.logic, {
                 });
             });
 
+            // PARTE 3B: Vacaciones que empiezan en festivo, en semanas 100% cerradas (desde la semana actual)
+            // → Las vacaciones no pueden empezar con un festivo absorbido: ese día va como festivo y las vacaciones empiezan al siguiente.
+            const lockedVF = App.data.lockedDays || {};
+            const lunesActualVF = Utils.getMonday(new Date().toISOString().slice(0, 10));
+            (App.data.storeConfig.holidays || []).forEach(holiday => {
+                const date = holiday.date;
+                if(!date || date < lunesActualVF || !lockedVF[date]) return;
+                if(!Utils.getWeekDays(Utils.getMonday(date)).every(d => lockedVF[d])) return;
+                Object.keys(App.data.schedule[date] || {}).forEach(empId => {
+                    if(!App.logic.esInicioVacaciones(empId, date)) return;
+                    const emp = App.data.empleados.find(e => e.id === empId);
+                    if(!emp) return;
+                    alerts.push({
+                        title: `🏖️ Vacaciones empiezan en festivo — ${emp.nombre}`,
+                        desc: `${emp.nombre} empieza las vacaciones el ${Utils.formatDateES(date)} (${holiday.note || 'festivo'}). Las vacaciones no pueden empezar en festivo: ese día se disfruta (F) o se trabaja como festivo, y las vacaciones empiezan al día siguiente.`,
+                        date: date,
+                        empName: emp.nombre
+                    });
+                });
+            });
+
             // PARTE 4: Cobertura de llaves en días cerrados
             const hasLlaves = App.data.config.llavesActivo && App.data.config.llaves && App.data.config.llaves.length > 0;
             const hasKeyHolders = App.data.config.llavesActivo && App.data.empleados.some(e => e.llaveId);
