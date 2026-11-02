@@ -7,7 +7,6 @@ Object.assign(App.ui, {
             const alerts = App.logic.getAlerts();
             const dismissed = App.data.dismissedAlerts || [];
             const alertCount = alerts.filter(a => !dismissed.includes(a.title + '||' + (a.date || ''))).length;
-            const pendingReqs = App.data.requests.filter(r => r.status === 'pending' && !r.archived).length;
             const wkCode = Utils.getWeekCode(App.uiState.currentDate);
             const storeNombre = App.data.storeConfig?.nombre || 'Mi Tienda';
             
@@ -498,9 +497,8 @@ Object.assign(App.ui, {
                                 {label:'Festivos', action:"App.uiState.empViewMode='data';App.uiState.empInspTab='festivos';App.router.go('empleados');"},
                                 {label:'Preferencias', action:"App.uiState.empViewMode='prefs';App.router.go('empleados');"}
                             ])) +
-                        tile('requests',  'inbox', 'Gestión diaria', pendingReqs > 0 ? `${pendingReqs} por revisar` : 'Todo al día', pendingReqs > 0, '#f59e0b', 'left',
+                        tile('requests',  'inbox', 'Gestión diaria', 'Eventos y llaves', false, '#f59e0b', 'left',
                             subtiles([
-                                {label:'Solicitudes', action:"App.uiState.reqSection='solicitudes';App.router.go('requests');"},
                                 {label:'Eventos', action:"App.uiState.reqSection='eventos';App.router.go('requests');"},
                                 ...(App.data.config.llavesActivo ? [{label:'Llaves', action:"App.uiState.reqSection='llaves';App.router.go('requests');"}] : [])
                             ])),

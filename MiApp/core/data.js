@@ -5,12 +5,12 @@
 const App = {
     // Versión de entrega visible (cabecera, título y Novedades). Subir en cada entrega: v1.1, v1.2...
     // No confundir con data.meta.ver, que es la versión del formato de datos.
-    VERSION: 'v1.11',
+    VERSION: 'v1.12',
 
     data: {
         meta: { ver: "41.93" },
         config: { weekStart: "2025-12-29", stdHours: 1711 }, 
-        empleados: [], requests: [], recurringRequests: [], storeConfig: { base: {}, special: [], holidays: [] },
+        empleados: [], storeConfig: { base: {}, special: [], holidays: [] },
         fixedShifts: [
             { id: "fixed_L", code: "L", desc: "Libre", start: "", end: "", color: "#22c55e", fixed: true },
             { id: "fixed_F", code: "F", desc: "Festivo", start: "", end: "", color: "#22c55e", fixed: true },
@@ -100,7 +100,7 @@ const App = {
                 // Validación de schema mínimo
                 var _schemaRules = {
                     empleados: 'array', schedule: 'object', config: 'object',
-                    shiftDefs: 'array', requests: 'array', storeConfig: 'object'
+                    shiftDefs: 'array', storeConfig: 'object'
                 };
                 var _badFields = [];
                 Object.keys(_schemaRules).forEach(function(key) {
@@ -213,41 +213,9 @@ const App = {
             importarRota: true, vaciarPlanner: true, cargarDrive: true
         };
         
-        // Migrar requests tipo VAC a vacacionesPlans (una sola vez)
-        if (!App.data.vacacionesPlans) App.data.vacacionesPlans = [];
-        if (!App.data.libranzaPlans) App.data.libranzaPlans = [];
-        const _vacReqs = (App.data.requests || []).filter(r => r.type === 'VAC');
-        if (_vacReqs.length > 0) {
-            // Agrupar por empleado
-            const _byEmp = {};
-            _vacReqs.forEach(r => {
-                if (!_byEmp[r.empId]) _byEmp[r.empId] = [];
-                // Expandir rango de fechas a días individuales
-                let cur = new Date(r.start + 'T12:00:00');
-                const end = new Date(r.end + 'T12:00:00');
-                while (cur <= end) {
-                    _byEmp[r.empId].push(cur.toISOString().slice(0, 10));
-                    cur.setDate(cur.getDate() + 1);
-                }
-            });
-            Object.keys(_byEmp).forEach(empId => {
-                const dates = [...new Set(_byEmp[empId])].sort();
-                // ¿Ya está aplicado? Comprobar si al menos la mitad tiene V en schedule
-                const vCount = dates.filter(d => {
-                    const sv = (App.data.schedule[d] || {})[empId];
-                    const sh = sv ? (typeof sv === 'object' ? sv : App.data.fixedShifts?.find(s => s.id === sv)) : null;
-                    return sh && sh.code === 'V';
-                }).length;
-                const applied = vCount >= dates.length / 2;
-                App.data.vacacionesPlans.push({
-                    id: 'vp_migrated_' + Date.now() + '_' + empId,
-                    empId, dates, createdAt: new Date().toISOString(), applied
-                });
-            });
-            // Eliminar las requests VAC originales
-            App.data.requests = App.data.requests.filter(r => r.type !== 'VAC');
-            Safe.saveImmediate('v40_db', App.data);
-        }
+        // Solicitudes y planes de libranzas/vacaciones retirados (v1.12): el blindado los sustituye
+        delete App.data.requests; delete App.data.recurringRequests;
+        delete App.data.libranzaPlans; delete App.data.vacacionesPlans;
 
         // Ensure fixedShifts always exist (these are NOT saved in backup, always from code)
         App.data.fixedShifts = [

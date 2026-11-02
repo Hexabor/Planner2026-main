@@ -251,33 +251,6 @@ Object.assign(App.logic, {
             const _empClean = App.data.empleados.find(e => e.id === empId);
             if (_empClean?.recuperacionesInferidas?.[date]) delete _empClean.recuperacionesInferidas[date];
 
-            // Comprobar solicitudes/planes antes de borrar
-            const req = Utils.getRequest(empId, date);
-            if(req && req.status === 'approved' && req.type !== 'HRL') {
-                if(req._synthetic) {
-                    const planLabel = req.planType === 'vacaciones' ? 'plan de vacaciones' : 'plan de libranzas';
-                    const emp = App.data.empleados.find(e => e.id === empId);
-                    if(!confirm(`📋 ${planLabel.charAt(0).toUpperCase() + planLabel.slice(1)}\n\n${emp ? emp.nombre : 'Este empleado'} tiene este día en un ${planLabel} aprobado.\n\n¿Borrar el turno? Se considerará revocación.`)) return;
-                }
-            }
-
-            // Comprobar libranza/vacaciones plan
-            const currentShift = App.data.schedule[date][empId];
-            const cs = Utils.getShift(currentShift);
-            if(cs && cs.fixed) {
-                let planMsg = null;
-                if((cs.code === 'L' || cs.code === 'F') && this._isLibranzaPlan(empId, date)) {
-                    planMsg = '📋 Libranza solicitada';
-                } else if(cs.code === 'V' && App.ui._isPlanDay && App.ui._isPlanDay('vacaciones', empId, date)) {
-                    planMsg = '🏖️ Vacaciones solicitadas';
-                }
-                if(planMsg) {
-                    const emp = App.data.empleados.find(e => e.id === empId);
-                    const empName = emp ? emp.nombre : 'Este empleado';
-                    if(!confirm(`${planMsg}\n\n${empName} solicitó este día como parte de un plan.\n\n¿Estás seguro de que quieres borrar esta asignación?`)) return;
-                }
-            }
-
             const emp = App.data.empleados.find(e => e.id === empId);
             const empName = emp ? emp.nombre : empId;
             delete App.data.schedule[date][empId];
@@ -286,12 +259,6 @@ Object.assign(App.logic, {
             App.ui.renderPlanner(document.getElementById('main-view'));
             App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
             App.logic.checkAlerts();
-        },
-
-        // Helper: ¿este día+empleado pertenece a un plan de libranzas aplicado?
-        _isLibranzaPlan: function(empId, date) {
-            if (!App.data.libranzaPlans) return null;
-            return App.data.libranzaPlans.find(p => p.applied && p.empId === empId && p.dates.includes(date)) || null;
         },
 
         paint: async function(empId) {
@@ -328,101 +295,6 @@ Object.assign(App.logic, {
 
             if(!App.data.schedule[date]) App.data.schedule[date] = {};
 
-            // Plan de libranzas/vacaciones — avisar si se va a modificar un día solicitado
-            const currentShift = App.data.schedule[date] ? App.data.schedule[date][empId] : null;
-            if (currentShift) {
-                const cs = Utils.getShift(currentShift);
-                if (cs && cs.fixed) {
-                    let planMsg = null;
-                    if ((cs.code === 'L' || cs.code === 'F') && this._isLibranzaPlan(empId, date)) {
-                        planMsg = '📋 Libranza solicitada';
-                    } else if (cs.code === 'V' && App.ui._isPlanDay && App.ui._isPlanDay('vacaciones', empId, date)) {
-                        planMsg = '🏖️ Vacaciones solicitadas';
-                    }
-                    if (planMsg) {
-                        const emp = App.data.empleados.find(e => e.id === empId);
-                        const empName = emp ? emp.nombre : 'Este empleado';
-                        if (!confirm(`${planMsg}\n\n${empName} solicitó este día como parte de un plan.\n\n¿Estás seguro de que quieres modificar esta asignación?\nAsegúrate de haber comunicado al empleado la revocación.`)) return;
-                    }
-                }
-            }
-            
-            const req = Utils.getRequest(empId, date);
-            const shiftToPaint = Utils.getShift(sid);
-            
-            // Mapeo de tipos de solicitud a turnos permitidos
-            const allowedShifts = {
-                'VAC': ['V'],              // Solo Vacaciones
-                'LIB': ['L', 'F', 'R', 'V'], // Libre, Festivo, Recuperación o Vacaciones
-                'BAJ': ['B'],              // Solo Baja médica
-                'AP': ['P']                // Solo Permiso
-            };
-            
-            // Check if employee has ANY approved request
-            const hasApprovedRequest = req && req.status === 'approved';
-            
-            // If employee has approved request, validate allowed shifts
-            // HRL no bloquea el pintado — el sistema de alertas detecta solapamientos a posteriori
-            if(hasApprovedRequest && req.type !== 'HRL') {
-                const allowed = allowedShifts[req.type] || [];
-                
-                // Borrador: permitir, pero avisar si es un plan
-                if(sid === 'eraser') {
-                    if (req._synthetic) {
-                        const planLabel = req.planType === 'vacaciones' ? 'plan de vacaciones' : 'plan de libranzas';
-                        const emp = App.data.empleados.find(e => e.id === empId);
-                        if (!confirm(`📋 ${planLabel.charAt(0).toUpperCase() + planLabel.slice(1)}\n\n${emp ? emp.nombre : 'Este empleado'} tiene este día en un ${planLabel} aprobado.\n\n¿Borrar el turno? Se considerará revocación.`)) return;
-                    }
-                    delete App.data.schedule[date][empId];
-                    this.saveSnapshot('Borrar turno');
-                    Safe.save('v40_db', App.data);
-                    App.ui.renderPlanner(document.getElementById('main-view'));
-                    App.ui.renderPlannerInspector(document.getElementById('inspector-content'));
-                    App.logic.checkAlerts();
-                    return;
-                }
-                
-                // Validar que el turno existe
-                if(!shiftToPaint) {
-                    alert('⚠️ Error: Turno no válido');
-                    return;
-                }
-                
-                // Verificar si está en lista de permitidos
-                if(!allowed.includes(shiftToPaint.code)) {
-                    const typeNames = {
-                        'VAC': 'VACACIONES',
-                        'LIB': 'DÍA LIBRE / LIBRANZA',
-                        'BAJ': 'BAJA MÉDICA',
-                        'AP': 'ASUNTOS PROPIOS',
-                        'HRL': 'HORAS LIBRES'
-                    };
-                    const typeName = typeNames[req.type] || req.type;
-                    const allowedList = allowed.join(', ');
-                    
-                    if (req._synthetic) {
-                        const planLabel = req.planType === 'vacaciones' ? 'plan de vacaciones' : 'plan de libranzas';
-                        if (confirm(`🔒 ${typeName} — ${planLabel}\n\nEste día forma parte de un ${planLabel} aprobado.\n\nTurnos permitidos: ${allowedList}\n\n¿Quieres ir al ${planLabel} para modificarlo?`)) {
-                            App.uiState.reqSection = 'solicitudes';
-                            App.uiState.reqSubSection = req.planType === 'vacaciones' ? 'vacaciones' : 'libranzas';
-                            const uiKey = req.planType === 'vacaciones' ? 'vacacionesPlan' : 'libranzas';
-                            if (!App.uiState[uiKey]) App.uiState[uiKey] = {};
-                            App.uiState[uiKey].mode = 'list';
-                            App.router.go('requests');
-                        }
-                    } else {
-                        if (confirm(`🔒 ${typeName} APROBADA\n\nEste empleado tiene una solicitud de ${typeName.toLowerCase()} aprobada.\n\nTurnos permitidos: ${allowedList}\n\n¿Quieres ir a la solicitud para modificarla?`)) {
-                            App.uiState.reqSection = 'solicitudes';
-                            App.uiState.reqSubSection = 'puntuales';
-                            App.logic.reqSelect(req.id);
-                            App.router.go('requests');
-                        }
-                    }
-                    return;
-                }
-                // Si llegamos aquí, el turno está permitido → continuar
-            }
-            
             const dayKey = Utils.getDayKey(date);
             const holiday = App.data.storeConfig.holidays.find(h => h.date === date);
             const dayConfig = holiday ? App.data.storeConfig.base["Festivo"] : (App.data.storeConfig.base[dayKey] || {open:"10:00", close:"22:00", closed:false});
@@ -1343,23 +1215,6 @@ Object.assign(App.logic, {
                 return;
             }
 
-            // Comprobar planes de libranzas/vacaciones
-            const _checkPlan = (eId, d) => {
-                const sv = (App.data.schedule[d] || {})[eId];
-                if (!sv) return true;
-                const sh = Utils.getShift(sv);
-                if (!sh || !sh.fixed) return true;
-                let msg = null;
-                if ((sh.code === 'L' || sh.code === 'F') && App.logic._isLibranzaPlan(eId, d)) msg = '📋 Libranza solicitada';
-                else if (sh.code === 'V' && App.ui._isPlanDay && App.ui._isPlanDay('vacaciones', eId, d)) msg = '🏖️ Vacaciones solicitadas';
-                if (msg) {
-                    const emp = App.data.empleados.find(e => e.id === eId);
-                    return confirm(`${msg}\n\n${emp ? emp.nombre : 'Este empleado'} solicitó este día como parte de un plan.\n\n¿Quieres modificar esta asignación?`);
-                }
-                return true;
-            };
-            if (!_checkPlan(sw.a.empId, date)) return;
-            if (!_checkPlan(sw.b.empId, date)) return;
             if (!(await App.logic._blindajeGate(sw.a.empId, date))) return;
             if (!(await App.logic._blindajeGate(sw.b.empId, date))) return;
 
@@ -1427,23 +1282,6 @@ Object.assign(App.logic, {
                 return;
             }
             
-            // Plan de libranzas — avisar si se va a mover una libranza solicitada
-            const _checkSwapPlan = (eId, d) => {
-                const sv = (App.data.schedule[d] || {})[eId];
-                if (!sv) return true;
-                const sh = Utils.getShift(sv);
-                if (!sh || !sh.fixed) return true;
-                let msg = null;
-                if ((sh.code === 'L' || sh.code === 'F') && App.logic._isLibranzaPlan(eId, d)) msg = '📋 Libranza solicitada';
-                else if (sh.code === 'V' && App.ui._isPlanDay && App.ui._isPlanDay('vacaciones', eId, d)) msg = '🏖️ Vacaciones solicitadas';
-                if (msg) {
-                    const emp = App.data.empleados.find(e => e.id === eId);
-                    return confirm(`${msg}\n\n${emp ? emp.nombre : 'Este empleado'} solicitó este día como parte de un plan.\n\n¿Quieres modificar esta asignación?`);
-                }
-                return true;
-            };
-            if (!_checkSwapPlan(sourceEmpId, sourceDate)) return;
-            if (!_checkSwapPlan(targetEmpId, targetDate)) return;
             if (!(await App.logic._blindajeGate(sourceEmpId, sourceDate))) return;
             if (!(await App.logic._blindajeGate(targetEmpId, targetDate))) return;
 
@@ -1591,115 +1429,6 @@ Object.assign(App.logic, {
 
         getAlerts: function() {
             let alerts = [];
-            
-            // Mapeo de turnos permitidos por tipo (mismo que en paint)
-            const allowedShifts = {
-                'VAC': ['V'],
-                'LIB': ['L', 'F', 'R', 'V'],
-                'BAJ': ['B'],
-                'AP': ['P']
-            };
-            
-            // PARTE 1: Revisar días con turnos asignados
-            Object.keys(App.data.schedule).forEach(date => {
-                const daySched = App.data.schedule[date];
-                Object.keys(daySched).forEach(empId => {
-                    const shiftId = daySched[empId];
-                    const shift = Utils.getShift(shiftId);
-                    const req = Utils.getRequest(empId, date);
-                    const emp = App.data.empleados.find(e=>e.id===empId);
-                    
-                    if(!req || !emp) return; // Sin solicitud o empleado no encontrado
-                    
-                    // CASO 1: Solicitud PENDIENTE con turno asignado
-                    // → Alertar solo para tipos que requieren día completo (no HRL)
-                    if(req.status === 'pending' && req.type !== 'HRL') {
-                        alerts.push({
-                            title: `⏳ Petición pendiente con turno asignado`,
-                            desc: `${emp.nombre} ha solicitado ${req.type} para ${Utils.formatDateES(date)} pero tiene turno "${shift?.code || '?'}". Necesita aprobación/rechazo.`,
-                            date: date,
-                            empName: emp ? emp.nombre : ""
-                        });
-                        return;
-                    }
-                    
-                    // CASO 2: Solicitud APROBADA con turno NO permitido
-                    // → Alertar solo si el turno no está en la lista de permitidos
-                    if(req.status === 'approved') {
-                        if(!shift || !shift.code) return;
-
-                        // HRL: alerta si el turno se solapa con el tramo pedido libre
-                        if(req.type === 'HRL') {
-                            if(shift.fixed) return; // L, F, V, R, B → libre → OK
-                            if(!shift.start || !shift.end) return;
-                            // Solapamiento: turno empieza antes de que acaben las horas libres
-                            // Y turno acaba después de que empiecen las horas libres
-                            const getMin = t => { const [h,m]=t.split(':').map(Number); return h*60+m; };
-                            const tS = getMin(shift.start), tE = getMin(shift.end);
-                            const fS = getMin(req.hrlFrom),  fE = getMin(req.hrlTo);
-                            const solapa = tS < fE && tE > fS;
-                            if(solapa) {
-                                alerts.push({
-                                    title: `⏰ Turno solapa con horas libres aprobadas`,
-                                    desc: `${emp.nombre} tiene horas libres aprobadas de ${req.hrlFrom}–${req.hrlTo} el ${Utils.formatDateES(date)}, pero su turno (${shift.start}–${shift.end}) se solapa con ese tramo.`,
-                                    date: date
-                                });
-                            }
-                            return;
-                        }
-
-                        const allowed = allowedShifts[req.type] || [];
-                        if(!allowed.includes(shift.code)) {
-                            const allowedList = allowed.join(', ');
-                            alerts.push({
-                                title: `🔒 Turno incompatible con ${req.type} aprobada`,
-                                desc: `${emp.nombre} tiene ${req.type} aprobada el ${Utils.formatDateES(date)} pero su turno es "${shift.code}". Turnos permitidos: ${allowedList}.`,
-                                date: date,
-                                empName: emp ? emp.nombre : ""
-                            });
-                        }
-                    }
-                    
-                    // CASO 3: Solicitud RECHAZADA → No alertar
-                    // (Si está rechazada, cualquier turno asignado es válido)
-                });
-            });
-            
-            // PARTE 2: Revisar solicitudes pendientes SIN turno asignado
-            // (Necesitan respuesta del manager)
-            App.data.requests.filter(r => r.status === 'pending').forEach(req => {
-                const emp = App.data.empleados.find(e => e.id === req.empId);
-                if(!emp) return;
-                
-                // Verificar si hay al menos un día en el rango sin turno
-                let currentDate = new Date(req.start);
-                const endDate = new Date(req.end);
-                let hasAtLeastOneDayWithoutShift = false;
-                
-                while(currentDate <= endDate) {
-                    const dateStr = currentDate.toISOString().split('T')[0];
-                    
-                    if(!App.data.schedule[dateStr] || !App.data.schedule[dateStr][req.empId]) {
-                        hasAtLeastOneDayWithoutShift = true;
-                        break; // Ya encontramos uno, no necesitamos seguir
-                    }
-                    
-                    currentDate.setDate(currentDate.getDate() + 1);
-                }
-                
-                // Si hay días sin turno, alertar sobre la petición pendiente
-                // (Los días CON turno ya generaron alerta arriba)
-                if(hasAtLeastOneDayWithoutShift) {
-                    const numDays = Math.floor((new Date(req.end) - new Date(req.start)) / (1000 * 60 * 60 * 24)) + 1;
-                    const hrlInfo = req.type === 'HRL' ? ` (horas libres ${req.hrlFrom}–${req.hrlTo})` : ` (${numDays} día${numDays !== 1 ? 's' : ''}: ${Utils.formatDateES(req.start)} → ${Utils.formatDateES(req.end)})`;
-                    alerts.push({
-                        title: `📋 Petición pendiente de responder`,
-                        desc: `${emp.nombre} ha solicitado ${req.type}${hrlInfo} el ${req.type === 'HRL' ? Utils.formatDateES(req.start) : ''}. Estado: Pendiente de aprobación.`,
-                        date: req.start,
-                        empName: emp ? emp.nombre : ""
-                    });
-                }
-            });
             
             // PARTE 3: L asignada en día festivo de tienda
             // → El empleado libra ese día pero como libranza, no como festivo. Hay que cambiarlo a F.
@@ -2064,8 +1793,6 @@ Object.assign(App.logic, {
                 if(!e.active) return;
                 if(App.data.schedule[date][e.id]) return;
                 if(App.logic.isBlindado(e.id, date)) return;
-                const req = Utils.getRequest(e.id, date);
-                if(req && req.status === 'approved') return;
                 const best = App.logic.getSmartShift(e, finalConfig);
                 if(best) { App.data.schedule[date][e.id] = best.id; count++; }
             });
@@ -2143,7 +1870,7 @@ Object.assign(App.logic, {
             alert(`✅ Planificador completamente vaciado.\n\nSe han eliminado ${totalDays} día(s) de planificaciones.\n\nPuedes empezar de cero.`);
         },
         factoryReset: function() {
-            if(!confirm("⚠️ RESTABLECIMIENTO DE FÁBRICA ⚠️\n\nEsto borrará ABSOLUTAMENTE TODO:\n- Empleados\n- Turnos\n- Configuración y Festivos\n- Solicitudes\n- Cuadrante de turnos\n\nLa app quedará como recién instalada. ¿Estás completamente seguro?")) return;
+            if(!confirm("⚠️ RESTABLECIMIENTO DE FÁBRICA ⚠️\n\nEsto borrará ABSOLUTAMENTE TODO:\n- Empleados\n- Turnos\n- Configuración y Festivos\n- Cuadrante de turnos\n\nLa app quedará como recién instalada. ¿Estás completamente seguro?")) return;
             
             if(!confirm("🛑 ÚLTIMA CONFIRMACIÓN\n\nSi no has exportado un backup, perderás todos los datos para siempre.\n\n¿Proceder con el borrado total?")) return;
 
@@ -2465,21 +2192,19 @@ Object.assign(App.logic, {
 
         _repScanWeek: function(destMonday, empId) {
             const days = Utils.getWeekDays(destMonday);
-            let hasTurnos = 0, hasReqs = 0, hasLocked = 0, hasFestivos = 0;
-            let reqDetails = [], turnoDetails = [], festivoDetails = [];
+            let hasTurnos = 0, hasLocked = 0, hasFestivos = 0;
+            let turnoDetails = [], festivoDetails = [];
 
             days.forEach(d => {
                 const sid = (App.data.schedule[d] || {})[empId];
                 if(sid) { hasTurnos++; const sh = Utils.getShift(sid); turnoDetails.push(sh ? (sh.code || sh.start?.substring(0,5)) : '?'); }
-                const req = Utils.getRequest(empId, d);
-                if(req && req.status !== 'rejected') { hasReqs++; reqDetails.push(`${req.type} ${Utils.getDayName(d)}`); }
                 if(App.data.lockedDays && App.data.lockedDays[d]) hasLocked++;
                 const hol = App.data.storeConfig.holidays.find(h => h.date === d);
                 if(hol) { hasFestivos++; festivoDetails.push(hol.name || 'Festivo'); }
             });
 
             const allLocked = hasLocked === 7;
-            return { destMonday, hasTurnos, hasReqs, hasLocked, allLocked, hasFestivos, reqDetails, turnoDetails, festivoDetails };
+            return { destMonday, hasTurnos, hasLocked, allLocked, hasFestivos, turnoDetails, festivoDetails };
         },
 
         _repPreviewUpdate: function() {
@@ -2508,7 +2233,7 @@ Object.assign(App.logic, {
                     html += `<div style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid #f1f5f9; font-size:0.73rem; color:#94a3b8;">
                         <span>🔒</span> <span style="font-weight:600;">${wc}</span> <span>Semana bloqueada — se salta</span>
                     </div>`;
-                } else if(s.hasTurnos === 0 && s.hasReqs === 0) {
+                } else if(s.hasTurnos === 0) {
                     libre++;
                     html += `<div style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid #f1f5f9; font-size:0.73rem; color:#10b981;">
                         <span>✅</span> <span style="font-weight:600;">${wc}</span> <span>Libre</span>
@@ -2518,7 +2243,6 @@ Object.assign(App.logic, {
                     conflictos++;
                     let details = [];
                     if(s.hasTurnos) details.push(`${s.hasTurnos} turno${s.hasTurnos>1?'s':''}`);
-                    if(s.hasReqs) details.push(`${s.hasReqs} petición: ${s.reqDetails.join(', ')}`);
                     html += `<div onclick="App.logic._repGoToWeek('${s.destMonday}')" style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid #f1f5f9; font-size:0.73rem; color:#f59e0b; cursor:pointer; transition:background 0.1s;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background=''">
                         <span>⚠️</span> <span style="font-weight:600;">${wc}</span> <span>${details.join(' · ')}</span>
                         ${s.hasFestivos ? `<span style="margin-left:auto; font-size:0.65rem; background:#ec4899; color:white; padding:1px 5px; border-radius:3px;">${s.hasFestivos}F</span>` : ''}
@@ -2555,7 +2279,7 @@ Object.assign(App.logic, {
             const optVac = document.getElementById('rep-opt-vac')?.checked;
             const festivoMode = document.querySelector('input[name="rep-festivo"]:checked')?.value || 'keep';
 
-            const conflicts = scans.filter(s => !s.allLocked && (s.hasTurnos > 0 || s.hasReqs > 0));
+            const conflicts = scans.filter(s => !s.allLocked && (s.hasTurnos > 0));
             const effectiveWeeks = scans.filter(s => !s.allLocked);
 
             if(effectiveWeeks.length === 0) {
@@ -2565,9 +2289,7 @@ Object.assign(App.logic, {
 
             // Primera confirmación si hay conflictos
             if(conflicts.length > 0) {
-                const conReqs = conflicts.filter(s => s.hasReqs > 0).length;
                 let msg = `⚠️ ATENCIÓN\n\nSe van a sobreescribir turnos en ${conflicts.length} semana${conflicts.length>1?'s':''} que ya tenían datos.`;
-                if(conReqs > 0) msg += `\n\nAdemás, ${conReqs} semana${conReqs>1?'s':''} tiene${conReqs>1?'n':''} peticiones activas.`;
                 msg += `\n\n¿Deseas continuar?`;
                 if(!confirm(msg)) return;
             }

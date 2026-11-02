@@ -806,7 +806,7 @@ Object.assign(App.ui, {
                     totalHours += hours;
                 }
 
-                // REQ — icono de solicitud + badge de blindaje (Utils.getReqCell, compartido con la vista grupal)
+                // REQ — badge de blindaje (Utils.getReqCell, compartido con la vista grupal)
                 const { reqClass, html: reqCellHtml } = Utils.getReqCell(empId, d);
 
                 // Festivo

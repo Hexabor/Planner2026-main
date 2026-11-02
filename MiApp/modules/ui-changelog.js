@@ -6,6 +6,14 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '02/11/2026', version: 'v1.12',
+                items: [
+                    '🗑️ Solicitudes retiradas: fuera Puntuales, Periódicas, Plan de libranzas y Plan de vacaciones. Para proteger un turno, usa el blindado 🔒',
+                    '🔧 Ya se puede cambiar o borrar cualquier V, L o F que viniera de un plan: el planificador no lo bloquea ni pide ir al plan',
+                    '✨ Gestión diaria queda con Eventos y Llaves',
+                ]
+            },
+            {
                 fecha: '01/11/2026', version: 'v1.11',
                 items: [
                     '🔧 F justo antes de las vacaciones (p. ej. lunes festivo con F y V de martes al lunes siguiente): cuenta como ✅ Disfrutado aunque esa semana no tenga 2 L',

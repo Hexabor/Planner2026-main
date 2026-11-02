@@ -614,32 +614,10 @@ const Utils = {
     return null;
 },
     
-    getRequest: function(empId, date) {
-        // 1. Solicitud puntual real
-        const req = App.data.requests.find(r => r.empId === empId && !r.archived && date >= r.start && date <= r.end);
-        if (req) return req;
-        // 2. Plan de libranzas aplicado
-        const lp = (App.data.libranzaPlans || []).find(p => p.applied && p.empId === empId && p.dates.includes(date) && !(p.denied || []).includes(date));
-        if (lp) return { empId, type: 'LIB', status: 'approved', start: date, end: date, planId: lp.id, planType: 'libranzas', _synthetic: true };
-        // 3. Plan de vacaciones aplicado
-        const vp = (App.data.vacacionesPlans || []).find(p => p.applied && p.empId === empId && p.dates.includes(date));
-        if (vp) return { empId, type: 'VAC', status: 'approved', start: date, end: date, planId: vp.id, planType: 'vacaciones', _synthetic: true };
-        return undefined;
-    },
-
-    // Contenido de la celda REQ: icono de solicitud (si hay) + badge de blindaje superpuesto (si el turno está blindado).
+    // Contenido de la celda REQ: badge de blindaje (si el turno está blindado).
     // Centraliza la lógica que antes estaba duplicada entre vista grupal e individual.
     getReqCell: function(empId, date) {
-        const request = Utils.getRequest(empId, date);
-        let reqClass = ''; let reqIcon = '';
-        if(request && request.status !== 'rejected') {
-            let icon='⚠️'; if(request.type==='VAC') icon='🏖️'; if(request.type==='BAJ') icon='🏥';
-            if(request.type==='LIB') icon='🏠'; if(request.type==='AP') icon='📋'; if(request.type==='HRL') icon='⏰';
-            reqIcon = icon;
-            if(request.status === 'approved') reqClass = 'req-approved-attended';
-            else if(request.status === 'pending') reqClass = 'req-pending';
-        }
-        let html = reqIcon;
+        let reqClass = ''; let html = '';
         if(empId && date && App.logic.isBlindado(empId, date)) {
             reqClass += ' req-blindado';
             html += `<div title="Turno blindado — clic para pedir confirmación antes de cambiarlo" style="position:absolute; top:0; right:1px; font-size:0.55rem; line-height:1; z-index:5; pointer-events:none; filter:drop-shadow(0 0 1px white);">🔒</div>`;

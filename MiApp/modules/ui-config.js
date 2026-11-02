@@ -386,7 +386,7 @@ Object.assign(App.ui, {
                             <hr style="border:none; border-top:1px solid #fca5a5; margin:4px 0;">
                             <div>
                                 <p style="margin:0 0 6px 0; font-size:0.82rem; font-weight:600; color:#7f1d1d;">💣 Restablecimiento de fábrica</p>
-                                <p style="margin:0 0 8px 0; font-size:0.75rem; color:#991b1b; opacity:0.8;">Borra absolutamente todo: empleados, turnos, configuración, solicitudes y planificación.</p>
+                                <p style="margin:0 0 8px 0; font-size:0.75rem; color:#991b1b; opacity:0.8;">Borra absolutamente todo: empleados, turnos, configuración y planificación.</p>
                                 <button class="btn" style="background:black; color:white; border:2px solid #ef4444; font-weight:700; padding:10px 18px; cursor:pointer; border-radius:6px; font-size:0.82rem;"
                                         onclick="App.logic.factoryReset()">💣 Restablecimiento de fábrica</button>
                             </div>

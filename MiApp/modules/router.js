@@ -45,7 +45,6 @@ App.router = {
                 if(App.uiState.selectedId) {
                     if(v === 'empleados') App.ui.renderEmpInspector(App.uiState.selectedId);
                     else if(v === 'shifts') App.ui.renderShiftInspector(App.uiState.selectedId);
-                    else if(v === 'requests') App.ui.renderReqInspector(App.uiState.selectedId);
                 }
             }
             App.logic.checkAlerts();

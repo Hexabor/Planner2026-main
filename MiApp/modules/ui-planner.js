@@ -511,7 +511,6 @@ Object.assign(App.ui, {
 
                 days.forEach(d => {
                     let status = { color: 'transparent', type: 'empty', label: Utils.getDayName(d), code: null };
-                    const req = Utils.getRequest(e.id, d);
                     const sid = App.data.schedule[d] ? App.data.schedule[d][e.id] : null;
                     const shift = sid ? Utils.getShift(sid) : null;
 
@@ -525,11 +524,6 @@ Object.assign(App.ui, {
                             asig += h;
                             if(!shift.external) planned += h;
                         }
-                    } else if(req && req.status === 'approved') {
-                        if(req.type === 'VAC') status = { color: '#a855f7', type: 'hollow', label: 'Vacaciones', code: 'V' };
-                        else if(req.type === 'BAJ') status = { color: '#ef4444', type: 'hollow', label: 'Baja', code: 'B' };
-                        else if(req.type === 'AP') status = { color: '#ec4899', type: 'hollow', label: 'Asuntos Propios', code: 'P' };
-                        else status = { color: '#e5e7eb', type: 'hollow', label: req.type, code: req.type };
                     }
                     dayStatuses.push(status);
                 });
