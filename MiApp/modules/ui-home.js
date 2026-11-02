@@ -497,8 +497,9 @@ Object.assign(App.ui, {
                                 {label:'Festivos', action:"App.uiState.empViewMode='data';App.uiState.empInspTab='festivos';App.router.go('empleados');"},
                                 {label:'Preferencias', action:"App.uiState.empViewMode='prefs';App.router.go('empleados');"}
                             ])) +
-                        tile('requests',  'inbox', 'Gestión diaria', 'Eventos y llaves', false, '#f59e0b', 'left',
+                        tile('requests',  'inbox', 'Gestión diaria', 'Vacaciones, eventos y llaves', false, '#f59e0b', 'left',
                             subtiles([
+                                {label:'Vacaciones', action:"App.uiState.reqSection='vacaciones';App.router.go('requests');"},
                                 {label:'Eventos', action:"App.uiState.reqSection='eventos';App.router.go('requests');"},
                                 ...(App.data.config.llavesActivo ? [{label:'Llaves', action:"App.uiState.reqSection='llaves';App.router.go('requests');"}] : [])
                             ])),

@@ -6,6 +6,14 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '03/11/2026', version: 'v1.13',
+                items: [
+                    '✨ Gestión diaria → Vacaciones: vuelven la Vista global (12 calendarios, un color por persona) y la Agenda día a día del curso, ahora con las V del planificador',
+                    '✨ Vacaciones → Por persona: días y tramos de cada empleado en el curso; clic en un tramo para ir al planificador',
+                    '🔧 Agenda de vacaciones: otorgar o revocar respeta las semanas cerradas y los turnos blindados, y se puede deshacer',
+                ]
+            },
+            {
                 fecha: '02/11/2026', version: 'v1.12',
                 items: [
                     '🗑️ Solicitudes retiradas: fuera Puntuales, Periódicas, Plan de libranzas y Plan de vacaciones. Para proteger un turno, usa el blindado 🔒',

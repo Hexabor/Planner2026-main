@@ -188,12 +188,14 @@ Object.assign(App.ui, {
         renderRequests: function(c) {
             if (!c) return;
             // Las solicitudes se retiraron (v1.12): el blindado de turnos las sustituye
-            let section = App.uiState.reqSection || 'eventos';
-            if (section !== 'llaves' || !App.data.config.llavesActivo) section = 'eventos';
+            let section = App.uiState.reqSection || 'vacaciones';
+            if (section === 'llaves' && !App.data.config.llavesActivo) section = 'vacaciones';
+            if (!['vacaciones', 'eventos', 'llaves'].includes(section)) section = 'vacaciones';
             App.uiState.reqSection = section;
 
             const ico = (path, size=16) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
             const ICO = {
+                vac:    ico('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>'),
                 event:  ico('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01"/>'),
                 key:    ico('<circle cx="8" cy="15" r="4"/><line x1="11.5" y1="11.5" x2="22" y2="1"/><line x1="18" y1="5" x2="21" y2="2"/><line x1="15" y1="8" x2="18" y2="5"/>'),
             };
@@ -214,6 +216,7 @@ Object.assign(App.ui, {
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:0;">
                 <h2 style="margin:0;font-size:1.15rem;font-weight:700;color:#1e293b;flex-shrink:0;">Gestión diaria</h2>
                 <div style="display:flex;gap:6px;">
+                    ${mainBtn('vacaciones', ICO.vac, 'Vacaciones')}
                     ${mainBtn('eventos', ICO.event, 'Eventos')}
                     ${llavesBtn}
                 </div>
@@ -223,6 +226,11 @@ Object.assign(App.ui, {
             if (section === 'llaves') {
                 this._renderLlaves(c, sectionBar);
                 this.renderDayInspector(App.llaves._ui.inspectorDate || new Date().toISOString().slice(0,10));
+                return;
+            }
+
+            if (section === 'vacaciones') {
+                this._renderVacaciones(c, sectionBar);
                 return;
             }
 
