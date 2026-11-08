@@ -622,20 +622,8 @@ function adjustWrapperHeights() {
         }
     }
     
-    // Ajustar altura del wrapper de grid
-    const gridModule = document.getElementById('planner-grid-scalable');
-    if (gridModule) {
-        const wrapper = gridModule.parentElement;
-        if (wrapper) {
-            // Leer el scale actual del transform inline
-            const transform = gridModule.style.transform;
-            const scaleMatch = transform.match(/scale\(([\d.]+)\)/);
-            const scale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
-            
-            const scaledHeight = gridModule.offsetHeight * scale;
-            wrapper.style.height = `${scaledHeight}px`;
-        }
-    }
+    // Rejilla: encajar en alto y ancho (ver scaleGridModule)
+    scaleGridModule();
 }
 
 // Función para escalar el super-módulo del planificador
@@ -669,17 +657,51 @@ function scaleGridModule() {
     const mainView = document.getElementById('main-view');
     if (!mainView) return;
     
-    const baseWidth = 1465;
-    const availableWidth = mainView.clientWidth - 40;  // margen seguro
-    const scale = Math.min(1, availableWidth / baseWidth);
-    
+    const wrapper = gridModule.parentElement;
+    if (!wrapper) return;
+
+    // Encaje: primero que quepa todo el alto (hasta la cobertura), luego aprovechar el ancho.
+    //  1. escala = la menor entre la que cabe a lo ancho (base 1465px) y la que cabe a lo alto.
+    //  2. con esa escala, la rejilla (data-stretch) se ensancha para llenar el ancho disponible:
+    //     la línea de tiempo se estira y no queda hueco a la derecha.
+    // Nunca se amplía por encima de 1 ni se reduce por debajo de MIN_SCALE; en ese caso
+    // extremo, la vista pasa a tener scroll vertical en vez de cortar las filas.
+    const BASE_W = 1465, MIN_SCALE = 0.5, BOTTOM_MARGIN = 15;
+    const stretch = gridModule.dataset.stretch === '1';
+
+    // Sin transición mientras se recalcula (evita el "zoom animado" en cada repintado)
+    const prevTransition = gridModule.style.transition;
+    gridModule.style.transition = 'none';
+    gridModule.style.width = gridModule.style.minWidth = BASE_W + 'px';
+
+    const availW = mainView.clientWidth - 40; // márgenes laterales del wrapper (20+20)
+    const naturalH = gridModule.offsetHeight;  // alto sin escalar (no depende del ancho)
+    const wrapTop = wrapper.getBoundingClientRect().top - mainView.getBoundingClientRect().top + mainView.scrollTop;
+    let below = 0; // lo que va debajo de la rejilla (p.ej. barra de intercambio)
+    for (let n = wrapper.nextElementSibling; n; n = n.nextElementSibling) below += n.offsetHeight + 8;
+    const availH = mainView.clientHeight - wrapTop - BOTTOM_MARGIN - below;
+
+    let scale = Math.min(1, availW / BASE_W);
+    if (availH > 0 && naturalH > 0) scale = Math.min(scale, availH / naturalH);
+    scale = Math.max(MIN_SCALE, scale);
+
+    if (stretch) {
+        const w = Math.max(BASE_W, Math.floor(availW / scale));
+        gridModule.style.width = gridModule.style.minWidth = w + 'px';
+    }
     gridModule.style.transform = `scale(${scale})`;
     gridModule.style.transformOrigin = 'top left';
-    
-    const wrapper = gridModule.parentElement;
-    if (wrapper) {
-        const scaledHeight = gridModule.offsetHeight * scale;
-        wrapper.style.height = `${scaledHeight}px`;
+
+    const scaledHeight = gridModule.offsetHeight * scale;
+    wrapper.style.height = `${scaledHeight}px`;
+    const prevClientW = mainView.clientWidth;
+    mainView.style.overflowY = (scaledHeight > availH + 1) ? 'auto' : '';
+    void gridModule.offsetHeight; // aplicar antes de restaurar la transición
+    gridModule.style.transition = prevTransition;
+    // Si la barra de scroll ha aparecido/desaparecido, el ancho útil cambia: recalcular una vez
+    if (mainView.clientWidth !== prevClientW && !scaleGridModule._again) {
+        scaleGridModule._again = true;
+        try { scaleGridModule(); } finally { scaleGridModule._again = false; }
     }
 }
 

@@ -59,7 +59,7 @@ App.router = {
             const main = document.getElementById('main-view');
             const inspector = document.getElementById('inspector');
             const inspectorContent = document.getElementById('inspector-content');
-            main.className = 'main'; main.innerHTML = '';
+            main.className = 'main'; main.innerHTML = ''; main.style.overflowY = ''; // scaleGridModule puede haberlo activado
             App.uiState.selectedId = null; App.ui.inspectorEmpty();
             
             // Ocultar inspector en vistas que no lo necesitan

@@ -401,7 +401,7 @@
             border: 2px solid #cbd5e1;
             border-radius: 12px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            width: 1465px; /* Ancho fijo: 425px (columnas fijas incl. llave) + 1040px (26 slots × 40px) */
+            width: 1465px; /* Ancho base: 425px (columnas fijas incl. llave) + 1040px (26 slots × 40px). scaleGridModule() lo ensancha para llenar el hueco */
             min-width: 1465px;
             transform-origin: top left;
             transition: transform 0.2s ease;
@@ -410,7 +410,7 @@
         }
         
         .planner-grid-module { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin: 15px 20px; padding: 0; overflow: hidden; }
-        .time-header { display: grid; grid-template-columns: 105px 30px 60px 35px 45px 110px 40px 1040px; background: #f8fafc; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; height: 48px; }
+        .time-header { display: grid; grid-template-columns: 105px 30px 60px 35px 45px 110px 40px minmax(1040px, 1fr); background: #f8fafc; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; height: 48px; }
         .th-left { padding: 0 10px; display: flex; align-items: center; font-weight: 700; color: var(--text-muted); font-size: 0.8rem; border-right: 1px solid var(--border); }
         .th-llave { display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--border); color: var(--text-muted); font-size: 0.75rem; }
         .th-req { padding: 0 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-muted); font-size: 0.8rem; border-right: 1px solid var(--border); }
@@ -421,12 +421,12 @@
         .th-right { display: grid; grid-template-columns: repeat(26, 1fr); grid-template-rows: 1fr 1fr; height: 100%; }
         .th-cell { border-right: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; font-family: monospace; }
 
-        .planner-grid { display: grid; grid-template-columns: 105px 30px 60px 35px 45px 110px 40px 1040px; background: white; }
+        .planner-grid { display: grid; grid-template-columns: 105px 30px 60px 35px 45px 110px 40px minmax(1040px, 1fr); background: white; }
 
         /* HUD INTEGRADO - Alineado con las columnas de la rejilla */
         .hud-integrated-row {
             display: grid;
-            grid-template-columns: 425px 1040px; /* 425px = suma de las 7 primeras columnas, 1040px = timeline */
+            grid-template-columns: 425px minmax(1040px, 1fr); /* 425px = suma de las 7 primeras columnas; timeline ≥1040px, se estira con el ancho disponible */
             height: 35px; 
             border-top: 1px solid var(--border); 
             background: white;

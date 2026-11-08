@@ -337,7 +337,7 @@ Object.assign(App.ui, {
 
             html += _cursorStyle;
             html += `<div class="planner-grid-wrapper-scale">
-                <div class="planner-grid-module-scalable" id="planner-grid-scalable" style="transform: scale(${gridScale}); transform-origin: top left;${_weekClosed ? ' border-color:#22c55e;' : ''}">
+                <div class="planner-grid-module-scalable" id="planner-grid-scalable" data-stretch="1" style="transform: scale(${gridScale}); transform-origin: top left;${_weekClosed ? ' border-color:#22c55e;' : ''}">
                 <div class="time-header">
                     <div class="th-left">NOMBRE</div>
                     <div class="th-llave">🔑</div>

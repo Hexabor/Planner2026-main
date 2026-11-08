@@ -6,6 +6,13 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '08/11/2026', version: 'v1.15',
+                items: [
+                    '🔧 Rejilla del planificador: se encaja también en alto, así que con plantillas largas se ve entera hasta la cobertura sin bajar el zoom del navegador',
+                    '✨ Una vez cabe en alto, la rejilla aprovecha todo el ancho: la línea de horas se estira hasta el borde',
+                ]
+            },
+            {
                 fecha: '08/11/2026', version: 'v1.14',
                 items: [
                     '✨ Vuelve a la paleta la ausencia RH (Recuperación de horas), antes DH: el día cuenta 0 h y consume el saldo a favor del empleado',
