@@ -182,7 +182,7 @@ Object.assign(App.ui, {
                 if(!shiftId) return false;
                 const shift = Utils.getShift(shiftId);
                 if(!shift) return false;
-                if(shift.fixed && ['L','F','R','V','B','P','DH'].includes(shift.code)) return false;
+                if(shift.fixed && ['L','F','R','V','B','P','RH'].includes(shift.code)) return false;
                 return true;
             };
 
@@ -408,7 +408,7 @@ Object.assign(App.ui, {
                 if(!shiftId) return false;
                 const shift = Utils.getShift(shiftId);
                 if(!shift) return false;
-                if(shift.fixed && ['L','F','R','V','B','P','DH'].includes(shift.code)) return false;
+                if(shift.fixed && ['L','F','R','V','B','P','RH'].includes(shift.code)) return false;
                 return true;
             };
             

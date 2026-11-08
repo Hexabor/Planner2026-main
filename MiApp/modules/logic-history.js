@@ -11,8 +11,10 @@ App.logic = {
             if(!Array.isArray(App.data.empleados)) App.data.empleados = [];
             if(!Array.isArray(App.data.shiftDefs)) App.data.shiftDefs = [];
             if(!Array.isArray(App.data.fixedShifts)) App.data.fixedShifts = [];
-            // Garantizar que el turno fijo DH (Devolución de Horas) existe y está justo antes de V
-            const dhDef = { id: 'fixed_DH', code: 'DH', desc: 'Devolución de horas', start: '', end: '', color: '#22c55e', fixed: true };
+            // Garantizar que el turno fijo RH (Recuperación de horas) existe y está justo antes de V.
+            // Conserva el id histórico 'fixed_DH' (antes DH) para que el horario guardado siga valiendo.
+            // No justifica horas: el día cuenta 0 h, así que consume el saldo a favor del empleado.
+            const dhDef = { id: 'fixed_DH', code: 'RH', desc: 'Recuperación de horas', start: '', end: '', color: '#22c55e', fixed: true };
             const existingDH = App.data.fixedShifts.findIndex(s => s.id === 'fixed_DH');
             if(existingDH >= 0) App.data.fixedShifts.splice(existingDH, 1); // quitar de donde esté
             const vPos = App.data.fixedShifts.findIndex(s => s.id === 'fixed_V');

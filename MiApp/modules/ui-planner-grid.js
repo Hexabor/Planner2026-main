@@ -255,7 +255,7 @@ Object.assign(App.ui, {
                         <div style="display:flex; height:100%; gap:0;">
                             <!-- Fijos: columna izquierda -->`;
             html += `<div style="display:flex; flex-direction:column; gap:2px; flex-shrink:0;">`;
-            App.data.fixedShifts.filter(s => s.code !== 'DH').forEach(s => {
+            App.data.fixedShifts.forEach(s => {
                 const isSel = App.uiState.paintShiftId === s.id ? 'selected' : '';
                 html += `<div class="palette-item palette-item-fixed ${isSel}" title="${s.desc}" style="border: 2px solid ${s.color}; background:transparent; border-color:${isSel?s.color:s.color}40; min-width:19px;" onclick="App.logic.setPaint('${s.id}')"><span style="color:${s.color}; font-weight:700;">${s.code}</span></div>`;
             });
@@ -533,7 +533,7 @@ Object.assign(App.ui, {
                     const code = shift.code;
                     if(code === 'B' || code === 'P') absenceClass = 'absence-red';
                     else if(code === 'V') absenceClass = 'absence-purple';
-                    else if(code === 'L' || code === 'F' || code === 'R' || code === 'DH') absenceClass = 'absence-green';
+                    else if(code === 'L' || code === 'F' || code === 'R' || code === 'RH') absenceClass = 'absence-green';
                 }
 
                 const isEditable = shift && !shift.fixed && shift.start && shift.end;
@@ -783,7 +783,7 @@ Object.assign(App.ui, {
                     const code = shift.code;
                     if(code === 'B' || code === 'P') absenceClass = 'absence-red';
                     else if(code === 'V') absenceClass = 'absence-purple';
-                    else if(code === 'L' || code === 'F' || code === 'R' || code === 'DH') absenceClass = 'absence-green';
+                    else if(code === 'L' || code === 'F' || code === 'R' || code === 'RH') absenceClass = 'absence-green';
                 }
 
                 // Horario — réplica exacta del grupal

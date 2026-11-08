@@ -6,6 +6,13 @@ Object.assign(App.ui, {
     renderChangelog: function(c) {
         const CHANGELOG = [
             {
+                fecha: '08/11/2026', version: 'v1.14',
+                items: [
+                    '✨ Vuelve a la paleta la ausencia RH (Recuperación de horas), antes DH: el día cuenta 0 h y consume el saldo a favor del empleado',
+                    '🔧 Cargar un backup desde Drive ya no pierde las RH del horario',
+                ]
+            },
+            {
                 fecha: '03/11/2026', version: 'v1.13',
                 items: [
                     '✨ Gestión diaria → Vacaciones: vuelven la Vista global (12 calendarios, un color por persona) y la Agenda día a día del curso, ahora con las V del planificador',

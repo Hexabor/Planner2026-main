@@ -2035,7 +2035,7 @@ Object.assign(App.logic, {
                 let rowBg = '';
                 if(sh && sh.fixed) {
                     if(sh.code === 'V') rowBg = 'background:#f3e8ff;';
-                    else if(['L','F','R','DH'].includes(sh.code)) rowBg = 'background:#dcfce7;';
+                    else if(['L','F','R','RH'].includes(sh.code)) rowBg = 'background:#dcfce7;';
                     else if(['B','P'].includes(sh.code)) rowBg = 'background:#fee2e2;';
                 }
                 originTableRows += `<tr style="${rowBg}">

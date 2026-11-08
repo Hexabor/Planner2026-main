@@ -296,6 +296,7 @@ App.drive = {
                         { id:"fixed_B", code:"B", desc:"Baja médica",   start:"", end:"", color:"#ef4444", fixed:true },
                         { id:"fixed_P", code:"P", desc:"Permiso",       start:"", end:"", color:"#ec4899", fixed:true }
                     ];
+                    App.logic.migrateData(); // repone RH y normaliza el backup cargado
                     Safe.saveImmediate('v40_db', App.data);
                     this._saveConfig({ lastSave: new Date().toISOString(), lastLocal: new Date().toISOString() });
                     this._updateStatus('saved', this._formatDateTime(new Date()));
@@ -527,6 +528,7 @@ App.drive = {
                     { id:'fixed_B', code:'B', desc:'Baja médica',  start:'', end:'', color:'#ef4444', fixed:true },
                     { id:'fixed_P', code:'P', desc:'Permiso',      start:'', end:'', color:'#ec4899', fixed:true }
                 ];
+                App.logic.migrateData(); // repone RH y normaliza el backup cargado
                 Safe.saveImmediate('v40_db', App.data);
                 this._saveConfig({ lastLocal: new Date().toISOString() });
                 this._updateStatus('saved', this._formatTime(new Date()));

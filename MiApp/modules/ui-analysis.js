@@ -529,7 +529,7 @@ Object.assign(App.ui, {
                 </tr>`;
                 };
 
-                // Aviso si aparecen días de otro tipo no contemplados (p.ej. DH)
+                // Aviso si aparecen días de otro tipo no contemplados (p.ej. RH)
                 const otrosAll = {};
                 rows.forEach(r => Object.entries(r.otrosCodes).forEach(([cod,n]) => otrosAll[cod]=(otrosAll[cod]||0)+n));
                 const otrosNote = totOtros > 0
